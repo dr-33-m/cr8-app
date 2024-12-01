@@ -1,0 +1,30 @@
+{
+  "name": "cr8-app",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "dev": "vinxi dev",
+    "build": "vinxi build",
+    "start": "vinxi start"
+  },
+  "keywords": [
+    "3d/CGI",
+    "Content Creation"
+  ],
+  "author": "Thamsanqa Dreem",
+  "license": "ISC",
+  "dependencies": {
+    "@tanstack/react-router": "^1.85.0",
+    "@tanstack/start": "^1.85.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vinxi": "^0.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2"
+  }
+}
