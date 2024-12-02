@@ -1,4 +1,3 @@
-// app/routes/__root.tsx
 import {
   Outlet,
   ScrollRestoration,
