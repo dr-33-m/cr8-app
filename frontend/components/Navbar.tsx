@@ -11,25 +11,14 @@ import {
 } from "./ui/dropdown-menu";
 import cr8 from "@/assets/cr8.png";
 import { Link } from "@tanstack/react-router";
-// import { useLogto } from "@logto/react";
+import { useLogto } from "@logto/react";
+import { isBrowser } from "@/lib/utils";
 
 const Navbar = () => {
-  // const logto = typeof window !== "undefined" ? useLogto() : null;
-  // const getUserInfo = async () => {
-  //   if (logto) {
-  //     const user = await logto.fetchUserInfo();
-  //     console.log(user);
-  //     return user;
-  //   }
-  //   return null;
-  // };
-  // const userInfo = getUserInfo().then((user) => {
-  //   console.log(user);
-  //   return user;
-  // });
+  // FIXME: This is a temporary solution until we have a proper way to handle authentication in the Server.
+  const logto = isBrowser ? useLogto() : null;
 
-  // console.log(userInfo);
-  return (
+  return logto?.isAuthenticated ? (
     <nav className="fixed top-4 left-4 right-4 z-50">
       <div className="container mx-auto">
         <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 shadow-lg">
@@ -75,7 +64,12 @@ const Navbar = () => {
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-white hover:bg-white/10">
+                  <DropdownMenuItem
+                    className="text-white hover:bg-white/10"
+                    onClick={() =>
+                      logto?.signOut(import.meta.env.VITE_SIGN_OUT_URI)
+                    }
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
@@ -86,7 +80,7 @@ const Navbar = () => {
         </div>
       </div>
     </nav>
-  );
+  ) : null;
 };
 
 export default Navbar;

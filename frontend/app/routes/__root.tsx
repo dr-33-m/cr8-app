@@ -9,15 +9,15 @@ import type { ReactNode } from "react";
 import "../../styles/globals.css";
 import Navbar from "@/components/Navbar";
 import { LogtoConfig, LogtoProvider } from "@logto/react";
-
-const isBrowser = typeof window !== "undefined";
+import { isBrowser } from "@/lib/utils";
 
 const config: LogtoConfig = {
-  endpoint: process.env.LOGTO_ENDPOINT,
-  appId: process.env.LOGTO_APP_ID,
+  endpoint: import.meta.env.VITE_LOGTO_ENDPOINT,
+  appId: import.meta.env.VITE_LOGTO_APP_ID,
 };
 
 const LogtoWrapper = ({ children }: { children: ReactNode }) => {
+  // FIXME: This is a temporary solution until we have a proper way to handle authentication in the Server.
   if (!isBrowser) {
     // Avoid initializing Logto during SSR
     return <>{children}</>;

@@ -12,6 +12,7 @@ import {
 } from "@/lib/data";
 import { useLogto } from "@logto/react";
 import { SignIn } from "@/components/SignIn";
+import { isBrowser } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -19,8 +20,9 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const [activeTab, setActiveTab] = useState("create");
-  const logto = typeof window !== "undefined" ? useLogto() : null;
-  // const { signOut, isAuthenticated } = useLogto();
+  // FIXME: This is a temporary solution until we have a proper way to handle authentication in the Server.
+  const logto = isBrowser ? useLogto() : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#2C2C2C] to-[#1C1C1C] text-white">
       {logto?.isAuthenticated ? (
