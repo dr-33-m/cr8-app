@@ -1,47 +1,34 @@
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Maximize2, Minimize2 } from "lucide-react";
 
 interface ControlsOverlayProps {
   isFullscreen: boolean;
-  isControlsVisible: boolean;
-  toggleControls: () => void;
+  toggleFullscreen: () => void;
   children: React.ReactNode;
 }
 
 export function ControlsOverlay({
   isFullscreen,
-  isControlsVisible,
-  toggleControls,
+  toggleFullscreen,
   children,
 }: ControlsOverlayProps) {
   return (
-    <div
-      className={cn(
-        "z-20 absolute inset-0",
-        "transition-all duration-500 ease-in-out",
-        isFullscreen
-          ? "opacity-0 pointer-events-none hover:opacity-100 hover:pointer-events-auto"
-          : "opacity-100",
-        isFullscreen ? "bg-black/50" : ""
-      )}
-    >
+    <div className="z-20 absolute inset-0 transition-all duration-500 ease-in-out">
       {children}
-
       {/* Controls Toggle Button */}
       <div className="absolute bottom-4 left-4 flex space-x-2">
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/10 backdrop-blur-sm"
-          onClick={toggleControls}
+          className="text-white hover:bg-white/10 backdrop-blur-sm cursor-pointer"
+          onClick={toggleFullscreen}
         >
-          {isControlsVisible ? (
-            <X className="h-5 w-5" />
+          {isFullscreen ? (
+            <Minimize2 className="h-5 w-5" />
           ) : (
-            <Menu className="h-5 w-5" />
+            <Maximize2 className="h-5 w-5" />
           )}
-          <span className="sr-only">Toggle Controls</span>
+          <span className="sr-only">Toggle Fullscreen</span>
         </Button>
       </div>
     </div>

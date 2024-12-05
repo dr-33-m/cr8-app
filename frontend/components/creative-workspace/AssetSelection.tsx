@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AssetSelectionProps {
   isVisible: boolean;
-  isFullscreen: boolean;
   selectedAsset: number | null;
   onSelectAsset: (id: number) => void;
   onToggleVisibility: () => void;
@@ -12,7 +11,6 @@ interface AssetSelectionProps {
 
 export function AssetSelection({
   isVisible,
-  isFullscreen,
   selectedAsset,
   onSelectAsset,
   onToggleVisibility,
@@ -20,9 +18,7 @@ export function AssetSelection({
   return (
     <div
       className={`absolute right-4 top-1/2 transform -translate-y-1/2 transition-all duration-300 
-      ${isVisible ? "translate-x-0" : "translate-x-full"}
-      ${isFullscreen ? "scale-75 origin-right" : ""}
-      ${!isFullscreen && isVisible ? "right-0" : ""}`}
+      ${isVisible ? "translate-x-0" : "translate-x-full"}`}
     >
       <Button
         variant="ghost"

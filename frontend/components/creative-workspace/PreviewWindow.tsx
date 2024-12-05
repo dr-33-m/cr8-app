@@ -4,42 +4,23 @@ import { cn } from "@/lib/utils";
 
 interface PreviewWindowProps {
   isFullscreen: boolean;
-  toggleFullscreen: () => void;
   viewportImage: string | null;
 }
 
 export function PreviewWindow({
   isFullscreen,
-  toggleFullscreen,
   viewportImage,
 }: PreviewWindowProps) {
   return (
     <div
       className={cn(
-        "absolute bg-gradient-to-br from-[#2C2C2C] to-[#1C1C1C] z-10",
+        "absolute bg-gradient-to-br from-[#2C2C2C] to-[#1C1C1C]",
         "transition-all duration-500 ease-in-out",
         isFullscreen
           ? "fixed inset-0 w-screen h-screen"
           : "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2/3 h-2/3 rounded-lg overflow-hidden shadow-2xl"
       )}
     >
-      <div className="absolute inset-0 bg-[#1C1C1C]/50" />
-      <div className="absolute top-2 right-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/10 backdrop-blur-sm"
-          onClick={toggleFullscreen}
-        >
-          {isFullscreen ? (
-            <Minimize2 className="h-5 w-5" />
-          ) : (
-            <Maximize2 className="h-5 w-5" />
-          )}
-          <span className="sr-only">Toggle Fullscreen</span>
-        </Button>
-      </div>
-
       {viewportImage ? (
         <img
           src={viewportImage}

@@ -12,22 +12,19 @@ import {
 
 interface BottomControlsProps {
   isVisible: boolean;
-  isFullscreen: boolean;
   onToggleVisibility: () => void;
   onStreamViewport: () => void;
 }
 
 export function BottomControls({
   isVisible,
-  isFullscreen,
   onToggleVisibility,
   onStreamViewport,
 }: BottomControlsProps) {
   return (
     <div
       className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 transition-all duration-300 
-      ${isVisible ? "translate-y-0" : "translate-y-full"}
-      ${isFullscreen ? "scale-75" : ""}`}
+      ${isVisible ? "translate-y-0" : "translate-y-full"}`}
     >
       <Button
         variant="ghost"

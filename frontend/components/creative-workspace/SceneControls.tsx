@@ -17,7 +17,6 @@ import {
 
 interface SceneControlsProps {
   isVisible: boolean;
-  isFullscreen: boolean;
   onToggleVisibility: () => void;
 }
 
@@ -76,15 +75,12 @@ const controls = [
 
 export function SceneControls({
   isVisible,
-  isFullscreen,
   onToggleVisibility,
 }: SceneControlsProps) {
   return (
     <div
       className={`absolute left-4 top-1/2 transform -translate-y-1/2 transition-all duration-300 
-      ${isVisible ? "translate-x-0" : "-translate-x-full"}
-      ${isFullscreen ? "scale-75 origin-left" : ""}
-      ${!isFullscreen && isVisible ? "left-0" : ""}`}
+      ${isVisible ? "translate-x-0" : "-translate-x-full"}`}
     >
       <Button
         variant="ghost"

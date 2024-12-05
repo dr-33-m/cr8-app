@@ -19,7 +19,6 @@ type SceneControl = {
 
 function RouteComponent() {
   const [selectedAsset, setSelectedAsset] = useState<number | null>(null);
-  const [isControlsVisible, setIsControlsVisible] = useState<boolean>(true);
   const [isSceneControlsVisible, setIsSceneControlsVisible] =
     useState<boolean>(true);
   const [isAssetSelectionVisible, setIsAssetSelectionVisible] =
@@ -32,18 +31,14 @@ function RouteComponent() {
 
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => {
-      if (!prev) {
-        setIsControlsVisible(true);
-        setTimeout(() => setIsControlsVisible(false), 2000);
-      } else {
-        setIsControlsVisible(true);
-      }
-      return !prev;
-    });
-  };
+      const newState = !prev;
+      // Update other state values based on the fullscreen state
+      setIsSceneControlsVisible(!newState);
+      setIsAssetSelectionVisible(!newState);
+      setIsBottomControlsVisible(!newState);
 
-  const toggleControls = () => {
-    setIsControlsVisible((prev) => !prev);
+      return newState;
+    });
   };
 
   useEffect(() => {
@@ -116,18 +111,15 @@ function RouteComponent() {
     <div className="relative w-full h-screen bg-[#1C1C1C] text-white overflow-hidden">
       <PreviewWindow
         isFullscreen={isFullscreen}
-        toggleFullscreen={toggleFullscreen}
         viewportImage={viewportImage}
       />
 
       <ControlsOverlay
         isFullscreen={isFullscreen}
-        isControlsVisible={isControlsVisible}
-        toggleControls={toggleControls}
+        toggleFullscreen={toggleFullscreen}
       >
         <SceneControls
           isVisible={isSceneControlsVisible}
-          isFullscreen={isFullscreen}
           onToggleVisibility={() =>
             setIsSceneControlsVisible(!isSceneControlsVisible)
           }
@@ -135,7 +127,6 @@ function RouteComponent() {
 
         <AssetSelection
           isVisible={isAssetSelectionVisible}
-          isFullscreen={isFullscreen}
           selectedAsset={selectedAsset}
           onSelectAsset={setSelectedAsset}
           onToggleVisibility={() =>
@@ -145,7 +136,6 @@ function RouteComponent() {
 
         <BottomControls
           isVisible={isBottomControlsVisible}
-          isFullscreen={isFullscreen}
           onToggleVisibility={() =>
             setIsBottomControlsVisible(!isBottomControlsVisible)
           }
