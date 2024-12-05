@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -43,6 +43,74 @@ function RouteComponent() {
     useState<boolean>(true);
   const [isBottomControlsVisible, setIsBottomControlsVisible] =
     useState<boolean>(true);
+  const [viewportImage, setViewportImage] = useState<string | null>(null);
+  const websocketRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    // Establish WebSocket connection
+    const ws = new WebSocket("ws://localhost:5001/browser");
+    websocketRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("WebSocket connection established");
+      // Send initialization message
+      ws.send(JSON.stringify({ action: "initialize" }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        // Handle viewport stream
+        if (data.type === "frame") {
+          // Directly use base64 data
+          setViewportImage(`data:image/png;base64,${data.data}`);
+        } else if (data.type === "viewport_stream_error") {
+          console.error("Viewport stream error:", data.message);
+          setViewportImage(null);
+        }
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket connection closed");
+    };
+
+    // Cleanup on component unmount
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, []);
+
+  const handleStreamViewport = () => {
+    if (
+      websocketRef.current &&
+      websocketRef.current.readyState === WebSocket.OPEN
+    ) {
+      websocketRef.current.send(
+        JSON.stringify({
+          command: "start_preview_rendering",
+          params: {
+            resolution_x: 1920,
+            resolution_y: 1080,
+            samples: 16,
+            num_frames: 40,
+          },
+          // command: "start_broadcast",
+        })
+      );
+    } else {
+      console.error("WebSocket is not open");
+    }
+  };
 
   const sceneControls: SceneControl[] = [
     {
@@ -96,16 +164,30 @@ function RouteComponent() {
       ),
     },
   ];
+
   return (
     <div className="relative w-full h-screen bg-[#1C1C1C] text-white overflow-hidden">
       {/* Full-screen 3D Preview */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#2C2C2C] to-[#1C1C1C] z-10">
+        {viewportImage ? (
+          <img
+            src={viewportImage}
+            alt="Blender Viewport"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[#FFD100]">
+            No viewport stream available
+          </div>
+        )}
+      </div>
       <div className="absolute inset-0 bg-gradient-to-br from-[#2C2C2C] to-[#1C1C1C]">
         {/* This is where your 3D preview would go */}
       </div>
 
       {/* Overlay Controls */}
       <div
-        className={`absolute inset-0 transition-opacity duration-300 ${isControlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className={`z-20 absolute inset-0 transition-opacity duration-300 ${isControlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
       >
         {/* Left Sidebar - Scene Controls */}
         <div
@@ -154,7 +236,7 @@ function RouteComponent() {
 
         {/* Right Sidebar - Asset Selection */}
         <div
-          className={`absolute right-4 top-1/2 transform -translate-y-1/2 transition-all duration-300 ${isAssetSelectionVisible ? "translate-x-0" : "translate-x-full"}`}
+          className={`z-20 absolute right-4 top-1/2 transform -translate-y-1/2 transition-all duration-300 ${isAssetSelectionVisible ? "translate-x-0" : "translate-x-full"}`}
         >
           <Button
             variant="ghost"
@@ -219,7 +301,7 @@ function RouteComponent() {
 
         {/* Bottom Controls */}
         <div
-          className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${isBottomControlsVisible ? "translate-y-0" : "translate-y-full"}`}
+          className={`z-20 absolute bottom-4 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${isBottomControlsVisible ? "translate-y-0" : "translate-y-full"}`}
         >
           <Button
             variant="ghost"
@@ -248,6 +330,7 @@ function RouteComponent() {
               size="icon"
               className="text-[#FFD100] hover:bg-[#FFD100]/10"
               title="Play Preview"
+              onClick={handleStreamViewport}
             >
               <Play className="h-6 w-6" />
               <span className="sr-only">Play Preview</span>

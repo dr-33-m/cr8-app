@@ -2,3 +2,7 @@ node_modules
 dist
 public
 .env
+venv/
+__pycache__/
+*.log
+
