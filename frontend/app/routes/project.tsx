@@ -94,10 +94,10 @@ function RouteComponent() {
         JSON.stringify({
           // command: "start_preview_rendering",
           // params: {
-          //   resolution_x: 1920,
-          //   resolution_y: 1080,
+          //   resolution_x: 1280,
+          //   resolution_y: 720,
           //   samples: 16,
-          //   num_frames: 40,
+          //   num_frames: 48,
           // },
           command: "start_broadcast",
         })

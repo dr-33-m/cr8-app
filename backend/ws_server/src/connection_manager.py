@@ -6,7 +6,6 @@ from pathlib import Path
 import tempfile
 
 import websockets
-from PIL import Image
 import base64
 import io
 
@@ -74,8 +73,7 @@ class WebSocketConnectionManager:
 
     async def broadcast_frame(self):
         """
-        Continuously broadcast new frames to browser client with improved efficiency.
-        Uses an event to control broadcasting and prevent unnecessary processing.
+        Efficiently broadcast frames to browser client with improved performance.
         """
         try:
             while not self.stop_broadcast_event.is_set():
@@ -84,25 +82,32 @@ class WebSocketConnectionManager:
 
                 # Find and broadcast frames
                 frames = sorted(self.preview_dir.glob("frame_*.png"))
+                start_time = asyncio.get_event_loop().time()
+
                 for frame in frames:
                     if self.stop_broadcast_event.is_set():
                         break
 
                     if 'browser' in self.connections:
-                        # Convert frame to base64 efficiently
-                        with Image.open(frame) as img:
-                            buffer = io.BytesIO()
-                            img.save(buffer, format='PNG')
-                            img_str = base64.b64encode(
-                                buffer.getvalue()).decode()
+                        try:
+                            with open(frame, 'rb') as img_file:
+                                img_str = base64.b64encode(
+                                    img_file.read()).decode()
 
-                        await self.send_message(
-                            self.connections['browser'],
-                            {'type': 'frame', 'data': img_str}
-                        )
+                            await self.send_message(
+                                self.connections['browser'],
+                                {'type': 'frame', 'data': img_str}
+                            )
+                        except Exception as frame_error:
+                            self.logger.error(
+                                f"Error processing frame {frame}: {frame_error}")
 
-                    # Small delay to prevent overwhelming the client
-                    await asyncio.sleep(1/24)
+                    # Dynamic frame timing
+                    current_time = asyncio.get_event_loop().time()
+                    elapsed = current_time - start_time
+                    # Aiming for 60 FPS
+                    remaining_time = max(0, 1/60 - elapsed)
+                    await asyncio.sleep(remaining_time)
 
                 # Reset event
                 self.frame_broadcast_event.clear()

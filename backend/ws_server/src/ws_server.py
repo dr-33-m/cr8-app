@@ -83,9 +83,11 @@ class WebSocketServer:
 
         blender_client = self.connection_manager.connections.get('blender')
         if blender_client:
+            command = params.get("command")
+            _params = params.get("params")
             command = {
-                "command": "start_preview_rendering",
-                "params": params
+                "command": command,
+                "params": _params
             }
             await self.connection_manager.send_message(blender_client, command)
 
@@ -94,9 +96,6 @@ class WebSocketServer:
                 "status": "OK",
                 "message": "Preview rendering started"
             })
-
-            # Start broadcasting frames immediately after preview rendering starts
-            await self.connection_manager.broadcast_frame().set()
         else:
             self.logger.warning("Blender client not connected.")
             # Send error back to the original websocket
@@ -119,7 +118,7 @@ class WebSocketServer:
         self.logger.info("stopping frame broadcast")
         self.connection_manager.stop_broadcast_event.set()
         await self.connection_manager.send_message(websocket, {
-            "staus": "OK",
+            "status": "OK",
             "message": "Frame broadcast stopped"
         })
 
