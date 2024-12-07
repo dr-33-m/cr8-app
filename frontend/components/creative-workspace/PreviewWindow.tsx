@@ -1,5 +1,4 @@
-import { Button } from "@/components/ui/button";
-import { Maximize2, Minimize2, Image as ImageIcon } from "lucide-react";
+import { Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PreviewWindowProps {
@@ -36,7 +35,8 @@ export function PreviewWindow({
             Preview Window
           </div>
           <p className="text-white/60 mt-2 text-sm">
-            Click the maximize button to enter fullscreen mode
+            Click the maximize button on your bottom left corner to enter
+            fullscreen mode.
           </p>
         </div>
       )}

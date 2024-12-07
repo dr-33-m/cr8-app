@@ -1,26 +1,53 @@
 import { Button } from "@/components/ui/button";
 import {
   Play,
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  ZoomIn,
-  Move,
   ChevronDown,
   ChevronUp,
+  Clapperboard,
+  CirclePlus,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { DesignTray } from "./design-tray";
+import { Asset } from "@/app/routes/project";
 
 interface BottomControlsProps {
   isVisible: boolean;
   onToggleVisibility: () => void;
-  onStreamViewport: () => void;
+  onShootPreview: () => void;
+  onPlaybackPreview: () => void;
+  assets?: Asset[];
+  onRemoveAsset?: (id: string) => void;
+  onAddAsset?: () => void;
 }
 
 export function BottomControls({
   isVisible,
   onToggleVisibility,
-  onStreamViewport,
+  onShootPreview,
+  onPlaybackPreview,
+  assets = [],
+  onRemoveAsset,
+  onAddAsset,
 }: BottomControlsProps) {
+  const [isAssetBoxOpen, setIsAssetBoxOpen] = useState(false);
+  const assetBoxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        assetBoxRef.current &&
+        !assetBoxRef.current.contains(event.target as Node)
+      ) {
+        setIsAssetBoxOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   return (
     <div
       className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 transition-all duration-300 
@@ -42,58 +69,40 @@ export function BottomControls({
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/10"
-          title="Previous"
+          className="text-[#0077B6] hover:bg-[#0077B6]/10"
+          title="Shoot Preview"
+          onClick={onShootPreview}
         >
-          <ChevronLeft className="h-6 w-6" />
-          <span className="sr-only">Previous</span>
+          <Clapperboard className="h-6 w-6" />
+          <span className="sr-only">Shoot Preview</span>
         </Button>
         <Button
           variant="ghost"
           size="icon"
           className="text-[#FFD100] hover:bg-[#FFD100]/10"
           title="Play Preview"
-          onClick={onStreamViewport}
+          onClick={onPlaybackPreview}
         >
           <Play className="h-6 w-6" />
           <span className="sr-only">Play Preview</span>
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/10"
-          title="Next"
-        >
-          <ChevronRight className="h-6 w-6" />
-          <span className="sr-only">Next</span>
-        </Button>
         <div className="h-8 w-px bg-white/20" />
+        <DesignTray
+          onClick={() => setIsAssetBoxOpen(!isAssetBoxOpen)}
+          isActive={isAssetBoxOpen}
+          assets={assets}
+          onRemoveAsset={onRemoveAsset}
+          onClose={() => setIsAssetBoxOpen(false)}
+        />
         <Button
           variant="ghost"
           size="icon"
           className="text-white hover:bg-white/10"
-          title="Rotate"
+          title="Add Asset"
+          onClick={onAddAsset}
         >
-          <RotateCcw className="h-5 w-5" />
-          <span className="sr-only">Rotate</span>
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/10"
-          title="Zoom"
-        >
-          <ZoomIn className="h-5 w-5" />
-          <span className="sr-only">Zoom</span>
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/10"
-          title="Pan"
-        >
-          <Move className="h-5 w-5" />
-          <span className="sr-only">Pan</span>
+          <CirclePlus className="h-6 w-6" />
+          <span className="sr-only">Add Asset</span>
         </Button>
       </div>
     </div>

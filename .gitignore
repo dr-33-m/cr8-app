@@ -5,4 +5,4 @@ public
 venv/
 __pycache__/
 *.log
-
+*.zip

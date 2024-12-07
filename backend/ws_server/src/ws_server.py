@@ -30,9 +30,6 @@ class WebSocketServer:
             action = data.get("action")
 
             command_handlers = {
-                "initialize": self.handle_initialize,
-                "generate_random_movement": self.handle_random_movement,
-                "add_box": self.add_box_handler,
                 "start_preview_rendering": self.preview_rendering_handler,
                 "stop_broadcast": self.stop_broadcast_handler,
                 "start_broadcast": self.start_broadcast_handler,
@@ -49,33 +46,6 @@ class WebSocketServer:
 
         except Exception as e:
             self.logger.error(f"Command processing error: {e}")
-
-    async def handle_initialize(self, websocket: websockets.WebSocketServerProtocol, data: Dict[str, Any]):
-        """Handle client initialization."""
-        await self.connection_manager.send_message(websocket, {
-            "status": "OK",
-            "message": "Connected"
-        })
-
-    async def handle_random_movement(self, websocket: websockets.WebSocketServerProtocol, data: Dict[str, Any]):
-        """Generate and send random movement coordinates."""
-        print("Generating random movement coordinates...")
-        x = np.random.rand()
-        y = np.random.rand()
-        z = np.random.rand()
-        await self.connection_manager.send_message(websocket, {'x': x, 'y': y, 'z': z})
-
-    async def add_box_handler(self, websocket: websockets.WebSocketServerProtocol, data):
-        """Forward add_box command to Blender client."""
-        blender_client = self.connection_manager.connections.get('blender')
-        if blender_client:
-            command = {
-                "command": "add_box",
-                "params": data
-            }
-            await self.connection_manager.send_message(blender_client, command)
-        else:
-            self.logger.warning("Blender client not connected.")
 
     async def preview_rendering_handler(self, websocket: websockets.WebSocketServerProtocol, params):
         """Forward preview rendering command to Blender client."""

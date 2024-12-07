@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { PreviewWindow } from "@/components/creative-workspace/PreviewWindow";
-import { ControlsOverlay } from "@/components/creative-workspace/ControlsOverlay";
+import { ControlsOverlay } from "@/components/creative-workspace/FullScreenToggle";
 import { SceneControls } from "@/components/creative-workspace/SceneControls";
 import { AssetSelection } from "@/components/creative-workspace/AssetSelection";
 import { BottomControls } from "@/components/creative-workspace/BottomControls";
@@ -9,6 +9,13 @@ import { BottomControls } from "@/components/creative-workspace/BottomControls";
 export const Route = createFileRoute("/project")({
   component: RouteComponent,
 });
+
+export type Asset = {
+  id: string;
+  type: "image" | "setting";
+  thumbnail: string;
+  name?: string;
+};
 
 type SceneControl = {
   name: string;
@@ -28,6 +35,20 @@ function RouteComponent() {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [viewportImage, setViewportImage] = useState<string | null>(null);
   const websocketRef = useRef<WebSocket | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([
+    {
+      id: "1",
+      type: "image" as const,
+      thumbnail: "/placeholder.svg",
+      name: "Hero Image",
+    },
+    {
+      id: "2",
+      type: "setting" as const,
+      thumbnail: "/placeholder.svg",
+      name: "Layout Settings",
+    },
+  ]);
 
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => {
@@ -85,20 +106,33 @@ function RouteComponent() {
     };
   }, []);
 
-  const handleStreamViewport = () => {
+  const shootPreview = () => {
     if (
       websocketRef.current &&
       websocketRef.current.readyState === WebSocket.OPEN
     ) {
       websocketRef.current.send(
         JSON.stringify({
-          // command: "start_preview_rendering",
-          // params: {
-          //   resolution_x: 1280,
-          //   resolution_y: 720,
-          //   samples: 16,
-          //   num_frames: 48,
-          // },
+          command: "start_preview_rendering",
+          params: {
+            resolution_x: 1280,
+            resolution_y: 720,
+            samples: 16,
+            num_frames: 80,
+          },
+        })
+      );
+    } else {
+      console.error("WebSocket is not open");
+    }
+  };
+  const playbackPreview = () => {
+    if (
+      websocketRef.current &&
+      websocketRef.current.readyState === WebSocket.OPEN
+    ) {
+      websocketRef.current.send(
+        JSON.stringify({
           command: "start_broadcast",
         })
       );
@@ -107,6 +141,19 @@ function RouteComponent() {
     }
   };
 
+  const addAsset = () => {
+    const newAsset: Asset = {
+      id: Date.now().toString(),
+      type: Math.random() > 0.5 ? "image" : ("setting" as const),
+      thumbnail: "/placeholder.svg",
+      name: `Asset ${assets.length + 1}`,
+    };
+    setAssets((prev) => [...prev, newAsset]);
+  };
+
+  const removeAsset = (id: string) => {
+    setAssets((prev) => prev.filter((asset) => asset.id !== id));
+  };
   return (
     <div className="relative w-full h-screen bg-[#1C1C1C] text-white overflow-hidden">
       <PreviewWindow
@@ -139,7 +186,11 @@ function RouteComponent() {
           onToggleVisibility={() =>
             setIsBottomControlsVisible(!isBottomControlsVisible)
           }
-          onStreamViewport={handleStreamViewport}
+          onShootPreview={shootPreview}
+          onPlaybackPreview={playbackPreview}
+          assets={assets}
+          onRemoveAsset={removeAsset}
+          onAddAsset={addAsset}
         />
       </ControlsOverlay>
     </div>
