@@ -30,6 +30,10 @@ class BlenderControllers:
                 light_data = light_object.data
 
                 if color is not None:
+                    if isinstance(color, str):
+                        # Convert hex to RGB
+                        color = tuple(
+                            int(color[i:i+2], 16) / 255.0 for i in (1, 3, 5))
                     light_data.color = color
                 if strength is not None:
                     light_data.energy = strength

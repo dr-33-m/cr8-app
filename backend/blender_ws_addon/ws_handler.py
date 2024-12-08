@@ -158,9 +158,46 @@ class WebSocketHandler:
     def _handle_preview_rendering(self, data):
         logging.info("Starting preview rendering")
         params = data.get('params', {})
+        subcommands = params.get('subcommands', {})
         preview_renderer = self.controllers.create_preview_renderer()
 
         try:
+            # Process subcommands for updates before rendering
+            if 'camera' in subcommands:
+                camera_data = subcommands['camera']
+                result = self.controllers.set_active_camera(
+                    camera_data.get('camera_name'))
+                logging.info(f"Camera update result: {result}")
+
+            if 'lights' in subcommands:
+                light_update = subcommands['lights']
+                result = self.controllers.update_light(
+                    light_update.get('light_name'),
+                    color=light_update.get('color'),
+                    strength=light_update.get('strength')
+                )
+                logging.info(f"Light update result: {result}")
+
+            if 'materials' in subcommands:
+                for material_update in subcommands['materials']:
+                    result = self.controllers.update_material(
+                        material_update.get('material_name'),
+                        color=material_update.get('color'),
+                        roughness=material_update.get('roughness'),
+                        metallic=material_update.get('metallic')
+                    )
+                    logging.info(f"Material update result: {result}")
+
+            if 'objects' in subcommands:
+                for object_update in subcommands['objects']:
+                    result = self.controllers.update_object(
+                        object_update.get('object_name'),
+                        location=object_update.get('location'),
+                        rotation=object_update.get('rotation'),
+                        scale=object_update.get('scale')
+                    )
+                    logging.info(f"Object update result: {result}")
+
             # Cleanup any existing preview frames
             preview_renderer.cleanup()
 
@@ -171,7 +208,9 @@ class WebSocketHandler:
             num_frames = params.get('num_frames', 24)
             for frame in range(1, num_frames + 1):
                 preview_renderer.render_preview_frame(frame)
+
             self._send_response('start_broadcast', True)
+
         except Exception as e:
             logging.error(f"Preview rendering error: {e}")
             import traceback

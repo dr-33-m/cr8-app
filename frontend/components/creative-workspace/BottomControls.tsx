@@ -1,23 +1,16 @@
 import { Button } from "@/components/ui/button";
-import {
-  Play,
-  ChevronDown,
-  ChevronUp,
-  Clapperboard,
-  CirclePlus,
-} from "lucide-react";
+import { Play, ChevronDown, ChevronUp, Clapperboard } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { DesignTray } from "./design-tray";
-import { Asset } from "@/app/routes/project";
+import { DesignTray } from "./changes-tray";
+import { SceneConfiguration } from "@/lib/types/sceneConfig";
 
 interface BottomControlsProps {
   isVisible: boolean;
   onToggleVisibility: () => void;
   onShootPreview: () => void;
   onPlaybackPreview: () => void;
-  assets?: Asset[];
+  assets: SceneConfiguration;
   onRemoveAsset?: (id: string) => void;
-  onAddAsset?: () => void;
 }
 
 export function BottomControls({
@@ -25,9 +18,8 @@ export function BottomControls({
   onToggleVisibility,
   onShootPreview,
   onPlaybackPreview,
-  assets = [],
+  assets,
   onRemoveAsset,
-  onAddAsset,
 }: BottomControlsProps) {
   const [isAssetBoxOpen, setIsAssetBoxOpen] = useState(false);
   const assetBoxRef = useRef<HTMLDivElement>(null);
@@ -73,7 +65,7 @@ export function BottomControls({
           title="Shoot Preview"
           onClick={onShootPreview}
         >
-          <Clapperboard className="h-6 w-6" />
+          <Clapperboard className="h-8 w-8" />
           <span className="sr-only">Shoot Preview</span>
         </Button>
         <Button
@@ -94,16 +86,6 @@ export function BottomControls({
           onRemoveAsset={onRemoveAsset}
           onClose={() => setIsAssetBoxOpen(false)}
         />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/10"
-          title="Add Asset"
-          onClick={onAddAsset}
-        >
-          <CirclePlus className="h-6 w-6" />
-          <span className="sr-only">Add Asset</span>
-        </Button>
       </div>
     </div>
   );

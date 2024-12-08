@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AssetItem } from "./Asset-item";
+import { SceneConfiguration } from "@/lib/types/sceneConfig";
+import { transformSceneConfiguration } from "@/lib/utils";
 
 interface Asset {
   id: string;
@@ -10,7 +12,7 @@ interface Asset {
 
 interface AssetBoxProps {
   isOpen: boolean;
-  assets: Asset[];
+  assets: SceneConfiguration;
   onRemoveAsset?: (id: string) => void;
   hoveredAsset: string | null;
   onHoverAsset: (id: string | null) => void;
@@ -44,16 +46,16 @@ export function AssetBox({
 
   if (!isOpen) return null;
 
-  console.log(isOpen, "isOpen");
+  const sceneConfig = transformSceneConfiguration(assets);
   return (
     <div ref={boxRef} className="relative">
       <div className="relative w-[200px] h-[200px] -translate-x-[88px] transition-all duration-300 ease-in-out">
-        {assets.map((asset, index) => (
+        {sceneConfig.map((asset, index) => (
           <AssetItem
             key={asset.id}
             asset={asset}
             index={index}
-            total={assets.length}
+            total={sceneConfig.length}
             onRemove={onRemoveAsset}
             isHovered={hoveredAsset === asset.id}
             onHover={onHoverAsset}

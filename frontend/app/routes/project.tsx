@@ -5,24 +5,11 @@ import { ControlsOverlay } from "@/components/creative-workspace/FullScreenToggl
 import { SceneControls } from "@/components/creative-workspace/SceneControls";
 import { AssetSelection } from "@/components/creative-workspace/AssetSelection";
 import { BottomControls } from "@/components/creative-workspace/BottomControls";
+import { SceneConfiguration } from "@/lib/types/sceneConfig";
 
 export const Route = createFileRoute("/project")({
   component: RouteComponent,
 });
-
-export type Asset = {
-  id: string;
-  type: "image" | "setting";
-  thumbnail: string;
-  name?: string;
-};
-
-type SceneControl = {
-  name: string;
-  icon: React.ReactNode;
-  color: string;
-  control: React.ReactNode;
-};
 
 function RouteComponent() {
   const [selectedAsset, setSelectedAsset] = useState<number | null>(null);
@@ -33,22 +20,10 @@ function RouteComponent() {
   const [isBottomControlsVisible, setIsBottomControlsVisible] =
     useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [viewportImage, setViewportImage] = useState<string | null>(null);
+  // const [viewportImage, setViewportImage] = useState<string | null>(null);
   const websocketRef = useRef<WebSocket | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([
-    {
-      id: "1",
-      type: "image" as const,
-      thumbnail: "/placeholder.svg",
-      name: "Hero Image",
-    },
-    {
-      id: "2",
-      type: "setting" as const,
-      thumbnail: "/placeholder.svg",
-      name: "Layout Settings",
-    },
-  ]);
+  const [sceneConfiguration, setSceneConfiguration] =
+    useState<SceneConfiguration>({});
 
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => {
@@ -61,6 +36,8 @@ function RouteComponent() {
       return newState;
     });
   };
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isPreviewAvailable, setIsPreviewAvailable] = useState<boolean>(false);
 
   useEffect(() => {
     // Establish WebSocket connection
@@ -79,11 +56,10 @@ function RouteComponent() {
 
         // Handle viewport stream
         if (data.type === "frame") {
-          // Directly use base64 data
-          setViewportImage(`data:image/png;base64,${data.data}`);
+          updateCanvas(data.data);
+          setIsPreviewAvailable(true);
         } else if (data.type === "viewport_stream_error") {
           console.error("Viewport stream error:", data.message);
-          setViewportImage(null);
         }
       } catch (error) {
         console.error("Error parsing WebSocket message:", error);
@@ -106,6 +82,29 @@ function RouteComponent() {
     };
   }, []);
 
+  const updateCanvas = (imageData) => {
+    if (!canvasRef.current) {
+      console.error("Canvas ref is not attached");
+      return;
+    }
+
+    const canvas = canvasRef.current;
+
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      console.error("Unable to get 2D rendering context");
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = `data:image/png;base64,${imageData}`;
+  };
+
   const shootPreview = () => {
     if (
       websocketRef.current &&
@@ -119,6 +118,7 @@ function RouteComponent() {
             resolution_y: 720,
             samples: 16,
             num_frames: 80,
+            subcommands: sceneConfiguration,
           },
         })
       );
@@ -141,24 +141,29 @@ function RouteComponent() {
     }
   };
 
-  const addAsset = () => {
-    const newAsset: Asset = {
-      id: Date.now().toString(),
-      type: Math.random() > 0.5 ? "image" : ("setting" as const),
-      thumbnail: "/placeholder.svg",
-      name: `Asset ${assets.length + 1}`,
-    };
-    setAssets((prev) => [...prev, newAsset]);
+  const updateSceneConfiguration = (
+    key: keyof SceneConfiguration,
+    value: any
+  ) => {
+    setSceneConfiguration((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
-  const removeAsset = (id: string) => {
-    setAssets((prev) => prev.filter((asset) => asset.id !== id));
+  const removeSceneConfiguration = (key: keyof SceneConfiguration) => {
+    setSceneConfiguration((prev) => {
+      const { [key]: _, ...rest } = prev;
+      return rest;
+    });
   };
+
   return (
     <div className="relative w-full h-screen bg-[#1C1C1C] text-white overflow-hidden">
       <PreviewWindow
         isFullscreen={isFullscreen}
-        viewportImage={viewportImage}
+        canvasRef={canvasRef}
+        isPreviewAvailable={isPreviewAvailable}
       />
 
       <ControlsOverlay
@@ -170,6 +175,8 @@ function RouteComponent() {
           onToggleVisibility={() =>
             setIsSceneControlsVisible(!isSceneControlsVisible)
           }
+          sceneConfiguration={sceneConfiguration}
+          onUpdateSceneConfiguration={updateSceneConfiguration}
         />
 
         <AssetSelection
@@ -188,9 +195,8 @@ function RouteComponent() {
           }
           onShootPreview={shootPreview}
           onPlaybackPreview={playbackPreview}
-          assets={assets}
-          onRemoveAsset={removeAsset}
-          onAddAsset={addAsset}
+          assets={sceneConfiguration}
+          onRemoveAsset={removeSceneConfiguration}
         />
       </ControlsOverlay>
     </div>
