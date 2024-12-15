@@ -7,7 +7,8 @@ import os
 
 class PreviewRenderer:
     def __init__(self):
-        self.preview_dir = Path(tempfile.gettempdir()) / "box_preview"
+        self.preview_dir = Path(
+            "/media/970_evo/SC Studio/cr8-xyz/Test Renders") / "box_preview"
         self.preview_dir.mkdir(exist_ok=True, parents=True)
 
     def setup_preview_render(self, params=None):

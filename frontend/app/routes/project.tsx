@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PreviewWindow } from "@/components/creative-workspace/PreviewWindow";
 import { ControlsOverlay } from "@/components/creative-workspace/FullScreenToggle";
 import { SceneControls } from "@/components/creative-workspace/SceneControls";
 import { AssetSelection } from "@/components/creative-workspace/AssetSelection";
 import { BottomControls } from "@/components/creative-workspace/BottomControls";
-import { SceneConfiguration } from "@/lib/types/sceneConfig";
+import {
+  OnRemoveAssetFunction,
+  SceneConfiguration,
+} from "@/lib/types/sceneConfig";
 
 export const Route = createFileRoute("/project")({
   component: RouteComponent,
@@ -20,11 +23,12 @@ function RouteComponent() {
   const [isBottomControlsVisible, setIsBottomControlsVisible] =
     useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  // const [viewportImage, setViewportImage] = useState<string | null>(null);
   const websocketRef = useRef<WebSocket | null>(null);
   const [sceneConfiguration, setSceneConfiguration] =
     useState<SceneConfiguration>({});
-
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const videoUrl = "";
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => {
       const newState = !prev;
@@ -36,6 +40,7 @@ function RouteComponent() {
       return newState;
     });
   };
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPreviewAvailable, setIsPreviewAvailable] = useState<boolean>(false);
 
@@ -58,11 +63,14 @@ function RouteComponent() {
         if (data.type === "frame") {
           updateCanvas(data.data);
           setIsPreviewAvailable(true);
+          setIsLoading(false);
         } else if (data.type === "viewport_stream_error") {
           console.error("Viewport stream error:", data.message);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Error parsing WebSocket message:", error);
+        setIsLoading(false);
       }
     };
 
@@ -122,24 +130,75 @@ function RouteComponent() {
           },
         })
       );
+      setSceneConfiguration({});
+      setIsLoading(true);
     } else {
       console.error("WebSocket is not open");
+      setIsLoading(false);
     }
   };
-  const playbackPreview = () => {
+
+  const playbackPreview = useCallback(() => {
     if (
       websocketRef.current &&
       websocketRef.current.readyState === WebSocket.OPEN
     ) {
-      websocketRef.current.send(
-        JSON.stringify({
-          command: "start_broadcast",
-        })
-      );
+      try {
+        websocketRef.current.send(
+          JSON.stringify({
+            command: "start_broadcast",
+          })
+        );
+        setIsPlaying(true);
+      } catch (error) {
+        console.error("Failed to send WebSocket message:", error);
+      }
     } else {
       console.error("WebSocket is not open");
     }
-  };
+  }, [websocketRef]);
+
+  const stopPlaybackPreview = useCallback(() => {
+    if (
+      websocketRef.current &&
+      websocketRef.current.readyState === WebSocket.OPEN
+    ) {
+      try {
+        websocketRef.current.send(
+          JSON.stringify({
+            command: "stop_broadcast",
+          })
+        );
+        setIsPlaying(false);
+      } catch (error) {
+        console.error("Failed to send WebSocket message:", error);
+      }
+    } else {
+      console.error("WebSocket is not open");
+    }
+  }, [websocketRef]);
+
+  const generateVideo = useCallback(() => {
+    if (
+      websocketRef.current &&
+      websocketRef.current.readyState === WebSocket.OPEN
+    ) {
+      try {
+        websocketRef.current.send(
+          JSON.stringify({
+            command: "generate_video",
+          })
+        );
+        setIsLoading(true);
+      } catch (error) {
+        console.error("Failed to send WebSocket message:", error);
+        setIsLoading(false);
+      }
+    } else {
+      console.error("WebSocket is not open");
+      setIsLoading(false);
+    }
+  }, [websocketRef]);
 
   const updateSceneConfiguration = (
     key: keyof SceneConfiguration,
@@ -151,19 +210,33 @@ function RouteComponent() {
     }));
   };
 
-  const removeSceneConfiguration = (key: keyof SceneConfiguration) => {
+  const removeSceneConfiguration: OnRemoveAssetFunction = (
+    assetType,
+    assetId
+  ) => {
     setSceneConfiguration((prev) => {
-      const { [key]: _, ...rest } = prev;
-      return rest;
+      const newConfig = { ...prev };
+
+      switch (assetType) {
+        case "camera":
+          delete newConfig.camera;
+          break;
+        case "light":
+          delete newConfig.lights;
+          break;
+      }
+
+      return newConfig;
     });
   };
 
   return (
-    <div className="relative w-full h-screen bg-[#1C1C1C] text-white overflow-hidden">
+    <div className="relative w-full h-screen bg-[#1C1C1C] text-white">
       <PreviewWindow
         isFullscreen={isFullscreen}
         canvasRef={canvasRef}
         isPreviewAvailable={isPreviewAvailable}
+        finalVideoUrl={videoUrl}
       />
 
       <ControlsOverlay
@@ -195,8 +268,13 @@ function RouteComponent() {
           }
           onShootPreview={shootPreview}
           onPlaybackPreview={playbackPreview}
+          onStopPlaybackPreview={stopPlaybackPreview}
+          onGenerateVideo={generateVideo}
           assets={sceneConfiguration}
           onRemoveAsset={removeSceneConfiguration}
+          isLoading={isLoading}
+          isPlaying={isPlaying}
+          isFinalVideoReady={!!videoUrl}
         />
       </ControlsOverlay>
     </div>

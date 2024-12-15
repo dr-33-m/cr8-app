@@ -5,6 +5,9 @@ import logging
 import websocket
 from .template_wizard import TemplateWizard
 from .blender_controllers import BlenderControllers
+from .video_generator import GenerateVideo
+import tempfile
+from pathlib import Path
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,6 +31,7 @@ class WebSocketHandler:
         'update_material': '_handle_material_update',
         'update_object': '_handle_object_transformation',
         'start_preview_rendering': '_handle_preview_rendering',
+        'generate_video': '_handle_generate_video',
         'rescan_template': '_handle_rescan_template'
     }
 
@@ -51,7 +55,7 @@ class WebSocketHandler:
         self._initialized = True
 
     def connect(self, retries=5, delay=2):
-        """Establish WebSocket connection with retries"""
+        """Establish WebSocket connection with retries and exponential backoff"""
         attempt = 0
         while attempt < retries:
             try:
@@ -63,7 +67,8 @@ class WebSocketHandler:
                     on_message=self._on_message,
                     on_open=self._on_open,
                     on_close=self._on_close,
-                    on_error=self._on_error
+                    on_error=self._on_error,
+                    on_reconnect=self._on_reconnect  # Add this method
                 )
                 self.ws_thread = threading.Thread(
                     target=self.ws.run_forever, daemon=True)
@@ -75,9 +80,13 @@ class WebSocketHandler:
                 logging.error(
                     f"Connection failed: {e}, retrying in {delay} seconds...")
                 time.sleep(delay)
-                delay *= 2
+                delay *= 2  # Exponential backoff
                 attempt += 1
         return False
+
+    def _on_reconnect(self, attempt):
+        """Optional: Add custom logic for reconnection attempts"""
+        logging.info(f"Attempting to reconnect. Attempt: {attempt}")
 
     def disconnect(self):
         """Disconnect WebSocket"""
@@ -113,13 +122,17 @@ class WebSocketHandler:
             data = json.loads(message)
             command = data.get('command')
 
-            # Retrieve the handler function from the dispatch table
+            if not command:
+                logging.warning(
+                    f"Received message without a valid command: {data}")
+                return
+
+            # Optional: Add a retry limit or cooling period
             handler_method = getattr(
                 self, self.command_handlers.get(command), None)
 
             if handler_method:
                 def execute_handler():
-                    # Call the handler method with the data
                     handler_method(data)
                 execute_in_main_thread(execute_handler, ())
             else:
@@ -131,6 +144,9 @@ class WebSocketHandler:
             logging.error(f"Error processing WebSocket message: {e}")
             import traceback
             traceback.print_exc()
+
+            # Optional: Disconnect or reset to prevent further processing
+            self.disconnect()
 
     def _handle_camera_change(self, data):
         result = self.controllers.set_active_camera(data.get('camera_name'))
@@ -216,6 +232,57 @@ class WebSocketHandler:
             import traceback
             traceback.print_exc()
             self._send_response('Preview Rendering failed', False)
+
+    def _handle_generate_video(self, data):
+        """Generate video based on the available frames."""
+        image_sequence_directory = Path(
+            "/media/970_evo/SC Studio/cr8-xyz/Test Renders") / "box_preview"
+        output_file = image_sequence_directory / "box_preview.mp4"
+        resolution = (1280, 720)
+        fps = 30
+
+        try:
+            # Ensure the directory exists
+            image_sequence_directory.mkdir(parents=True, exist_ok=True)
+
+            # Check if there are actually image files in the directory
+            image_files = list(image_sequence_directory.glob('*.png'))
+            if not image_files:
+                raise ValueError(
+                    "No image files found in the specified directory")
+
+            # Initialize and execute the handler
+            video_generator = GenerateVideo(
+                str(image_sequence_directory),
+                str(output_file),
+                resolution,
+                fps
+            )
+            video_generator.gen_video_from_images()
+
+            # Send success response with additional info
+            self._send_response('generate_video', {"success": True})
+
+            # Optional: Break the retry cycle by closing the WebSocket connection
+            self.disconnect()
+
+        except Exception as e:
+            error_message = str(e)
+            logging.error(
+                f"Video generation error in directory {image_sequence_directory}: {error_message}"
+            )
+            import traceback
+            traceback.print_exc()
+
+            # Send failure response with error details
+            self._send_response('generate_video', {
+                "success": False,
+                "error": error_message,
+                "traceback": traceback.format_exc()
+            })
+
+            # Optional: Break the retry cycle by closing the WebSocket connection
+            self.disconnect()
 
     def _handle_rescan_template(self):
         """Rescan the controllable objects and send the response"""

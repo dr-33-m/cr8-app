@@ -20,3 +20,8 @@ export type SceneConfiguration = {
     scale?: [number, number, number];
   }>;
 };
+
+export type OnRemoveAssetFunction = (
+  assetType: string, // the type of asset (camera, light, etc.)
+  assetId?: string // optional specific identifier
+) => void;

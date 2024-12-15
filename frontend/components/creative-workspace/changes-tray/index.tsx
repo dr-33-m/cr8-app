@@ -2,7 +2,10 @@ import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { AssetBox } from "./Asset-box";
 import { useState } from "react";
-import { SceneConfiguration } from "@/lib/types/sceneConfig";
+import {
+  OnRemoveAssetFunction,
+  SceneConfiguration,
+} from "@/lib/types/sceneConfig";
 
 interface ControlButtonProps {
   onClick: () => void;
@@ -11,7 +14,7 @@ interface ControlButtonProps {
   className?: string;
   disabled?: boolean;
   assets: SceneConfiguration;
-  onRemoveAsset?: (id: string) => void;
+  onRemoveAsset?: OnRemoveAssetFunction;
   onAddAsset?: () => void;
 }
 

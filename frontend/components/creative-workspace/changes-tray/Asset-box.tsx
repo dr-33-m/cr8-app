@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import { AssetItem } from "./Asset-item";
-import { SceneConfiguration } from "@/lib/types/sceneConfig";
+import {
+  OnRemoveAssetFunction,
+  SceneConfiguration,
+} from "@/lib/types/sceneConfig";
 import { transformSceneConfiguration } from "@/lib/utils";
 
 interface Asset {
@@ -13,7 +16,7 @@ interface Asset {
 interface AssetBoxProps {
   isOpen: boolean;
   assets: SceneConfiguration;
-  onRemoveAsset?: (id: string) => void;
+  onRemoveAsset?: OnRemoveAssetFunction;
   hoveredAsset: string | null;
   onHoverAsset: (id: string | null) => void;
   onClose: () => void;
@@ -28,6 +31,7 @@ export function AssetBox({
   onClose,
 }: AssetBoxProps) {
   const boxRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (boxRef.current && !boxRef.current.contains(event.target as Node)) {

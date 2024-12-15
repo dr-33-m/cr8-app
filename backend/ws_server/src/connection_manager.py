@@ -21,8 +21,8 @@ class WebSocketConnectionManager:
         """
         self.logger = logging.getLogger(__name__)
         self.connections: Dict[str, websockets.WebSocketServerProtocol] = {}
-        self.preview_dir = preview_dir or Path(
-            tempfile.gettempdir()) / "box_preview"
+        self.preview_dir = Path(
+            "/media/970_evo/SC Studio/cr8-xyz/Test Renders") / "box_preview"
         self.preview_dir.mkdir(exist_ok=True, parents=True)
 
         # Create a thread-safe event for frame broadcasting
@@ -73,7 +73,8 @@ class WebSocketConnectionManager:
 
     async def broadcast_frame(self):
         """
-        Efficiently broadcast frames to browser client with improved performance.
+        Efficiently broadcast frames to browser client with minimal performance overhead.
+        Uses asyncio's native cancellation for responsive stopping.
         """
         try:
             while not self.stop_broadcast_event.is_set():
@@ -82,32 +83,29 @@ class WebSocketConnectionManager:
 
                 # Find and broadcast frames
                 frames = sorted(self.preview_dir.glob("frame_*.png"))
-                start_time = asyncio.get_event_loop().time()
 
-                for frame in frames:
-                    if self.stop_broadcast_event.is_set():
-                        break
+                # Create a cancellable task for broadcasting
+                try:
+                    broadcast_task = asyncio.create_task(
+                        self._broadcast_frames(frames))
 
-                    if 'browser' in self.connections:
+                    # Wait for either task completion or stop signal
+                    await asyncio.wait(
+                        [broadcast_task],
+                        timeout=None,  # No timeout
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+
+                    # Cancel the task if it's still running
+                    if not broadcast_task.done():
+                        broadcast_task.cancel()
                         try:
-                            with open(frame, 'rb') as img_file:
-                                img_str = base64.b64encode(
-                                    img_file.read()).decode()
+                            await broadcast_task
+                        except asyncio.CancelledError:
+                            pass
 
-                            await self.send_message(
-                                self.connections['browser'],
-                                {'type': 'frame', 'data': img_str}
-                            )
-                        except Exception as frame_error:
-                            self.logger.error(
-                                f"Error processing frame {frame}: {frame_error}")
-
-                    # Dynamic frame timing
-                    current_time = asyncio.get_event_loop().time()
-                    elapsed = current_time - start_time
-                    # Aiming for 60 FPS
-                    remaining_time = max(0, 1/60 - elapsed)
-                    await asyncio.sleep(remaining_time)
+                except asyncio.CancelledError:
+                    break
 
                 # Reset event
                 self.frame_broadcast_event.clear()
@@ -115,4 +113,47 @@ class WebSocketConnectionManager:
         except Exception as e:
             self.logger.error(f"Error in frame broadcasting: {e}")
         finally:
+            # Ensure events are cleared
+            self.frame_broadcast_event.clear()
+            self.stop_broadcast_event.clear()
             self.logger.info("Frame broadcasting stopped")
+
+    async def _broadcast_frames(self, frames):
+        """
+        Internal method to broadcast frames with precise timing.
+
+        :param frames: List of frame paths to broadcast
+        """
+        if 'browser' not in self.connections:
+            return
+
+        browser_socket = self.connections['browser']
+
+        # Target 60 FPS
+        frame_duration = 1 / 60.0
+
+        for frame in frames:
+            # Check stop condition before processing each frame
+            if self.stop_broadcast_event.is_set():
+                break
+
+            start_time = asyncio.get_event_loop().time()
+
+            try:
+                with open(frame, 'rb') as img_file:
+                    img_str = base64.b64encode(img_file.read()).decode()
+
+                await self.send_message(
+                    browser_socket,
+                    {'type': 'frame', 'data': img_str}
+                )
+
+                # Precise frame timing
+                processing_time = asyncio.get_event_loop().time() - start_time
+                sleep_time = max(0, frame_duration - processing_time)
+
+                await asyncio.sleep(sleep_time)
+
+            except Exception as frame_error:
+                self.logger.error(
+                    f"Error processing frame {frame}: {frame_error}")

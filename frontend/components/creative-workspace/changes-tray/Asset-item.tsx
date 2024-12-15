@@ -3,6 +3,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { OnRemoveAssetFunction } from "@/lib/types/sceneConfig";
 import { Sun, Camera, X } from "lucide-react";
 import { useState } from "react";
 
@@ -14,7 +15,7 @@ interface AssetItemProps {
   };
   index: number;
   total: number;
-  onRemove?: (id: string) => void;
+  onRemove?: OnRemoveAssetFunction;
   isHovered: boolean;
   onHover: (id: string | null) => void;
 }
@@ -91,7 +92,7 @@ export function AssetItem({
             transition-all duration-200"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRemove(asset.type);
+                  onRemove(asset.type, asset.name);
                 }}
               >
                 <X className="h-3 w-3" />

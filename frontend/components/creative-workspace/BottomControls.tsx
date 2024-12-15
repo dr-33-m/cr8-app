@@ -1,16 +1,31 @@
 import { Button } from "@/components/ui/button";
-import { Play, ChevronDown, ChevronUp, Clapperboard } from "lucide-react";
+import {
+  Play,
+  ChevronDown,
+  ChevronUp,
+  Clapperboard,
+  LoaderPinwheel,
+  Pause,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { DesignTray } from "./changes-tray";
-import { SceneConfiguration } from "@/lib/types/sceneConfig";
+import {
+  OnRemoveAssetFunction,
+  SceneConfiguration,
+} from "@/lib/types/sceneConfig";
 
 interface BottomControlsProps {
   isVisible: boolean;
+  isLoading: boolean;
+  isPlaying: boolean;
+  isFinalVideoReady: boolean;
   onToggleVisibility: () => void;
   onShootPreview: () => void;
   onPlaybackPreview: () => void;
+  onStopPlaybackPreview: () => void;
+  onGenerateVideo: () => void;
   assets: SceneConfiguration;
-  onRemoveAsset?: (id: string) => void;
+  onRemoveAsset?: OnRemoveAssetFunction;
 }
 
 export function BottomControls({
@@ -18,8 +33,13 @@ export function BottomControls({
   onToggleVisibility,
   onShootPreview,
   onPlaybackPreview,
+  onStopPlaybackPreview,
+  onGenerateVideo,
   assets,
   onRemoveAsset,
+  isLoading,
+  isPlaying,
+  isFinalVideoReady,
 }: BottomControlsProps) {
   const [isAssetBoxOpen, setIsAssetBoxOpen] = useState(false);
   const assetBoxRef = useRef<HTMLDivElement>(null);
@@ -58,34 +78,79 @@ export function BottomControls({
         )}
       </Button>
       <div className="backdrop-blur-md bg-white/5 rounded-lg px-6 py-3 flex items-center space-x-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-[#0077B6] hover:bg-[#0077B6]/10"
-          title="Shoot Preview"
-          onClick={onShootPreview}
-        >
-          <Clapperboard className="h-8 w-8" />
-          <span className="sr-only">Shoot Preview</span>
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-[#FFD100] hover:bg-[#FFD100]/10"
-          title="Play Preview"
-          onClick={onPlaybackPreview}
-        >
-          <Play className="h-6 w-6" />
-          <span className="sr-only">Play Preview</span>
-        </Button>
+        {!isFinalVideoReady ? (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-[#0077B6] hover:bg-[#0077B6]/10"
+              title="Shoot Preview"
+              // onClick={onShootPreview}
+              onClick={onGenerateVideo}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <LoaderPinwheel className="h-8 w-8 animate-spin" />
+              ) : (
+                <Clapperboard className="h-8 w-8" />
+              )}
+
+              <span className="sr-only">
+                {isLoading ? "Shooting Preview" : "Shoot Preview"}
+              </span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-[#FFD100] hover:bg-[#FFD100]/10"
+              title={isPlaying ? "Pause Preview" : "Play Preview"}
+              onClick={isPlaying ? onStopPlaybackPreview : onPlaybackPreview}
+              disabled={isLoading}
+            >
+              {isPlaying ? (
+                <Pause className="h-6 w-6" />
+              ) : (
+                <Play className="h-6 w-6" />
+              )}
+              <span className="sr-only">
+                {isPlaying ? "Pause Preview" : "Play Preview"}
+              </span>
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-[#FFD100] hover:bg-[#FFD100]/10"
+            title={isPlaying ? "Pause Preview" : "Play Preview"}
+            onClick={isPlaying ? onStopPlaybackPreview : onPlaybackPreview}
+            disabled={isLoading}
+          >
+            {isPlaying ? (
+              <Pause className="h-6 w-6" />
+            ) : (
+              <Play className="h-6 w-6" />
+            )}
+            <span className="sr-only">
+              {isPlaying ? "Pause Preview" : "Play Preview"}
+            </span>
+          </Button>
+        )}
         <div className="h-8 w-px bg-white/20" />
-        <DesignTray
-          onClick={() => setIsAssetBoxOpen(!isAssetBoxOpen)}
-          isActive={isAssetBoxOpen}
-          assets={assets}
-          onRemoveAsset={onRemoveAsset}
-          onClose={() => setIsAssetBoxOpen(false)}
-        />
+        {isFinalVideoReady ? (
+          <Button className="text-[#FFD100] hover:bg-[#FFD100]/5 bg-[#FFD100]/10 ">
+            Download
+          </Button>
+        ) : (
+          <DesignTray
+            onClick={() => setIsAssetBoxOpen(!isAssetBoxOpen)}
+            isActive={isAssetBoxOpen}
+            assets={assets}
+            onRemoveAsset={onRemoveAsset}
+            onClose={() => setIsAssetBoxOpen(false)}
+          />
+        )}
       </div>
     </div>
   );
