@@ -46,7 +46,7 @@ function RouteComponent() {
 
   useEffect(() => {
     // Establish WebSocket connection
-    const ws = new WebSocket("ws://localhost:5001/browser");
+    const ws = new WebSocket("ws://localhost:8000/ws/browser");
     websocketRef.current = ws;
 
     ws.onopen = () => {

@@ -7,7 +7,7 @@ from . import (
 import bpy
 
 bl_info = {
-    "name": "Cr8-xyz Addon",
+    "name": "Cr8tive Engine",
     "author": "Thamsanqa Dreem",
     "version": (0, 0, 1),
     "blender": (4, 3, 0),

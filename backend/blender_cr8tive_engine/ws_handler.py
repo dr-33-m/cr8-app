@@ -42,7 +42,7 @@ class WebSocketHandler:
             cls._instance.lock = threading.Lock()
         return cls._instance
 
-    def __init__(self, url="ws://localhost:5001/blender"):
+    def __init__(self, url="ws://localhost:8000/ws/blender"):
         if self._initialized:
             return
 
@@ -53,11 +53,19 @@ class WebSocketHandler:
         self.ws = None
         self.ws_thread = None
         self._initialized = True
+        self.processing_complete = threading.Event()
+        self.processed_commands = set()
+        self.reconnect_attempts = 0
+        self.max_retries = 5  # Maximum number of retries
+        self.stop_retries = False
 
     def connect(self, retries=5, delay=2):
         """Establish WebSocket connection with retries and exponential backoff"""
-        attempt = 0
-        while attempt < retries:
+        self.max_retries = retries
+        self.reconnect_attempts = 0
+        self.stop_retries = False
+
+        while self.reconnect_attempts < retries:
             try:
                 if self.ws:
                     self.ws.close()
@@ -68,29 +76,38 @@ class WebSocketHandler:
                     on_open=self._on_open,
                     on_close=self._on_close,
                     on_error=self._on_error,
-                    on_reconnect=self._on_reconnect  # Add this method
                 )
+                self.processing_complete.clear()
                 self.ws_thread = threading.Thread(
-                    target=self.ws.run_forever, daemon=True)
+                    target=self._run_websocket, daemon=True)
                 self.ws_thread.start()
 
                 logging.info("WebSocket connection initialized")
                 return True
             except Exception as e:
                 logging.error(
-                    f"Connection failed: {e}, retrying in {delay} seconds...")
+                    f"Connection failed: {e}, retrying in {delay} seconds..."
+                )
                 time.sleep(delay)
                 delay *= 2  # Exponential backoff
-                attempt += 1
+                self.reconnect_attempts += 1
+
+        logging.error("Max retries reached. Connection failed.")
         return False
 
-    def _on_reconnect(self, attempt):
-        """Optional: Add custom logic for reconnection attempts"""
-        logging.info(f"Attempting to reconnect. Attempt: {attempt}")
+    def _run_websocket(self):
+        while not self.processing_complete.is_set() and not self.stop_retries:
+            try:
+                self.ws.run_forever()
+            except Exception as e:
+                logging.error(f"WebSocket error: {e}")
+                break
 
     def disconnect(self):
         """Disconnect WebSocket"""
         with self.lock:
+            self.processing_complete.set()
+            self.stop_retries = True
             if self.ws and self.ws.sock and self.ws.sock.connected:
                 self.ws.close()
                 self.ws = None
@@ -100,6 +117,8 @@ class WebSocketHandler:
                 self.ws_thread = None
 
     def _on_open(self, ws):
+        self.reconnect_attempts = 0
+
         def send_template_controls():
             try:
                 controllables = self.wizard.scan_controllable_objects()
@@ -121,6 +140,13 @@ class WebSocketHandler:
         try:
             data = json.loads(message)
             command = data.get('command')
+            message_id = data.get('message_id')
+
+            # Prevent reprocessing of the same command
+            if (command, message_id) in self.processed_commands:
+                logging.warning(
+                    f"Skipping already processed command: {command}")
+                return
 
             if not command:
                 logging.warning(
@@ -134,6 +160,8 @@ class WebSocketHandler:
             if handler_method:
                 def execute_handler():
                     handler_method(data)
+                    # Mark this command as processed
+                    self.processed_commands.add((command, message_id))
                 execute_in_main_thread(execute_handler, ())
             else:
                 logging.warning(f"No handler found for command: {command}")
@@ -242,6 +270,10 @@ class WebSocketHandler:
         fps = 30
 
         try:
+
+            # Include the message_id in your processing and response
+            message_id = data.get('message_id')
+
             # Ensure the directory exists
             image_sequence_directory.mkdir(parents=True, exist_ok=True)
 
@@ -260,10 +292,14 @@ class WebSocketHandler:
             )
             video_generator.gen_video_from_images()
 
-            # Send success response with additional info
-            self._send_response('generate_video', {"success": True})
+            # Send success response with message_id
+            self._send_response('generate_video', {
+                "success": True,
+                "status": "completed",
+                "message_id": message_id
+            })
 
-            # Optional: Break the retry cycle by closing the WebSocket connection
+            # Disconnect from the client if everything is successful
             self.disconnect()
 
         except Exception as e:
@@ -274,15 +310,14 @@ class WebSocketHandler:
             import traceback
             traceback.print_exc()
 
-            # Send failure response with error details
+            # Send error response with message_id
             self._send_response('generate_video', {
                 "success": False,
-                "error": error_message,
-                "traceback": traceback.format_exc()
+                "status": "failed",
+                "message_id": message_id
             })
 
-            # Optional: Break the retry cycle by closing the WebSocket connection
-            self.disconnect()
+            logging.error(f"Video generation failed: {e}")
 
     def _handle_rescan_template(self):
         """Rescan the controllable objects and send the response"""
@@ -322,9 +357,15 @@ class WebSocketHandler:
     def _on_close(self, ws, close_status_code, close_msg):
         logging.info(
             f"WebSocket connection closed. Status: {close_status_code}, Message: {close_msg}")
+        self.processing_complete.set()
 
     def _on_error(self, ws, error):
         logging.error(f"WebSocket error: {error}")
+        self.reconnect_attempts += 1
+        if self.reconnect_attempts >= self.max_retries:
+            logging.error("Max retries reached. Stopping WebSocket attempts.")
+            self.stop_retries = True
+            self.processing_complete.set()
 
 
 # Singleton instance for easy access

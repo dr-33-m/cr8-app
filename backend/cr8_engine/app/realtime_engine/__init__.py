@@ -7,7 +7,7 @@ making them easy to import.
 
 # Import key classes to make them accessible at the package level
 from .connection_manager import WebSocketConnectionManager
-from .ws_server import WebSocketServer
+from .server import WebSocketServer
 
 # Optional: Define what should be imported with *
 __all__ = [
