@@ -1,46 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PreviewWindow } from "@/components/creative-workspace/PreviewWindow";
+import { PreviewWindow } from "@/components/PreviewWindow";
 import { ControlsOverlay } from "@/components/creative-workspace/FullScreenToggle";
 import { SceneControls } from "@/components/creative-workspace/SceneControls";
 import { AssetSelection } from "@/components/creative-workspace/AssetSelection";
-import { BottomControls } from "@/components/creative-workspace/BottomControls";
+import { BottomControls } from "@/components/BottomControls";
 import {
   OnRemoveAssetFunction,
   SceneConfiguration,
 } from "@/lib/types/sceneConfig";
+import { SceneViewPort } from "@/components/creative-workspace/SceneViewPort";
+import { SceneActions } from "@/components/creative-workspace/SceneActions";
 
-export const Route = createFileRoute("/project")({
+export const Route = createFileRoute("/project/")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
   const [selectedAsset, setSelectedAsset] = useState<number | null>(null);
-  const [isSceneControlsVisible, setIsSceneControlsVisible] =
-    useState<boolean>(true);
-  const [isAssetSelectionVisible, setIsAssetSelectionVisible] =
-    useState<boolean>(true);
-  const [isBottomControlsVisible, setIsBottomControlsVisible] =
-    useState<boolean>(true);
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const websocketRef = useRef<WebSocket | null>(null);
   const [sceneConfiguration, setSceneConfiguration] =
     useState<SceneConfiguration>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const videoUrl = "";
-  const toggleFullscreen = () => {
-    setIsFullscreen((prev) => {
-      const newState = !prev;
-      // Update other state values based on the fullscreen state
-      setIsSceneControlsVisible(!newState);
-      setIsAssetSelectionVisible(!newState);
-      setIsBottomControlsVisible(!newState);
-
-      return newState;
-    });
-  };
-
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPreviewAvailable, setIsPreviewAvailable] = useState<boolean>(false);
 
@@ -232,50 +215,38 @@ function RouteComponent() {
 
   return (
     <div className="relative w-full h-screen bg-[#1C1C1C] text-white">
-      <PreviewWindow
-        isFullscreen={isFullscreen}
-        canvasRef={canvasRef}
-        isPreviewAvailable={isPreviewAvailable}
-        finalVideoUrl={videoUrl}
-      />
+      <PreviewWindow>
+        <SceneViewPort
+          canvasRef={canvasRef}
+          isPreviewAvailable={isPreviewAvailable}
+          finalVideoUrl={videoUrl}
+        />
+      </PreviewWindow>
 
-      <ControlsOverlay
-        isFullscreen={isFullscreen}
-        toggleFullscreen={toggleFullscreen}
-      >
+      <ControlsOverlay>
         <SceneControls
-          isVisible={isSceneControlsVisible}
-          onToggleVisibility={() =>
-            setIsSceneControlsVisible(!isSceneControlsVisible)
-          }
           sceneConfiguration={sceneConfiguration}
           onUpdateSceneConfiguration={updateSceneConfiguration}
         />
 
         <AssetSelection
-          isVisible={isAssetSelectionVisible}
           selectedAsset={selectedAsset}
           onSelectAsset={setSelectedAsset}
-          onToggleVisibility={() =>
-            setIsAssetSelectionVisible(!isAssetSelectionVisible)
-          }
         />
 
-        <BottomControls
-          isVisible={isBottomControlsVisible}
-          onToggleVisibility={() =>
-            setIsBottomControlsVisible(!isBottomControlsVisible)
-          }
-          onShootPreview={shootPreview}
-          onPlaybackPreview={playbackPreview}
-          onStopPlaybackPreview={stopPlaybackPreview}
-          onGenerateVideo={generateVideo}
-          assets={sceneConfiguration}
-          onRemoveAsset={removeSceneConfiguration}
-          isLoading={isLoading}
-          isPlaying={isPlaying}
-          isFinalVideoReady={!!videoUrl}
-        />
+        <BottomControls>
+          <SceneActions
+            onShootPreview={shootPreview}
+            onPlaybackPreview={playbackPreview}
+            onStopPlaybackPreview={stopPlaybackPreview}
+            onGenerateVideo={generateVideo}
+            assets={sceneConfiguration}
+            onRemoveAsset={removeSceneConfiguration}
+            isLoading={isLoading}
+            isPlaying={isPlaying}
+            isFinalVideoReady={!!videoUrl}
+          />
+        </BottomControls>
       </ControlsOverlay>
     </div>
   );

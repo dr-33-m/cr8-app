@@ -1,20 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 
 interface AssetSelectionProps {
-  isVisible: boolean;
   selectedAsset: number | null;
   onSelectAsset: (id: number) => void;
-  onToggleVisibility: () => void;
 }
 
 export function AssetSelection({
-  isVisible,
   selectedAsset,
   onSelectAsset,
-  onToggleVisibility,
 }: AssetSelectionProps) {
+  const isVisible = useVisibilityStore(
+    (state) => state.isAssetSelectionVisible
+  );
+  const onToggleVisibility = useVisibilityStore(
+    (state) => state.toggleAssetSelection
+  );
   return (
     <div
       className={`absolute right-4 top-1/2 transform -translate-y-1/2 transition-all duration-300 

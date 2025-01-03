@@ -66,3 +66,65 @@
       0 0 20px theme("colors.cr8-blue");
   }
 }
+
+.react-flow__node {
+  @apply shadow-lg;
+}
+
+.react-flow__handle {
+  @apply bg-cr8-blue;
+}
+
+.react-flow__controls {
+  @apply bg-cr8-dark/30 backdrop-blur-md border-cr8-charcoal/50;
+  left: 10px !important;
+  top: 10px !important;
+  bottom: auto !important;
+}
+
+.react-flow__controls-button {
+  @apply border-cr8-charcoal/50 text-white hover:bg-cr8-dark/50;
+}
+
+.glass-card {
+  @apply backdrop-blur-md bg-cr8-dark/30 border border-cr8-charcoal/50;
+}
+
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* Animated dotted edges */
+.react-flow__edge.animated-edge .react-flow__edge-path {
+  stroke: #ffd100;
+  stroke-width: 2;
+  stroke-dasharray: 5;
+  animation: flowingDash 1s linear infinite;
+}
+
+@keyframes flowingDash {
+  from {
+    stroke-dashoffset: 10;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@layer utilities {
+  .animate-glass-shine {
+    animation: glass-shine 3s ease-in-out infinite;
+  }
+}
+
+@keyframes glass-shine {
+  from {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}

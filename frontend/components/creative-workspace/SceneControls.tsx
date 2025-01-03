@@ -21,10 +21,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { SceneConfiguration } from "@/lib/types/sceneConfig";
+import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 
 interface SceneControlsProps {
-  isVisible: boolean;
-  onToggleVisibility: () => void;
   sceneConfiguration: SceneConfiguration;
   onUpdateSceneConfiguration: (
     key: keyof SceneConfiguration,
@@ -34,10 +33,10 @@ interface SceneControlsProps {
 
 type ControlItem = {
   name: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   color: string;
   control:
-    | React.ReactNode
+    | ReactNode
     | ((props: {
         selectedColor: string;
         setSelectedColor: (color: string) => void;
@@ -45,11 +44,13 @@ type ControlItem = {
 };
 
 export function SceneControls({
-  isVisible,
-  onToggleVisibility,
   sceneConfiguration,
   onUpdateSceneConfiguration,
 }: SceneControlsProps) {
+  const isVisible = useVisibilityStore((state) => state.isSceneControlsVisible);
+  const toggleVisibility = useVisibilityStore(
+    (state) => state.toggleSceneControls
+  );
   const [lightConfig, setLightConfig] = useState({
     light_name: "controllable_Bottom_AreaLight",
     color: "#FFFFFF",
@@ -248,7 +249,7 @@ export function SceneControls({
         variant="ghost"
         size="icon"
         className="absolute -right-12 top-0 text-white hover:bg-white/10"
-        onClick={onToggleVisibility}
+        onClick={toggleVisibility}
       >
         {isVisible ? (
           <ChevronLeft className="h-6 w-6" />

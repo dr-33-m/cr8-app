@@ -11,17 +11,12 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as ProjectImport } from './routes/project'
 import { Route as CallbackImport } from './routes/callback'
 import { Route as IndexImport } from './routes/index'
+import { Route as ProjectIndexImport } from './routes/project/index'
+import { Route as ProjectMoodboardImport } from './routes/project/moodboard'
 
 // Create/Update Routes
-
-const ProjectRoute = ProjectImport.update({
-  id: '/project',
-  path: '/project',
-  getParentRoute: () => rootRoute,
-} as any)
 
 const CallbackRoute = CallbackImport.update({
   id: '/callback',
@@ -32,6 +27,18 @@ const CallbackRoute = CallbackImport.update({
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ProjectIndexRoute = ProjectIndexImport.update({
+  id: '/project/',
+  path: '/project/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ProjectMoodboardRoute = ProjectMoodboardImport.update({
+  id: '/project/moodboard',
+  path: '/project/moodboard',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -53,11 +60,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CallbackImport
       parentRoute: typeof rootRoute
     }
-    '/project': {
-      id: '/project'
+    '/project/moodboard': {
+      id: '/project/moodboard'
+      path: '/project/moodboard'
+      fullPath: '/project/moodboard'
+      preLoaderRoute: typeof ProjectMoodboardImport
+      parentRoute: typeof rootRoute
+    }
+    '/project/': {
+      id: '/project/'
       path: '/project'
       fullPath: '/project'
-      preLoaderRoute: typeof ProjectImport
+      preLoaderRoute: typeof ProjectIndexImport
       parentRoute: typeof rootRoute
     }
   }
@@ -68,41 +82,46 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
-  '/project': typeof ProjectRoute
+  '/project/moodboard': typeof ProjectMoodboardRoute
+  '/project': typeof ProjectIndexRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
-  '/project': typeof ProjectRoute
+  '/project/moodboard': typeof ProjectMoodboardRoute
+  '/project': typeof ProjectIndexRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
-  '/project': typeof ProjectRoute
+  '/project/moodboard': typeof ProjectMoodboardRoute
+  '/project/': typeof ProjectIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/callback' | '/project'
+  fullPaths: '/' | '/callback' | '/project/moodboard' | '/project'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/callback' | '/project'
-  id: '__root__' | '/' | '/callback' | '/project'
+  to: '/' | '/callback' | '/project/moodboard' | '/project'
+  id: '__root__' | '/' | '/callback' | '/project/moodboard' | '/project/'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CallbackRoute: typeof CallbackRoute
-  ProjectRoute: typeof ProjectRoute
+  ProjectMoodboardRoute: typeof ProjectMoodboardRoute
+  ProjectIndexRoute: typeof ProjectIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CallbackRoute: CallbackRoute,
-  ProjectRoute: ProjectRoute,
+  ProjectMoodboardRoute: ProjectMoodboardRoute,
+  ProjectIndexRoute: ProjectIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -117,7 +136,8 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/callback",
-        "/project"
+        "/project/moodboard",
+        "/project/"
       ]
     },
     "/": {
@@ -126,8 +146,11 @@ export const routeTree = rootRoute
     "/callback": {
       "filePath": "callback.tsx"
     },
-    "/project": {
-      "filePath": "project.tsx"
+    "/project/moodboard": {
+      "filePath": "project/moodboard.tsx"
+    },
+    "/project/": {
+      "filePath": "project/index.tsx"
     }
   }
 }

@@ -1,17 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Music, ShoppingBag, Shirt, Users } from "lucide-react";
-import { ProjectCard } from "@/components/dashboard/ProjectCard";
-import {
-  FashionShowList,
-  MusicList,
-  ProductShowCaseList,
-  SocialMediaList,
-} from "@/lib/data";
+import { PlusCircle, Palette } from "lucide-react";
 import { useLogto } from "@logto/react";
 import { SignIn } from "@/components/SignIn";
 import { isBrowser } from "@/lib/utils";
+import { CardGlass } from "@/components/ui/card-glass";
+import { CreateProjectDialog } from "@/components/dashboard/CreateProjectDialogue";
+import { CreateMoodboardDialog } from "@/components/moodboard/CreateMoodboardDIalogue";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -25,80 +21,75 @@ function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#2C2C2C] to-[#1C1C1C] text-white">
       {logto?.isAuthenticated ? (
-        <main className="container mx-auto px-4 pt-24 pb-8">
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-4 bg-white/10  p-1">
-              <TabsTrigger
-                value="create"
-                className=" data-[state=active]:bg-[#0077B6] data-[state=active]:text-white"
-              >
-                Create
-              </TabsTrigger>
-              <TabsTrigger
-                value="templates"
-                className=" data-[state=active]:bg-[#5C0A98] data-[state=active]:text-white"
-              >
-                Templates
-              </TabsTrigger>
-              <TabsTrigger
-                value="assets"
-                className=" data-[state=active]:bg-[#FF006E] data-[state=active]:text-white"
-              >
-                Assets
-              </TabsTrigger>
-              <TabsTrigger
-                value="projects"
-                className=" data-[state=active]:bg-[#FFD100] data-[state=active]:text-white"
-              >
-                Projects
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="create" className="mt-6">
-              <h2 className="text-2xl font-bold mb-4">Create New Project</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <ProjectCard
-                  title="Music Video"
-                  icon={<Music className="h-8 w-8" />}
-                  color="#0077B6"
-                  items={MusicList}
-                />
-                <ProjectCard
-                  title="Product Showcase"
-                  icon={<ShoppingBag className="h-8 w-8" />}
-                  color="#5C0A98"
-                  items={ProductShowCaseList}
-                />
-                <ProjectCard
-                  title="Fashion Show"
-                  icon={<Shirt className="h-8 w-8" />}
-                  color="#FF006E"
-                  items={FashionShowList}
-                />
-                <ProjectCard
-                  title="Social Media Post"
-                  icon={<Users className="h-8 w-8" />}
-                  color="#FFD100"
-                  items={SocialMediaList}
-                />
-              </div>
-            </TabsContent>
-            <TabsContent value="templates" className="mt-6">
-              <h2 className="text-2xl font-bold mb-4">Templates</h2>
-              {/* Add template content here */}
-            </TabsContent>
-            <TabsContent value="assets" className="mt-6">
-              <h2 className="text-2xl font-bold mb-4">Assets</h2>
-              {/* Add assets content here */}
-            </TabsContent>
-            <TabsContent value="projects" className="mt-6">
-              <h2 className="text-2xl font-bold mb-4">My Projects</h2>
-              {/* Add projects content here */}
-            </TabsContent>
-          </Tabs>
+        <main className="container mx-auto px-4 pt-28 pb-8">
+          <div className="max-w-5xl mx-auto">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-48 mx-auto grid-cols-2 bg-white/10 p-1">
+                <TabsTrigger
+                  value="create"
+                  className="data-[state=active]:bg-[#0077B6] data-[state=active]:text-white"
+                >
+                  Create
+                </TabsTrigger>
+                <TabsTrigger
+                  value="projects"
+                  className="data-[state=active]:bg-[#FFD100] data-[state=active]:text-white"
+                >
+                  Projects
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="create" className="mt-12">
+                <h2 className="text-2xl font-bold mb-8 text-center">
+                  Create New Project
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+                  <CardGlass className="p-8 group hover:scale-[1.02] transition-transform duration-300 aspect-square">
+                    <div className="flex flex-col items-center text-center justify-between h-full">
+                      <div className="flex flex-col items-center">
+                        <div className="mb-6 p-4 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                          <PlusCircle className="w-8 h-8 text-blue-400" />
+                        </div>
+                        <h3 className="text-xl font-semibold mb-4">
+                          New Project
+                        </h3>
+                        <p className="text-gray-400">
+                          Create a new project with customized settings and
+                          templates.
+                        </p>
+                      </div>
+                      <CreateProjectDialog />
+                    </div>
+                  </CardGlass>
+
+                  <CardGlass className="p-8 group hover:scale-[1.02] transition-transform duration-300 aspect-square">
+                    <div className="flex flex-col items-center text-center justify-between h-full">
+                      <div className="flex flex-col items-center">
+                        <div className="mb-6 p-4 rounded-full bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+                          <Palette className="w-8 h-8 text-purple-400" />
+                        </div>
+                        <h3 className="text-xl font-semibold mb-4">
+                          New Moodboard
+                        </h3>
+                        <p className="text-gray-400">
+                          Create a new moodboard to collect and organize your
+                          inspiration.
+                        </p>
+                      </div>
+                      <CreateMoodboardDialog />
+                    </div>
+                  </CardGlass>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="projects" className="mt-12">
+                <h2 className="text-2xl font-bold mb-8 text-center">
+                  My Projects
+                </h2>
+                {/* Add projects content here */}
+              </TabsContent>
+            </Tabs>
+          </div>
         </main>
       ) : (
         <SignIn />
