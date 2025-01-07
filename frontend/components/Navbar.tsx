@@ -13,11 +13,19 @@ import { Link } from "@tanstack/react-router";
 import { useLogto } from "@logto/react";
 import { isBrowser } from "@/lib/utils";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
+import useUserStore from "@/store/userStore";
 
 const Navbar = () => {
-  // FIXME: This is a temporary solution until we have a proper way to handle authentication in the Server.
   const logto = isBrowser ? useLogto() : null;
   const isVisible = useVisibilityStore((state) => !state.isFullscreen);
+  const { userInfo, resetUserInfo } = useUserStore((store) => store);
+
+  const handleSignOut = async () => {
+    if (logto) {
+      await logto.signOut(import.meta.env.VITE_SIGN_OUT_URI);
+      resetUserInfo();
+    }
+  };
   return logto?.isAuthenticated ? (
     <nav
       className={`fixed top-4 left-4 right-4 z-50 transition-all transform -translate-y-1/2 duration-300  ${isVisible ? "translate-y-0" : "-translate-y-full"} `}
@@ -45,23 +53,23 @@ const Navbar = () => {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        john Doe
+                        {userInfo?.username || "John Doe"}
                       </p>
                       <p className="text-xs leading-none text-white/70">
-                        john@example.com
+                        {userInfo?.email || "yourEmailHere"}
                       </p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-white hover:bg-white/10">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem>
+                  {false && (
+                    <DropdownMenuItem className="text-white hover:bg-white/10">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     className="text-white hover:bg-white/10"
-                    onClick={() =>
-                      logto?.signOut(import.meta.env.VITE_SIGN_OUT_URI)
-                    }
+                    onClick={handleSignOut}
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>

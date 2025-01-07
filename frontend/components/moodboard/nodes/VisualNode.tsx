@@ -2,10 +2,15 @@ import { BaseNode } from "./BaseNode";
 import { ImageSection } from "./visual/ImageSection";
 import { ColorPalette } from "./visual/ColorPalette";
 import { VideoReferences } from "./visual/VideoReference";
-import { useMoodboardStore } from "@/store/moodboardStore";
-import { ImageWithAnnotation, MoodboardFormData } from "@/types/moodboard";
+import {
+  CategoryImages,
+  ImageWithAnnotation,
+  MoodboardFormData,
+} from "@/types/moodboard";
 import { useFormContext } from "react-hook-form";
 import { FormError } from "@/components/ui/form-error";
+
+type CategoryKeys = keyof CategoryImages;
 
 export function VisualNode() {
   const {
@@ -18,7 +23,10 @@ export function VisualNode() {
   const colorPalette = watch("colorPalette") || [];
   const videoReferences = watch("videoReferences") || [];
 
-  const updateImages = (category: string, newImages: ImageWithAnnotation[]) => {
+  const updateImages = (
+    category: CategoryKeys,
+    newImages: ImageWithAnnotation[]
+  ) => {
     setValue(`categoryImages.${category}`, newImages, {
       shouldValidate: true,
     });
@@ -34,7 +42,9 @@ export function VisualNode() {
           <ImageSection
             title="Compositions"
             description="Reference images for camera angles and framing"
-            images={categoryImages?.compositions || []}
+            images={
+              (categoryImages?.compositions || []) as ImageWithAnnotation[]
+            }
             onImagesChange={(images) => updateImages("compositions", images)}
             category="compositions"
           />
@@ -42,7 +52,7 @@ export function VisualNode() {
           <ImageSection
             title="Actions & Activities"
             description="Reference images for poses and interactions"
-            images={categoryImages?.actions || []}
+            images={(categoryImages?.actions || []) as ImageWithAnnotation[]}
             onImagesChange={(images) => updateImages("actions", images)}
             category="actions"
           />
@@ -50,7 +60,7 @@ export function VisualNode() {
           <ImageSection
             title="Lighting"
             description="Reference images for lighting setup and mood"
-            images={categoryImages?.lighting || []}
+            images={(categoryImages?.lighting || []) as ImageWithAnnotation[]}
             onImagesChange={(images) => updateImages("lighting", images)}
             category="lighting"
           />
@@ -58,7 +68,7 @@ export function VisualNode() {
           <ImageSection
             title="Location"
             description="Reference images for scene and environment"
-            images={categoryImages?.location || []}
+            images={(categoryImages?.location || []) as ImageWithAnnotation[]}
             onImagesChange={(images) => updateImages("location", images)}
             category="location"
           />

@@ -264,7 +264,7 @@ class WebSocketHandler:
     def _handle_generate_video(self, data):
         """Generate video based on the available frames."""
         image_sequence_directory = Path(
-            "/media/970_evo/SC Studio/cr8-xyz/Test Renders") / "box_preview"
+            "/home/thamsanqa/Cr8-xyz Creative Studio/Test Renders") / "box_preview"
         output_file = image_sequence_directory / "box_preview.mp4"
         resolution = (1280, 720)
         fps = 30

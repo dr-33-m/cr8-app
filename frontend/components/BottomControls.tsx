@@ -1,31 +1,6 @@
 import { Button } from "@/components/ui/button";
-import {
-  Play,
-  ChevronDown,
-  ChevronUp,
-  Clapperboard,
-  LoaderPinwheel,
-  Pause,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { DesignTray } from "./creative-workspace/changes-tray";
-import {
-  OnRemoveAssetFunction,
-  SceneConfiguration,
-} from "@/lib/types/sceneConfig";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
-
-interface BottomControlsProps {
-  isLoading: boolean;
-  isPlaying: boolean;
-  isFinalVideoReady: boolean;
-  onShootPreview: () => void;
-  onPlaybackPreview: () => void;
-  onStopPlaybackPreview: () => void;
-  onGenerateVideo: () => void;
-  assets: SceneConfiguration;
-  onRemoveAsset?: OnRemoveAssetFunction;
-}
 
 export function BottomControls({ children }) {
   const isVisible = useVisibilityStore(

@@ -3,7 +3,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useMoodboardStore } from "@/store/moodboardStore";
 import { MoodboardFormData, moodboardSchema } from "@/types/moodboard";
-// import { MoodboardData, Theme, Tone, Industry, UsageIntent } from '@/types/moodboard';
 
 export function useMoodboardForm() {
   const { moodboard, updateMoodboard } = useMoodboardStore();

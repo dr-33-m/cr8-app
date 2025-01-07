@@ -1,28 +1,14 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+# session.py
+from supabase import create_client, Client
 from app.core.config import settings
 
+url = settings.DATABASE_URL
+key = settings.SUPABASE_ANON_KEY
 
-# Create async engine
-engine = create_async_engine(
-    # Make sure this is an async-compatible URI (e.g., for PostgreSQL, use "postgresql+asyncpg://")
-    settings.DATABASE_URI,
-    echo=True,  # Set to False in production
-    future=True
-)
+supabase: Client = create_client(url, key)
 
-# Create async session factory
-async_session = sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+# Dependency to get the supabase client
 
 
-# You can now use this engine and session for async database operations
-async def get_db() -> AsyncSession:
-    async with async_session() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+def get_db():
+    return supabase

@@ -24,8 +24,8 @@ export function SceneViewPort({
         // Render the canvas for preview
         <canvas
           ref={canvasRef}
-          width={1280}
-          height={720}
+          width={1920}
+          height={1080}
           className="w-full h-full object-cover"
         />
       ) : (

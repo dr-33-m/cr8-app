@@ -62,7 +62,9 @@ export function TextualNode() {
             <Palette className="text-cr8-purple" size={20} />
             <Select
               value={themeValue}
-              onValueChange={(value) => setValue("theme", value)}
+              onValueChange={(value: Theme) =>
+                setValue("theme", value, { shouldValidate: true })
+              }
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select Theme" />
@@ -122,7 +124,9 @@ export function TextualNode() {
         <div>
           <Select
             value={toneValue}
-            onValueChange={(value) => setValue("tone", value)}
+            onValueChange={(value: Tone) =>
+              setValue("tone", value, { shouldValidate: true })
+            }
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select Tone" />

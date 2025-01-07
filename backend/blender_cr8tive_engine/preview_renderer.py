@@ -8,25 +8,32 @@ import os
 class PreviewRenderer:
     def __init__(self):
         self.preview_dir = Path(
-            "/media/970_evo/SC Studio/cr8-xyz/Test Renders") / "box_preview"
+            "/home/thamsanqa/Cr8-xyz Creative Studio/Test Renders") / "box_preview"
         self.preview_dir.mkdir(exist_ok=True, parents=True)
 
     def setup_preview_render(self, params=None):
         """Setup the preview render with given parameters"""
         render = bpy.context.scene.render
-        render.engine = 'CYCLES'  # Using Cycles renderer for high-quality preview
-        render.image_settings.file_format = 'PNG'
 
-        # Set resolution with default fallbacks
+        # Cycles Configuration
+        # render.engine = 'CYCLES'  # Using Cycles renderer for high-quality preview
+        # render.image_settings.file_format = 'PNG'
+        # cycles_settings = bpy.context.scene.cycles
+        # cycles_settings.samples = params.get('samples', 16)
+        # cycles_settings.use_denoising = True
+        # cycles_settings.device = 'GPU'
+
+        # Eevee Configuration
+        render.engine = 'BLENDER_EEVEE_NEXT'
+        render.image_settings.file_format = 'PNG'
+        eevee_settings = bpy.context.scene.eevee
+        eevee_settings.taa_render_samples = params.get('samples', 16)
+        eevee_settings.use_taa_reprojection = True
+        eevee_settings.use_fast_gi = True
+
+        # Common settings
         render.resolution_x = params.get('resolution_x', 480)
         render.resolution_y = params.get('resolution_y', 270)
-
-        # Setup Cycles settings for speed vs quality
-        bpy.context.scene.cycles.samples = params.get('samples', 16)
-        bpy.context.scene.cycles.use_denoising = True
-        bpy.context.scene.cycles.device = 'GPU'
-
-        # Ensure filepath is set for preview frames
         render.filepath = str(self.preview_dir / "frame_")
 
     def render_preview_frame(self, frame):

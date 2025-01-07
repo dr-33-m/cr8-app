@@ -1,29 +1,38 @@
-from typing import Optional, List
-from pydantic import BaseModel, Field
+from typing import List, Optional
+from pydantic import BaseModel
 from datetime import datetime
-
-from ..models import ProjectStatus
+from ..schemas.user import UserRead  # Assuming UserRead is defined in user.py
+from ..schemas.asset import AssetRead  # Assuming AssetRead is defined
+from ..schemas.template import TemplateRead  # Assuming TemplateRead is defined
 
 
 class ProjectBase(BaseModel):
     name: str
-    status: ProjectStatus
+    project_status: Optional[str] = None
+    project_type: Optional[str] = None
+    subtype: Optional[str] = None
+    description: str
 
 
 class ProjectCreate(ProjectBase):
     user_id: int
 
 
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    project_status: Optional[str] = None
+    project_type: Optional[str] = None
+    subtype: Optional[str] = None
+    description: Optional[str] = None
+
+
 class ProjectRead(ProjectBase):
     id: int
-    user_id: int
     created_at: datetime
     updated_at: datetime
+    user: UserRead  # Detailed user information
+    assets: List[AssetRead] = []  # Detailed asset information
+    templates: List[TemplateRead] = []  # Detailed template information
 
     class Config:
         orm_mode = True
-
-
-class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
-    status: Optional[ProjectStatus] = None

@@ -49,7 +49,9 @@ export function ContextualNode() {
             <Building2 className="text-cr8-pink" size={20} />
             <Select
               value={industryValue}
-              onValueChange={(value) => setValue("industry", value)}
+              onValueChange={(value: Industry) =>
+                setValue("industry", value, { shouldValidate: true })
+              }
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select Industry" />
@@ -84,7 +86,9 @@ export function ContextualNode() {
             <Target className="text-cr8-pink" size={20} />
             <Select
               value={usageIntentValue}
-              onValueChange={(value) => setValue("usageIntent", value)}
+              onValueChange={(value: UsageIntent) =>
+                setValue("usageIntent", value, { shouldValidate: true })
+              }
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select Usage Intent" />

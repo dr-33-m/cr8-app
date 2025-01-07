@@ -1,5 +1,6 @@
-from pydantic import BaseSettings, PostgresDsn, validator
+from pydantic import BaseSettings
 from typing import List, Optional
+import urllib.parse
 
 
 class Settings(BaseSettings):
@@ -7,11 +8,13 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "CR8 Platform"
 
     # Database configuration
-    POSTGRES_HOST: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    DATABASE_URI: Optional[PostgresDsn]
+    DATABASE_URL: str
+    SUPABASE_ANON_KEY: str
+    DB_user: str
+    DB_password: str
+    DB_host: str
+    DB_port: int
+    DB_name: str
 
     # WebSocket settings
     WS_HOST: str
@@ -21,23 +24,19 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: List[str] = ["*"]
 
     # Logto authentication
-    LOGTO_ENDPOINT: str
-    LOGTO_APP_ID: str
+    # LOGTO_ENDPOINT: str
+    # LOGTO_APP_ID: str
     # LOGTO_CLIENT_SECRET: str
 
-    @validator("DATABASE_URI", pre=True)
-    def assemble_db_connection(cls, v: Optional[str], values: dict) -> str:
-        if isinstance(v, str):
-            return v
-        return str(
-            PostgresDsn.build(
-                scheme="postgresql+asyncpg",
-                user=values.get("POSTGRES_USER"),
-                password=values.get("POSTGRES_PASSWORD"),
-                host=values.get("POSTGRES_HOST"),
-                path=f"/{values.get('POSTGRES_DB') or ''}",
-            )
-        )
+    # Minio Config
+    MINIO_ENDPOINT: str
+    MINIO_ACCESS_KEY: str
+    MINIO_SECRET_KEY: str
+    MINIO_BUCKET_NAME: str
+
+    @property
+    def postgres_url(self) -> str:
+        return f"postgresql://{self.DB_user}:{urllib.parse.quote_plus(self.DB_password)}@{self.DB_host}:{self.DB_port}/{self.DB_name}"
 
     class Config:
         env_file = ".env"

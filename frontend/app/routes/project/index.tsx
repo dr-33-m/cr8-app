@@ -105,8 +105,8 @@ function RouteComponent() {
         JSON.stringify({
           command: "start_preview_rendering",
           params: {
-            resolution_x: 1280,
-            resolution_y: 720,
+            resolution_x: 1920,
+            resolution_y: 1080,
             samples: 16,
             num_frames: 80,
             subcommands: sceneConfiguration,

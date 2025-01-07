@@ -4,50 +4,66 @@ import { useFormContext } from "react-hook-form";
 import { useMoodboardStore } from "@/store/moodboardStore";
 import { MoodboardFormData } from "@/types/moodboard";
 
-export function MoodboardActions() {
+export function MoodboardActions({ moodboardId }) {
   const {
     formState: { isValid },
     handleSubmit,
     reset,
   } = useFormContext<MoodboardFormData>();
 
-  const moodboard = useMoodboardStore((state) => state.moodboard);
   const resetMoodboard = useMoodboardStore((state) => state.resetMoodboard);
 
   const onSubmit = async (data: MoodboardFormData) => {
     try {
-      console.log(moodboard, "moodboard data fom submit btn");
       const formData = new FormData();
 
-      // Handle images
+      // Prepare moodboard_data object to match backend expectations
+      const moodboardData = {
+        storyline: data.storyline,
+        keywords: data.keywords,
+        industry: data.industry,
+        targetAudience: data.targetAudience,
+        theme: data.theme,
+        tone: data.tone,
+        videoReferences: data.videoReferences,
+        colorPalette: data.colorPalette,
+        usage_intent: data.usageIntent,
+        images_metadata: [] as Array<{
+          filename: string;
+          category: string;
+          annotation: string;
+        }>,
+      };
+
+      // Handle images from different categories
       Object.entries(data.categoryImages).forEach(([category, images]) => {
-        images.forEach((image, index) => {
-          formData.append(`${category}[${index}]`, image.file);
-          formData.append(`${category}Annotations[${index}]`, image.annotation);
+        images.forEach((image) => {
+          moodboardData.images_metadata.push({
+            filename: image.file.name,
+            category: category,
+            annotation: image.annotation || "",
+          });
+
+          formData.append("images", image.file);
         });
       });
 
-      // Add other form data
-      Object.entries(data).forEach(([key, value]) => {
-        if (key !== "categoryImages") {
-          formData.append(
-            key,
-            typeof value === "object" ? JSON.stringify(value) : value
-          );
-        }
-      });
+      // Add the moodboard data as a JSON string
+      formData.append("moodboard_data", JSON.stringify(moodboardData));
 
-      const response = await fetch("/api/moodboard", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        `http://localhost:8000/api/v1/moodboards/update_moodboard/${moodboardId}`,
+        {
+          method: "PUT",
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to save moodboard");
       }
 
       if (response.ok) {
-        // Reset both form and store
         const defaultValues = {
           categoryImages: {
             compositions: [],
@@ -69,6 +85,7 @@ export function MoodboardActions() {
         reset(defaultValues);
         resetMoodboard();
       }
+
       return await response.json();
     } catch (error) {
       console.error("Error saving moodboard:", error);

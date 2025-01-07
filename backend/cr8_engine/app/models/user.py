@@ -1,7 +1,7 @@
 from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field, Relationship, Column
 from datetime import datetime
-from models import UserRole, SubscriptionTier
+from .constants import UserRole, SubscriptionTier
 
 
 class User(SQLModel, table=True):
@@ -9,10 +9,11 @@ class User(SQLModel, table=True):
     logto_id: str = Field(unique=True, index=True)  # Logto authentication ID
     email: str = Field(unique=True, index=True)
     username: str
-    role: UserRole
+    role: Optional[str] = Field(default=UserRole.CONTENT_CREATOR)
 
     # Content Creator Specific Fields
-    subscription_tier: Optional[SubscriptionTier] = None
+
+    subscription_tier: Optional[str] = Field(default=SubscriptionTier.BASIC)
     subscription_active: bool = Field(default=True)
 
     # Relationships
@@ -24,3 +25,4 @@ class User(SQLModel, table=True):
     created_templates: List["Template"] = Relationship(
         back_populates="creator")
     revenue_share: Optional[float] = Field(default=0.0)
+    moodboards: List["Moodboard"] = Relationship(back_populates="user")

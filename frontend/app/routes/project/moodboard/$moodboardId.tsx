@@ -6,11 +6,12 @@ import { MoodboardFormProvider } from "@/components/moodboard/MoodboardFormProvi
 import { PreviewWindow } from "@/components/PreviewWindow";
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/project/moodboard")({
+export const Route = createFileRoute("/project/moodboard/$moodboardId")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
+  const { moodboardId } = Route.useParams();
   return (
     <MoodboardFormProvider>
       <div className="relative w-full h-screen bg-[#1C1C1C] text-white">
@@ -19,7 +20,7 @@ function RouteComponent() {
             <MoodboardFlow />
           </PreviewWindow>
           <BottomControls>
-            <MoodboardActions />
+            <MoodboardActions moodboardId={moodboardId} />
           </BottomControls>
         </ControlsOverlay>
       </div>

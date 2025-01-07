@@ -29,7 +29,7 @@ export type UsageIntent =
 
 export interface ImageWithAnnotation {
   file: File;
-  annotation: string;
+  annotation?: string;
 }
 
 export interface CategoryImages {
@@ -53,9 +53,11 @@ export interface MoodboardData {
 }
 
 // Zod Types
+
+// Define the file schema if not already defined
 const fileSchema = z.object({
-  file: z.instanceof(File, { message: "Please upload an image" }),
-  annotation: z.string(),
+  file: z.instanceof(File),
+  annotation: z.string().optional(),
 });
 
 export const moodboardSchema = z.object({

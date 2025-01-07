@@ -1,21 +1,24 @@
 import uvicorn
+from sqlmodel import create_engine, SQLModel
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 from app.core.config import settings
-# from app.api.v1.endpoints import users, projects, assets, templates
+from app.api.v1.endpoints import users, projects, assets, templates, moodboards
 from app.realtime_engine.server import WebSocketServer
-from app.db.session import engine
+from app.db.session import get_db
 from app.db.base import Base
+
+from app.models import User, Project, Asset, Template, Moodboard
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup events
-    # Create database tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    engine = create_engine(settings.postgres_url, echo=True)
+    metadata = SQLModel.metadata
+    metadata.create_all(engine)  # This will create tables based on your models
 
     yield
 
@@ -36,7 +39,9 @@ app.add_middleware(
 )
 
 # Include API routers
-# app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(moodboards.router,
+                   prefix="/api/v1/moodboards", tags=["moodboards"])
 # app.include_router(
 #     projects.router, prefix="/api/v1/projects", tags=["projects"])
 # app.include_router(assets.router, prefix="/api/v1/assets", tags=["assets"])

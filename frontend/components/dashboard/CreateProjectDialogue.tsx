@@ -14,6 +14,7 @@ import { projectTypes, projectTemplates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { StepIndicator } from "@/components/ui/step-indicator";
 import { ProjectFormData } from "@/lib/types/ProjectConfig";
+import { Lock } from "lucide-react";
 
 export function CreateProjectDialog() {
   const [step, setStep] = useState(1);
@@ -139,6 +140,41 @@ export function CreateProjectDialog() {
         return (
           <div className="space-y-6">
             <div className="space-y-3">
+              <Label>Select Moodboard</Label>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left h-auto p-4"
+                onClick={() => {
+                  /* Open moodboard creation dialog */
+                }}
+              >
+                <div>
+                  <p className="font-medium">Create New Moodboard</p>
+                  <p className="text-sm text-gray-400">
+                    Start fresh with a new moodboard
+                  </p>
+                </div>
+              </Button>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={prevStep}>
+                Back
+              </Button>
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                onClick={nextStep}
+              >
+                Next Step
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-6">
+            <div className="space-y-3">
               <Label>Select Template</Label>
               <div className="grid grid-cols-2 gap-4">
                 {projectTemplates[formData.type]?.map((template) => (
@@ -173,41 +209,8 @@ export function CreateProjectDialog() {
               </Button>
               <Button
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
-                onClick={nextStep}
                 disabled={!formData.template}
               >
-                Next Step
-              </Button>
-            </div>
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <Label>Select Moodboard</Label>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-left h-auto p-4"
-                onClick={() => {
-                  /* Open moodboard creation dialog */
-                }}
-              >
-                <div>
-                  <p className="font-medium">Create New Moodboard</p>
-                  <p className="text-sm text-gray-400">
-                    Start fresh with a new moodboard
-                  </p>
-                </div>
-              </Button>
-            </div>
-
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={prevStep}>
-                Back
-              </Button>
-              <Button className="flex-1 bg-blue-600 hover:bg-blue-700">
                 Create Project
               </Button>
             </div>
@@ -221,8 +224,10 @@ export function CreateProjectDialog() {
       <DialogTrigger asChild>
         <Button
           size="lg"
-          className="bg-cr8-blue hover:bg-cr8-blue/30 text-white w-full"
+          className="bg-cr8-blue/60 hover:bg-cr8-blue/60 text-white w-full cursor-not-allowed"
+          disabled
         >
+          <Lock className="w-5 h-5 mr-2" />
           Create Project
         </Button>
       </DialogTrigger>

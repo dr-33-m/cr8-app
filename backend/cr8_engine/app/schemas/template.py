@@ -1,6 +1,6 @@
-from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field
-from datetime import datetime
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel
+from ..schemas.user import UserRead  # Assuming UserRead is defined in user.py
 
 
 class TemplateBase(BaseModel):
@@ -13,15 +13,7 @@ class TemplateBase(BaseModel):
 
 
 class TemplateCreate(TemplateBase):
-    creator_id: int
-
-
-class TemplateRead(TemplateBase):
-    id: int
-    creator_id: int
-
-    class Config:
-        orm_mode = True
+    creator_id: int  # Include here since it's necessary during creation.
 
 
 class TemplateUpdate(BaseModel):
@@ -30,4 +22,15 @@ class TemplateUpdate(BaseModel):
     minio_path: Optional[str] = None
     price: Optional[float] = None
     is_public: Optional[bool] = None
+    # Explicit None default.
     template_controls: Optional[Dict[str, Any]] = None
+
+
+class TemplateRead(TemplateBase):
+    id: int
+    creator: UserRead
+    # Replace with more descriptive types if needed.
+    project_templates: List[int] = []
+
+    class Config:
+        orm_mode = True

@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any, List
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
-from models import User
+from .user import User
 
 
 class Template(SQLModel, table=True):

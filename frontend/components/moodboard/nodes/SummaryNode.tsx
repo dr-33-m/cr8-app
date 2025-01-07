@@ -7,6 +7,13 @@ import { useMoodboardStore } from "@/store/moodboardStore";
 export function SummaryNode() {
   const moodboard = useMoodboardStore((state) => state.moodboard);
 
+  const images = [
+    ...(moodboard.categoryImages?.compositions || []),
+    ...(moodboard.categoryImages?.actions || []),
+    ...(moodboard.categoryImages?.lighting || []),
+    ...(moodboard.categoryImages?.location || []),
+  ];
+
   return (
     <BaseNode
       title="Moodboard Summary"
@@ -15,7 +22,7 @@ export function SummaryNode() {
     >
       <div className="space-y-6">
         <SummaryVisuals
-          images={moodboard.images || []}
+          images={images}
           colorPalette={moodboard.colorPalette || []}
         />
         <SummaryTextual

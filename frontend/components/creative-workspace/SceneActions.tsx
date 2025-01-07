@@ -58,8 +58,8 @@ export function SceneActions({
             size="icon"
             className="text-[#0077B6] hover:bg-[#0077B6]/10"
             title="Shoot Preview"
-            // onClick={onShootPreview}
-            onClick={onGenerateVideo}
+            onClick={onShootPreview}
+            // onClick={onGenerateVideo}
             disabled={isLoading}
           >
             {isLoading ? (

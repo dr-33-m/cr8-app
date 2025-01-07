@@ -1,13 +1,13 @@
 from typing import Optional, Dict, Any, List
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
-from models import AssetType, User
+from .user import User
 
 
 class Asset(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     description: Optional[str] = None
-    type: AssetType
+    asset_type: Optional[str] = Field(default=None)
     minio_path: str  # Path to asset in MinIO storage
 
     creator_id: int = Field(foreign_key="user.id")

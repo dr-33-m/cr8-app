@@ -28,7 +28,7 @@ export function ImageSection({
   } = useFormContext();
   const error = errors.categoryImages?.[category]?.message;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const newImages = files.map((file) => ({ file, annotation: "" }));
     onImagesChange([...images, ...newImages].slice(0, maxImages));

@@ -1,14 +1,21 @@
 import { cn } from "@/lib/utils";
 
 interface StepIndicatorProps {
+  steps: string[];
   currentStep: number;
-  totalSteps: number;
+  className?: string;
 }
 
-export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
+export function StepIndicator({
+  steps,
+  currentStep,
+  className,
+}: StepIndicatorProps) {
   return (
-    <div className="flex items-center justify-center space-x-2 mb-6">
-      {Array.from({ length: totalSteps }).map((_, index) => (
+    <div
+      className={`flex items-center justify-center space-x-2 mb-6 ${className}`}
+    >
+      {steps.map((_, index) => (
         <div
           key={index}
           className={cn(
