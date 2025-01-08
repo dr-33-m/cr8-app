@@ -22,6 +22,8 @@ import * as z from "zod";
 import { useNavigate } from "@tanstack/react-router";
 import useUserStore from "@/store/userStore";
 
+const cr8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
+
 // Define the form schema using zod
 export const moodBoardFormSchema = z.object({
   name: z.string().min(1, "Moodboard name is required"),
@@ -47,7 +49,7 @@ export function CreateMoodboardDialog() {
       const logto_userId = userInfo?.sub;
       Object.assign(values, { logto_userId });
       const res = await fetch(
-        "http://localhost:8000/api/v1/moodboards/create_moodboard",
+        `${cr8_engine_server}/api/v1/moodboards/create_moodboard`,
         {
           method: "POST",
           headers: {
