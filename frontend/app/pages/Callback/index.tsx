@@ -9,6 +9,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AuthLoadingSteps, Step } from "@/components/AuthLoadingSteps";
 
+const cr8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
+
 export function Callback() {
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -51,7 +53,7 @@ export function Callback() {
     updateStep(2, "loading");
     try {
       const response = await fetch(
-        `http://localhost:8000/api/v1/users/check/${logtoId}`
+        `${cr8_engine_server}/api/v1/users/check/${logtoId}`
       );
       console.log("Check response:", response.status);
       updateStep(2, "complete");
@@ -87,7 +89,7 @@ export function Callback() {
       };
 
       const response = await fetch(
-        `http://localhost:8000/api/v1/users/register`,
+        `${cr8_engine_server}/api/v1/users/register`,
         {
           method: "POST",
           headers: {
