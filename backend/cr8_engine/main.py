@@ -1,7 +1,8 @@
 import uvicorn
 from sqlmodel import create_engine, SQLModel
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import asyncio
 from app.core.config import settings
@@ -28,6 +29,14 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
+
+
+@app.get("/health", tags=["health"])
+async def health_check():
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"status": "healthy", "message": "The server is running"}
+    )
 
 # Set up CORS
 app.add_middleware(
