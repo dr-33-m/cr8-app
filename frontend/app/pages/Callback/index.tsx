@@ -8,6 +8,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AuthLoadingSteps, Step } from "@/components/AuthLoadingSteps";
+import { nanoid } from "nanoid"; // New import for generating unique IDs
 
 const cr8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
 
@@ -23,7 +24,7 @@ export function Callback() {
     { label: "Checking user existence", status: "pending" },
     { label: "Saving user data", status: "pending" },
   ]);
-
+  const uniqueString = nanoid(10); // Generate a unique string using nanoid
   const updateStep = (
     index: number,
     status: "pending" | "loading" | "complete"
@@ -83,7 +84,7 @@ export function Callback() {
       }
 
       const userPayload = {
-        email: "TODO",
+        email: `${uniqueString}@example.com`,
         username: info.username,
         logto_id: info.sub,
       };
