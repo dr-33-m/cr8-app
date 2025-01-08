@@ -5,7 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { Meta, Scripts } from "@tanstack/start";
 import type { ReactNode } from "react";
-import "../../styles/globals.css";
+import "@/styles/globals.css";
 import Navbar from "@/components/Navbar";
 import { LogtoConfig, LogtoProvider } from "@logto/react";
 import { isBrowser } from "@/lib/utils";

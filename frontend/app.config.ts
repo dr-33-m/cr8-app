@@ -1,6 +1,7 @@
 // app.config.ts
 import { defineConfig } from "@tanstack/start/config";
 import viteTsConfigPaths from "vite-tsconfig-paths";
+import tailwindcss from "tailwindcss";
 
 export default defineConfig({
   server: {
@@ -13,5 +14,10 @@ export default defineConfig({
         projects: ["./tsconfig.json"],
       }),
     ],
+    css: {
+      postcss: {
+        plugins: [tailwindcss()],
+      },
+    },
   },
 });
