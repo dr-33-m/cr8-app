@@ -5,15 +5,15 @@ import { persist } from "zustand/middleware";
 interface UserStoreState {
   userInfo?: IdTokenClaims;
   setUserInfo: (userInfo: IdTokenClaims) => void;
-  resetUserInfo: () => void; // Add reset functionality
+  resetUserInfo: () => void;
 }
 
 const useUserStore = create<UserStoreState>()(
   persist(
-    (set) => ({
+    (set): UserStoreState => ({
       userInfo: undefined,
       setUserInfo: (userInfo) => set({ userInfo }),
-      resetUserInfo: () => set({ userInfo: undefined }), // Reset userInfo to initial state
+      resetUserInfo: () => set({ userInfo: undefined }),
     }),
     {
       name: "user-storage",

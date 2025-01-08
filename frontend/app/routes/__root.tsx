@@ -5,7 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { Meta, Scripts } from "@tanstack/start";
 import type { ReactNode } from "react";
-import "@/styles/globals.css";
+import CSS from "@/styles/globals.css?url";
 import Navbar from "@/components/Navbar";
 import { LogtoConfig, LogtoProvider } from "@logto/react";
 import { isBrowser } from "@/lib/utils";
@@ -37,6 +37,12 @@ export const Route = createRootRoute({
       },
       {
         title: "Cr8-xyz App",
+      },
+    ],
+    links: [
+      {
+        rel: "stylesheet",
+        href: CSS,
       },
     ],
   }),

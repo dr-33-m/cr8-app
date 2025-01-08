@@ -14,10 +14,5 @@ export default defineConfig({
         projects: ["./tsconfig.json"],
       }),
     ],
-    css: {
-      postcss: {
-        plugins: [tailwindcss()],
-      },
-    },
   },
 });
