@@ -29,7 +29,7 @@ function RouteComponent() {
 
   useEffect(() => {
     // Establish WebSocket connection
-    const ws = new WebSocket("ws://localhost:8000/ws/browser");
+    const ws = new WebSocket(import.meta.env.VITE_WEBSOCKET_URL);
     websocketRef.current = ws;
 
     ws.onopen = () => {

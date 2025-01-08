@@ -5,6 +5,7 @@ import { useMoodboardStore } from "@/store/moodboardStore";
 import { MoodboardFormData } from "@/types/moodboard";
 
 export function MoodboardActions({ moodboardId }) {
+  const c8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
   const {
     formState: { isValid },
     handleSubmit,
@@ -52,7 +53,7 @@ export function MoodboardActions({ moodboardId }) {
       formData.append("moodboard_data", JSON.stringify(moodboardData));
 
       const response = await fetch(
-        `http://localhost:8000/api/v1/moodboards/update_moodboard/${moodboardId}`,
+        `${c8_engine_server}/api/v1/moodboards/update_moodboard/${moodboardId}`,
         {
           method: "PUT",
           body: formData,
