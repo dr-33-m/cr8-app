@@ -21,6 +21,9 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useNavigate } from "@tanstack/react-router";
 import useUserStore from "@/store/userStore";
+import { toast } from "sonner";
+import { useState } from "react";
+import { LoaderPinwheel } from "lucide-react";
 
 const cr8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
 
@@ -33,6 +36,7 @@ export const moodBoardFormSchema = z.object({
 export function CreateMoodboardDialog() {
   const navigate = useNavigate();
   const { userInfo } = useUserStore((store) => store);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Initialize the form
   const form = useForm({
@@ -46,6 +50,7 @@ export function CreateMoodboardDialog() {
   // Handle form submission
   const onSubmit = async (values: z.infer<typeof moodBoardFormSchema>) => {
     try {
+      setIsLoading(true);
       const logto_userId = userInfo?.sub;
       Object.assign(values, { logto_userId });
       const res = await fetch(
@@ -60,13 +65,17 @@ export function CreateMoodboardDialog() {
       );
 
       if (!res.ok) {
+        toast.error("Failed to create moodboard");
         throw new Error("Failed to create moodboard");
       }
       const data = await res.json();
       navigate({ to: `/project/moodboard/${data.id}` });
       return res.json();
     } catch (error) {
+      toast.error("Failed to create moodboard");
       console.error("Error creating moodboard:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -129,8 +138,12 @@ export function CreateMoodboardDialog() {
             <Button
               type="submit"
               className="w-full bg-purple-600 hover:bg-purple-700"
+              disabled={isLoading}
             >
-              Start Moodboarding
+              {isLoading ? (
+                <LoaderPinwheel className="h-4 w-4 animate-spin" />
+              ) : null}
+              {isLoading ? "Preparing Moodboard..." : "Start Moodboarding"}
             </Button>
           </form>
         </Form>

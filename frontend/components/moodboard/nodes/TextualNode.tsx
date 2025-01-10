@@ -1,5 +1,5 @@
 import { KeyboardEvent, useState } from "react";
-import { BookOpen, Tags, Palette } from "lucide-react";
+import { BookOpen, Tags, Palette, AlertCircle } from "lucide-react";
 import { MoodboardFormData, Theme, Tone } from "@/types/moodboard";
 import { BaseNode } from "./BaseNode";
 import {
@@ -116,6 +116,12 @@ export function TextualNode() {
                   {keyword}
                 </span>
               ))}
+            </div>
+          )}
+          {keywordInput.length > 0 && (
+            <div className="flex items-center gap-2 text-cr8-blue text-sm mt-1">
+              <AlertCircle className="h-4 w-4" />
+              <span>Press Enter to add Keyword</span>
             </div>
           )}
           <FormError message={errors.keywords?.message as string} />

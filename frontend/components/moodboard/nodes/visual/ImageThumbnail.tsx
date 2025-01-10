@@ -29,14 +29,14 @@ export function ImageThumbnail({
         <div className="absolute top-2 right-2 flex gap-2">
           <button
             onClick={() => setShowAnnotation(true)}
-            className="p-1 rounded-full bg-charcoal-900/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1 rounded-full bg-cr8-charcoal/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
             title={annotation || "Add note"}
           >
             <MessageSquare className="h-3 w-3" />
           </button>
           <button
             onClick={onRemove}
-            className="p-1 rounded-full bg-charcoal-900/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1 rounded-full bg-cr8-charcoal/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <X className="h-3 w-3" />
           </button>
@@ -52,7 +52,7 @@ export function ImageThumbnail({
       {showAnnotation && (
         <div className="absolute inset-0 z-10 bg-charcoal-900/95 backdrop-blur-sm rounded-lg p-2">
           <textarea
-            className="w-full h-full bg-transparent text-white text-xs resize-none border border-charcoal-700/50 rounded p-1"
+            className="w-full h-full bg-transparent text-white text-xs resize-none border border-charcoal-700/50 rounded p-1 blur-md"
             placeholder="Add a note about this image..."
             value={annotation}
             onChange={(e) => onAnnotationChange(e.target.value)}

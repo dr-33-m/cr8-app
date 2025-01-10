@@ -42,6 +42,7 @@ export function SummaryTextual({
 
         {keywords && keywords.length > 0 && (
           <div className="flex flex-wrap gap-1">
+            <span className="text-xs text-white/60">Keywords:</span>
             {keywords.map((keyword, index) => (
               <Badge key={index} variant="secondary" className="text-[10px]">
                 {keyword}

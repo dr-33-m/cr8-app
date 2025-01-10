@@ -1,4 +1,4 @@
-import { Video, Plus, X } from "lucide-react";
+import { Video, Plus, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -47,7 +47,12 @@ export function VideoReferences({
           <Plus className="h-4 w-4" />
         </Button>
       </div>
-
+      {newUrl && (
+        <div className="flex items-center gap-2 text-cr8-blue text-sm mt-1">
+          <AlertCircle className="h-4 w-4" />
+          <span>Click the plus icon to add the link</span>
+        </div>
+      )}
       <div className="space-y-2">
         {videos.map((url, index) => (
           <div

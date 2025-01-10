@@ -1,8 +1,10 @@
-import { Save } from "lucide-react";
+import { LoaderPinwheel, Save } from "lucide-react";
 import { Button } from "../ui/button";
 import { useFormContext } from "react-hook-form";
 import { useMoodboardStore } from "@/store/moodboardStore";
 import { MoodboardFormData } from "@/types/moodboard";
+import { toast } from "sonner";
+import { useState } from "react";
 
 export function MoodboardActions({ moodboardId }) {
   const c8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
@@ -13,9 +15,11 @@ export function MoodboardActions({ moodboardId }) {
   } = useFormContext<MoodboardFormData>();
 
   const resetMoodboard = useMoodboardStore((state) => state.resetMoodboard);
+  const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = async (data: MoodboardFormData) => {
     try {
+      setIsLoading(true);
       const formData = new FormData();
 
       // Prepare moodboard_data object to match backend expectations
@@ -61,10 +65,12 @@ export function MoodboardActions({ moodboardId }) {
       );
 
       if (!response.ok) {
+        toast.error("Failed to save moodboard");
         throw new Error("Failed to save moodboard");
       }
 
       if (response.ok) {
+        toast.success("Moodboard saved successfully");
         const defaultValues = {
           categoryImages: {
             compositions: [],
@@ -89,8 +95,11 @@ export function MoodboardActions({ moodboardId }) {
 
       return await response.json();
     } catch (error) {
+      toast.error("Error saving moodboard:", error);
       console.error("Error saving moodboard:", error);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -99,13 +108,17 @@ export function MoodboardActions({ moodboardId }) {
       variant="ghost"
       size="default"
       title="Save Moodboard"
-      disabled={!isValid}
+      disabled={!isValid || isLoading}
       className="hover:bg-white/10"
       type="button"
       onClick={handleSubmit(onSubmit)}
     >
-      <Save className="h-5 w-5" />
-      <span>Save Moodboard</span>
+      {isLoading ? (
+        <LoaderPinwheel className="h-5 w-5 animate-spin" />
+      ) : (
+        <Save className="h-5 w-5" />
+      )}
+      <span>{isLoading ? "Saving Moodboard..." : "Save Moodboard"}</span>
     </Button>
   );
 }

@@ -7,7 +7,9 @@ interface ColorPaletteProps {
 
 export function ColorPalette({ colors, onColorsChange }: ColorPaletteProps) {
   const addColor = (color: string) => {
-    onColorsChange([...colors, color]);
+    if (!colors.includes(color)) {
+      onColorsChange([...colors, color]);
+    }
   };
 
   const removeColor = (index: number) => {

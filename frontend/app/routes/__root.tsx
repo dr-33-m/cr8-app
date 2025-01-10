@@ -9,6 +9,7 @@ import CSS from "@/styles/globals.css?url";
 import Navbar from "@/components/Navbar";
 import { LogtoConfig, LogtoProvider } from "@logto/react";
 import { isBrowser } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner";
 
 const config: LogtoConfig = {
   endpoint: import.meta.env.VITE_LOGTO_ENDPOINT,
@@ -68,6 +69,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       <body>
         <Navbar />
         {children}
+        <Toaster />
         <ScrollRestoration />
         <Scripts />
       </body>
