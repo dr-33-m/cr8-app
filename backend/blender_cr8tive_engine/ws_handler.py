@@ -119,19 +119,17 @@ class WebSocketHandler:
     def _on_open(self, ws):
         self.reconnect_attempts = 0
 
-        def send_template_controls():
+        def send_init_message():
             try:
-                controllables = self.wizard.scan_controllable_objects()
                 init_message = json.dumps({
-                    'command': 'template_controls',
-                    'controllables': controllables
+                    'status': 'Connected',
                 })
                 ws.send(init_message)
-                logging.info("Sent template controls to server")
+                logging.info("Connected Successfully")
             except Exception as e:
                 logging.error(f"Error in _on_open: {e}")
 
-        execute_in_main_thread(send_template_controls, ())
+        execute_in_main_thread(send_init_message, ())
 
     def _on_message(self, ws, message):
         self.process_message(message)
@@ -248,10 +246,8 @@ class WebSocketHandler:
             # Setup preview render settings
             preview_renderer.setup_preview_render(params)
 
-            # Render multiple frames (e.g., 24 frames)
-            num_frames = params.get('num_frames', 24)
-            for frame in range(1, num_frames + 1):
-                preview_renderer.render_preview_frame(frame)
+            # Render the entire animation once
+            bpy.ops.render.opengl(animation=True)
 
             self._send_response('start_broadcast', True)
 
@@ -264,7 +260,7 @@ class WebSocketHandler:
     def _handle_generate_video(self, data):
         """Generate video based on the available frames."""
         image_sequence_directory = Path(
-            "/home/thamsanqa/Cr8-xyz Creative Studio/Test Renders") / "box_preview"
+            "/mnt/shared_storage/Cr8tive_Engine/Sessions/test_session") / "test_preview"
         output_file = image_sequence_directory / "box_preview.mp4"
         resolution = (1280, 720)
         fps = 30
@@ -319,17 +315,21 @@ class WebSocketHandler:
 
             logging.error(f"Video generation failed: {e}")
 
-    def _handle_rescan_template(self):
+    def _handle_rescan_template(self, data):
         """Rescan the controllable objects and send the response"""
         try:
             controllables = self.wizard.scan_controllable_objects()
             # Send the template controls with the actual controllables data
-            self._send_response('template_controls', True, controllables)
+            result = {
+                "controllables": controllables,
+                "message_id": data.get('message_id')
+            }
+            self._send_response('template_controls', True, result)
         except Exception as e:
             logging.error(f"Error during template rescan: {e}")
             self._send_response('template_scan_result', False)
 
-    def _send_response(self, command, result, data=None):
+    def _send_response(self, command, result, data=None, message_id=None):
         """
         Send a WebSocket response.
 
@@ -347,6 +347,9 @@ class WebSocketHandler:
         # Include the data in the response if provided
         if data is not None:
             response['data'] = data
+
+        if message_id is not None:
+            response['message_id'] = message_id
 
         # Convert the response dictionary to a JSON string
         json_response = json.dumps(response)

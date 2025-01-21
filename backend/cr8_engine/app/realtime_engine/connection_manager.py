@@ -19,7 +19,7 @@ class WebSocketConnectionManager:
         self.logger = logging.getLogger(__name__)
         self.connections: Dict[str, WebSocket] = {}
         self.preview_dir = Path(
-            "/home/thamsanqa/Cr8-xyz Creative Studio/Test Renders") / "box_preview"
+            "/mnt/shared_storage/Cr8tive_Engine/Sessions/test_session") / "test_preview"
         self.preview_dir.mkdir(exist_ok=True, parents=True)
 
         # Create a thread-safe event for frame broadcasting
