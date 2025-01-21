@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import asyncio
 from app.core.config import settings
-from app.api.v1.endpoints import users, projects, assets, templates, moodboards
+from app.api.v1.endpoints import users, projects, assets, templates, moodboards, blender
 from app.realtime_engine.server import WebSocketServer
 from app.db.session import get_db
 from app.db.base import Base
@@ -51,6 +51,7 @@ app.add_middleware(
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(moodboards.router,
                    prefix="/api/v1/moodboards", tags=["moodboards"])
+app.include_router(blender.router, prefix="/api/v1/blender", tags=["blender"])
 # app.include_router(
 #     projects.router, prefix="/api/v1/projects", tags=["projects"])
 # app.include_router(assets.router, prefix="/api/v1/assets", tags=["assets"])

@@ -34,6 +34,16 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str
     MINIO_BUCKET_NAME: str
 
+    # SSH config
+    SSH_KEY_PATH: str
+    SSH_USERNAME: str
+    SSH_PORT: int
+    SSH_LOCAL_IP: str
+    SSH_KEY_PASSPHRASE: Optional[str] = None
+
+    # Blender Remote Directory
+    BLENDER_REMOTE_DIRECTORY: str
+
     @property
     def postgres_url(self) -> str:
         return f"postgresql://{self.DB_user}:{urllib.parse.quote_plus(self.DB_password)}@{self.DB_host}:{self.DB_port}/{self.DB_name}"
