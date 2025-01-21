@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,11 +10,20 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { projectTypes, projectTemplates } from "@/lib/constants";
+import { projectTypes, projectTemplates, moodboards } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { StepIndicator } from "@/components/ui/step-indicator";
 import { ProjectFormData } from "@/lib/types/ProjectConfig";
-import { Lock } from "lucide-react";
+import { LoaderPinwheel, Lock } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { useNavigate } from "@tanstack/react-router";
+// import { Lock } from "lucide-react";
 
 export function CreateProjectDialog() {
   const [step, setStep] = useState(1);
@@ -26,11 +35,26 @@ export function CreateProjectDialog() {
     template: "",
     moodboard: "",
   });
-
+  const [loading, setLoading] = useState(false);
   const steps = ["Project Details", "Type & Style", "Template", "Moodboard"];
 
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
+  const navigate = useNavigate();
+
+  const onSubmit = async () => {
+    if (step === steps.length) {
+      // Handle form submission here
+      console.log("Form Data:", formData);
+      setLoading(true); // Start loading
+      setTimeout(() => {
+        navigate({ to: "/project" });
+        setLoading(false); // Stop loading after navigation or error
+      }, 1000); // Simulate a delay of 1 second for the API call
+      return;
+    }
+    nextStep();
+  };
 
   const renderStep = () => {
     switch (step) {
@@ -77,25 +101,33 @@ export function CreateProjectDialog() {
             <div className="space-y-3">
               <Label>Project Type</Label>
               <div className="grid grid-cols-2 gap-3">
-                {Object.entries(projectTypes).map(([key, { icon: Icon }]) => (
-                  <button
-                    key={key}
-                    onClick={() =>
-                      setFormData({ ...formData, type: key, subtype: "" })
-                    }
-                    className={cn(
-                      "p-4 rounded-lg border flex items-center gap-3 transition-all",
-                      formData.type === key
-                        ? "border-cr8-blue bg-cr8-blue/10"
-                        : "border-cr8-charcoal/10 bg-cr8-dark/20 hover:bg-cr8-dark/30"
-                    )}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="capitalize">
-                      {key.replace(/([A-Z])/g, " $1").trim()}
-                    </span>
-                  </button>
-                ))}
+                {Object.entries(projectTypes).map(
+                  ([key, { icon: Icon, locked }]) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        if (!locked) {
+                          setFormData({ ...formData, type: key, subtype: "" });
+                        }
+                      }}
+                      disabled={locked} // Disable the button if locked
+                      className={cn(
+                        "p-4 rounded-lg border flex items-center gap-3 transition-all",
+                        formData.type === key
+                          ? "border-cr8-blue bg-cr8-blue/10"
+                          : "border-cr8-charcoal/10 bg-cr8-dark/20 hover:bg-cr8-dark/30",
+                        locked && "opacity-50 cursor-not-allowed" // Add styles for locked items
+                      )}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="capitalize">
+                        {key.replace(/([A-Z])/g, " $1").trim()}
+                      </span>
+                      {locked && <Lock className="w-4 h-4 ml-auto" />}{" "}
+                      {/* Add a lock icon */}
+                    </button>
+                  )
+                )}
               </div>
             </div>
 
@@ -141,20 +173,45 @@ export function CreateProjectDialog() {
           <div className="space-y-6">
             <div className="space-y-3">
               <Label>Select Moodboard</Label>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-left h-auto p-4"
-                onClick={() => {
-                  /* Open moodboard creation dialog */
-                }}
-              >
-                <div>
-                  <p className="font-medium">Create New Moodboard</p>
-                  <p className="text-sm text-gray-400">
-                    Start fresh with a new moodboard
-                  </p>
-                </div>
-              </Button>
+              {moodboards.length > 0 ? (
+                <Select
+                  value={formData.moodboard}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, moodboard: value });
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a moodboard" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {moodboards.map((moodboard, index) => (
+                      <SelectItem key={index} value={moodboard.name}>
+                        <div>
+                          <p className="font-medium">{moodboard.name}</p>
+                          <p className="text-sm text-gray-400">
+                            {moodboard.description}
+                          </p>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left h-auto p-4"
+                  onClick={() => {
+                    /* Open moodboard creation dialog */
+                  }}
+                >
+                  <div>
+                    <p className="font-medium">Create New Moodboard</p>
+                    <p className="text-sm text-gray-400">
+                      Start fresh with a new moodboard
+                    </p>
+                  </div>
+                </Button>
+              )}
             </div>
 
             <div className="flex gap-3">
@@ -209,9 +266,11 @@ export function CreateProjectDialog() {
               </Button>
               <Button
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
-                disabled={!formData.template}
+                disabled={!formData.template || loading}
+                onClick={onSubmit}
               >
-                Create Project
+                {loading && <LoaderPinwheel className="w-5 h-5 animate-spin" />}
+                {loading ? "Preparing Set..." : "Create Project"}
               </Button>
             </div>
           </div>
@@ -224,10 +283,10 @@ export function CreateProjectDialog() {
       <DialogTrigger asChild>
         <Button
           size="lg"
-          className="bg-cr8-blue/60 hover:bg-cr8-blue/60 text-white w-full cursor-not-allowed"
-          disabled
+          className="bg-cr8-blue hover:bg-cr8-blue/60 text-white w-full"
+          // disabled
         >
-          <Lock className="w-5 h-5 mr-2" />
+          {/* <Lock className="w-5 h-5 mr-2" /> */}
           Create Project
         </Button>
       </DialogTrigger>

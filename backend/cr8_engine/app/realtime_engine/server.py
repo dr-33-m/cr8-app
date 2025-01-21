@@ -15,6 +15,7 @@ class WebSocketServer:
         """Initialize the WebSocket server with connection management."""
         self.logger = logging.getLogger(__name__)
         self.connection_manager = WebSocketConnectionManager()
+        self.pending_template_requests = {}
 
     async def handle_command(self, websocket: WebSocket, data: Dict[str, Any]):
         """
@@ -30,6 +31,10 @@ class WebSocketServer:
             status = data.get("status")
             message_id = data.get("message_id")
 
+            if status == "Connected":
+                self.logger.info(f"Client connected: {websocket.client.host}")
+                return
+
             # Add a new handler for command completion
             if status == "completed":
                 await self.handle_command_completion(websocket, data)
@@ -40,6 +45,8 @@ class WebSocketServer:
                 "stop_broadcast": self.stop_broadcast_handler,
                 "start_broadcast": self.start_broadcast_handler,
                 "generate_video": self.generate_video_handler,
+                "get_template_controls": self.get_template_controls,
+                "template_controls": self.handle_template_controls_response,
                 # Add more commands as needed
             }
 
@@ -185,6 +192,62 @@ class WebSocketServer:
             )
         except Exception as e:
             self.logger.error(f"Error stopping frame broadcast: {e}")
+
+    async def get_template_controls(self, websocket: WebSocket, data: Dict[str, Any]):
+        """
+        Retrieve controls for a specific template from Blender client.
+        """
+        self.logger.info(
+            f"Handling get template controls request with data: {data}")
+        message_id = str(uuid.uuid4())
+
+        # Store the requesting websocket for later response
+        self.pending_template_requests[message_id] = websocket
+
+        blender_client = self.connection_manager.connections.get('blender')
+        if blender_client:
+            command = {
+                "command": "rescan_template",
+                "message_id": message_id
+            }
+            await self.connection_manager.send_message(blender_client, command)
+
+            # Send confirmation back to the original websocket
+            await self.connection_manager.send_message(websocket, {
+                "status": "OK",
+                "message": "Template controls request sent"
+            })
+        else:
+            self.logger.warning("Blender client not connected.")
+            # Send error back to the original websocket
+            await self.connection_manager.send_message(websocket, {
+                "status": "ERROR",
+                "message": "Blender client not connected"
+            })
+
+    async def handle_template_controls_response(self, websocket: WebSocket, data: Dict[str, Any]):
+        """
+        Handle the template controls response from Blender and forward to the browser client.
+        """
+        message_id = data["data"]["message_id"]
+        if not message_id:
+            self.logger.error("No message_id in template controls response")
+            return
+
+        requesting_websocket = self.pending_template_requests.get(message_id)
+        if requesting_websocket:
+            # Forward the template controls to the browser client
+            response = {
+                "command": "template_controls",
+                "controllables": data["data"]["controllables"]
+            }
+            await self.connection_manager.send_message(requesting_websocket, response)
+
+            # Clean up the pending request
+            del self.pending_template_requests[message_id]
+        else:
+            self.logger.warning(
+                f"No pending request found for message_id: {message_id}")
 
     async def handle_command_completion(self, websocket: WebSocket, data: Dict[str, Any]):
         """
