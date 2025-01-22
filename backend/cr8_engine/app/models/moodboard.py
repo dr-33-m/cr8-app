@@ -22,6 +22,7 @@ class Moodboard(SQLModel, table=True):
 
     # Moodboard Images
     images: List["MoodboardImage"] = Relationship(back_populates="moodboard")
+    projects: List["Project"] = Relationship(back_populates="moodboard")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

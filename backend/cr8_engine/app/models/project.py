@@ -2,6 +2,9 @@ from typing import List, Optional
 from sqlmodel import SQLModel, Field, Relationship, Column
 from datetime import datetime
 from .user import User
+from .moodboard import Moodboard
+from .template import Template
+from .asset import Asset
 
 
 class Project(SQLModel, table=True):
@@ -9,7 +12,7 @@ class Project(SQLModel, table=True):
     name: str
     project_status: Optional[str] = Field(default=None)
     user_id: int = Field(foreign_key="user.id")
-    user: User = Relationship(back_populates="projects")
+    user: User = Relationship(back_populates="project")
 
     project_type: Optional[str] = Field(default=None)
     subtype: Optional[str] = Field(default=None)
@@ -21,10 +24,24 @@ class Project(SQLModel, table=True):
     # Project can use multiple assets and templates
     project_assets: List["ProjectAsset"] = Relationship(
         back_populates="project")
-    project_templates: List["ProjectTemplate"] = Relationship(
+    project_template: "ProjectTemplate" = Relationship(
+        back_populates="project")
+
+    projectMoodboard: Moodboard = Relationship(
         back_populates="project")
 
 # Junction Tables for Many-to-Many Relationships
+
+
+class ProjectTemplate(SQLModel, table=True):
+    project_id: Optional[int] = Field(
+        default=None, foreign_key="project.id", primary_key=True
+    )
+    template_id: Optional[int] = Field(
+        default=None, foreign_key="template.id", primary_key=True
+    )
+    project: "Project" = Relationship(back_populates="project_templates")
+    template: Template = Relationship(back_populates="project_templates")
 
 
 class ProjectAsset(SQLModel, table=True):
@@ -35,15 +52,4 @@ class ProjectAsset(SQLModel, table=True):
         default=None, foreign_key="asset.id", primary_key=True
     )
     project: Project = Relationship(back_populates="project_assets")
-    asset: "Asset" = Relationship(back_populates="project_assets")
-
-
-class ProjectTemplate(SQLModel, table=True):
-    project_id: Optional[int] = Field(
-        default=None, foreign_key="project.id", primary_key=True
-    )
-    template_id: Optional[int] = Field(
-        default=None, foreign_key="template.id", primary_key=True
-    )
-    project: Project = Relationship(back_populates="project_templates")
-    template: "Template" = Relationship(back_populates="project_templates")
+    asset: Asset = Relationship(back_populates="project_assets")

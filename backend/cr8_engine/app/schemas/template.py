@@ -9,7 +9,6 @@ class TemplateBase(BaseModel):
     minio_path: str
     price: Optional[float] = None
     is_public: bool = False
-    template_controls: Dict[str, Any] = {}
 
 
 class TemplateCreate(TemplateBase):
@@ -20,10 +19,9 @@ class TemplateUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     minio_path: Optional[str] = None
+    thumbnail_path: Optional[str] = None
     price: Optional[float] = None
     is_public: Optional[bool] = None
-    # Explicit None default.
-    template_controls: Optional[Dict[str, Any]] = None
 
 
 class TemplateRead(TemplateBase):

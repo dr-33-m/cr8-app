@@ -1,13 +1,14 @@
 import uvicorn
 from sqlmodel import create_engine, SQLModel
-from fastapi import FastAPI, WebSocket, status
+from fastapi import FastAPI, WebSocket, status, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import asyncio
 from app.core.config import settings
-from app.api.v1.endpoints import users, projects, assets, templates, moodboards, blender
-from app.realtime_engine.server import WebSocketServer
+from app.api.v1.endpoints import users, projects, assets, templates, moodboards
+from app.realtime_engine.websockets.session_manager import SessionManager
+from app.realtime_engine.websockets.websocket_handler import WebSocketHandler
 from app.db.session import get_db
 from app.db.base import Base
 
@@ -51,7 +52,6 @@ app.add_middleware(
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(moodboards.router,
                    prefix="/api/v1/moodboards", tags=["moodboards"])
-app.include_router(blender.router, prefix="/api/v1/blender", tags=["blender"])
 # app.include_router(
 #     projects.router, prefix="/api/v1/projects", tags=["projects"])
 # app.include_router(assets.router, prefix="/api/v1/assets", tags=["assets"])
@@ -59,12 +59,35 @@ app.include_router(blender.router, prefix="/api/v1/blender", tags=["blender"])
 #     templates.router, prefix="/api/v1/templates", tags=["templates"])
 
 # Websocket endpoint
-ws_server = WebSocketServer()
+session_manager = SessionManager()
+websocket_handler = WebSocketHandler(session_manager)
 
 
-@app.websocket("/ws/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: str):
-    await ws_server.handle_websocket(websocket, client_id)
+@app.websocket("/ws/{username}/{client_type}/{blend_file}")
+async def websocket_endpoint(websocket: WebSocket, username: str, client_type: str, blend_file: str = None):
+    await websocket.accept()
+
+    try:
+        if client_type == "browser":
+            session = await session_manager.create_browser_session(username, websocket, blend_file)
+            await websocket.send_json({"status": "connected", "message": "Session created"})
+
+        elif client_type == "blender":
+            await session_manager.register_blender(username, websocket)
+            await websocket.send_json({"status": "connected", "message": "Blender registered"})
+
+        try:
+            while True:
+                data = await websocket.receive_json()
+                # Process message with the handler
+                await websocket_handler.handle_message(username, data, client_type)
+
+        except WebSocketDisconnect:
+            await session_manager.handle_disconnect(username, client_type)
+
+    except Exception as e:
+        await websocket.close()
+        raise e
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -20,7 +20,7 @@ class Asset(SQLModel, table=True):
     controls: Dict[str, Any] = Field(sa_column=Column(JSON), default={})
 
     # Relationships
-    project_assets: List["ProjectAsset"] = Relationship(back_populates="asset")
+    projects: List["ProjectAsset"] = Relationship(back_populates="asset")
 
 
 class Favorite(SQLModel, table=True):

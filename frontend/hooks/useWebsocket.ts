@@ -1,11 +1,16 @@
+import useUserStore from "@/store/userStore";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 export const useWebSocket = () => {
   const [isConnected, setIsConnected] = useState(false);
   const websocketRef = useRef<WebSocket | null>(null);
+  const userInfo = useUserStore((store) => store.userInfo);
+  const blend_file = "PHOTOSHOOT.blend";
 
   useEffect(() => {
-    const ws = new WebSocket(import.meta.env.VITE_WEBSOCKET_URL);
+    const ws = new WebSocket(
+      `ws://localhost:8000/ws/${userInfo?.username}/browser/${blend_file}`
+    );
     websocketRef.current = ws;
 
     ws.onopen = () => {

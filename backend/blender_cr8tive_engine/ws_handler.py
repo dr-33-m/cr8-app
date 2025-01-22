@@ -42,25 +42,37 @@ class WebSocketHandler:
             cls._instance.lock = threading.Lock()
         return cls._instance
 
-    def __init__(self, url="ws://localhost:8000/ws/blender"):
-        if self._initialized:
-            return
-
+    def __init__(self, url=None):
         self.url = url
         self.wizard = TemplateWizard()
         self.controllers = BlenderControllers()
-
         self.ws = None
         self.ws_thread = None
-        self._initialized = True
+        self._initialized = False  # Changed to False by default
         self.processing_complete = threading.Event()
         self.processed_commands = set()
         self.reconnect_attempts = 0
-        self.max_retries = 5  # Maximum number of retries
+        self.max_retries = 5
         self.stop_retries = False
+        self.lock = threading.Lock()
+
+    def initialize(self, url=None):
+        """Initialize the websocket client with URL"""
+        if url:
+            self.url = url
+
+        if not self.url:
+            raise ValueError("WebSocket URL must be provided")
+
+        self._initialized = True
+        return self
 
     def connect(self, retries=5, delay=2):
         """Establish WebSocket connection with retries and exponential backoff"""
+        if not self._initialized:
+            raise RuntimeError(
+                "WebSocket client not initialized. Call initialize() first")
+
         self.max_retries = retries
         self.reconnect_attempts = 0
         self.stop_retries = False
@@ -77,17 +89,19 @@ class WebSocketHandler:
                     on_close=self._on_close,
                     on_error=self._on_error,
                 )
+
                 self.processing_complete.clear()
                 self.ws_thread = threading.Thread(
-                    target=self._run_websocket, daemon=True)
+                    target=self._run_websocket,
+                    daemon=True
+                )
                 self.ws_thread.start()
-
                 logging.info("WebSocket connection initialized")
                 return True
+
             except Exception as e:
                 logging.error(
-                    f"Connection failed: {e}, retrying in {delay} seconds..."
-                )
+                    f"Connection failed: {e}, retrying in {delay} seconds...")
                 time.sleep(delay)
                 delay *= 2  # Exponential backoff
                 self.reconnect_attempts += 1
