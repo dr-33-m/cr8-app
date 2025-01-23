@@ -63,7 +63,7 @@ session_manager = SessionManager()
 websocket_handler = WebSocketHandler(session_manager)
 
 
-@app.websocket("/ws/{username}/{client_type}/{blend_file}")
+@app.websocket("/ws/{username}/{client_type}")
 async def websocket_endpoint(websocket: WebSocket, username: str, client_type: str, blend_file: str = None):
     await websocket.accept()
 

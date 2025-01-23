@@ -20,6 +20,8 @@ class Session:
         self.is_active = True
         self.state = SessionState.DISCONNECTED
         self.connection_timeout = 30  # seconds to wait for Blender to connect
+        self.should_broadcast = False
+        self.last_frame_index = -1
 
 
 class SessionManager:
@@ -34,9 +36,9 @@ class SessionManager:
                 session = self.sessions[username]
                 if session.is_active:
                     if session.state == SessionState.CONNECTED:
-                        # Session exists and is fully connected
-                        raise ValueError(
-                            f"Session already exists for {username}")
+                        # Instead of raising an error, update the browser socket
+                        session.browser_socket = websocket
+                        return session
                     else:
                         # Clean up partial session
                         await self.cleanup_session(username)
@@ -188,8 +190,11 @@ class SessionManager:
 
             if client_type == "browser":
                 session.browser_socket = None
-                # Browser disconnected, clean up everything
-                await self.cleanup_session(username)
+
+                await asyncio.sleep(5)
+                if username in self.sessions and not session.browser_socket:
+                    # Only cleanup if no new browser connection was established
+                    await self.cleanup_session(username)
             else:  # blender
                 session.blender_socket = None
                 session.state = SessionState.DISCONNECTED

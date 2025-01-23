@@ -8,31 +8,40 @@ export const useWebSocket = () => {
   const blend_file = "PHOTOSHOOT.blend";
 
   useEffect(() => {
-    const ws = new WebSocket(
-      `ws://localhost:8000/ws/${userInfo?.username}/browser/${blend_file}`
-    );
-    websocketRef.current = ws;
+    if (!userInfo?.username || !blend_file) return;
 
-    ws.onopen = () => {
-      console.log("WebSocket connection established");
-      setIsConnected(true);
-      ws.send(JSON.stringify({ status: "Connected" }));
-      ws.send(JSON.stringify({ command: "get_template_controls" }));
+    const connectWebSocket = () => {
+      const ws = new WebSocket(
+        `ws://localhost:8000/ws/${userInfo?.username}/browser?blend_file=${blend_file}`
+      );
+      websocketRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("WebSocket connection established");
+        setIsConnected(true);
+        ws.send(JSON.stringify({ status: "Connected" }));
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket connection closed");
+        setIsConnected(false);
+        // Try to reconnect after a short delay
+        setTimeout(connectWebSocket, 1000);
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
     };
 
-    ws.onclose = () => {
-      console.log("WebSocket connection closed");
-      setIsConnected(false);
-    };
-
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
-    };
+    connectWebSocket();
 
     return () => {
-      ws.close();
+      if (websocketRef.current) {
+        websocketRef.current.close();
+      }
     };
-  }, []);
+  }, [userInfo?.username, blend_file]);
 
   const requestTemplateControls = useCallback(() => {
     if (

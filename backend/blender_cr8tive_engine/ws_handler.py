@@ -1,3 +1,4 @@
+import os
 import bpy
 import json
 import threading
@@ -40,48 +41,52 @@ class WebSocketHandler:
             cls._instance = super(WebSocketHandler, cls).__new__(cls)
             cls._instance._initialized = False
             cls._instance.lock = threading.Lock()
+            # Initialize without connection
+            cls._instance.ws = None
+            cls._instance.url = None  # Start unconfigured
+            cls._instance._initialized = True  # Mark as initialized
         return cls._instance
 
-    def __init__(self, url=None):
-        self.url = url
+    def __init__(self):
+        # Empty __init__ since we handle initialization in __new__
+        pass
+
+    def initialize_connection(self, url=None):
+        """Call this explicitly when ready to connect"""
+        if self.ws:
+            return  # Already connected
+
+        # Get URL from environment or argument
+        self.url = url or os.environ.get("WS_URL")
+
+        if not self.url:
+            raise ValueError(
+                "WebSocket URL must be set via WS_URL environment variable "
+                "or passed to initialize_connection()"
+            )
+
+        # Initialize components only when needed
+        self.ws = None
         self.wizard = TemplateWizard()
         self.controllers = BlenderControllers()
-        self.ws = None
-        self.ws_thread = None
-        self._initialized = False  # Changed to False by default
         self.processing_complete = threading.Event()
         self.processed_commands = set()
         self.reconnect_attempts = 0
         self.max_retries = 5
         self.stop_retries = False
-        self.lock = threading.Lock()
-
-    def initialize(self, url=None):
-        """Initialize the websocket client with URL"""
-        if url:
-            self.url = url
-
-        if not self.url:
-            raise ValueError("WebSocket URL must be provided")
-
-        self._initialized = True
-        return self
 
     def connect(self, retries=5, delay=2):
         """Establish WebSocket connection with retries and exponential backoff"""
-        if not self._initialized:
-            raise RuntimeError(
-                "WebSocket client not initialized. Call initialize() first")
-
         self.max_retries = retries
         self.reconnect_attempts = 0
         self.stop_retries = False
 
-        while self.reconnect_attempts < retries:
+        while self.reconnect_attempts < retries and not self.stop_retries:
             try:
                 if self.ws:
                     self.ws.close()
 
+                # Use the environment-configured URL
                 self.ws = websocket.WebSocketApp(
                     self.url,
                     on_message=self._on_message,
@@ -92,21 +97,21 @@ class WebSocketHandler:
 
                 self.processing_complete.clear()
                 self.ws_thread = threading.Thread(
-                    target=self._run_websocket,
-                    daemon=True
-                )
+                    target=self._run_websocket, daemon=True)
                 self.ws_thread.start()
-                logging.info("WebSocket connection initialized")
-                return True
 
+                logging.info(f"WebSocket connection initialized to {self.url}")
+                return True
             except Exception as e:
                 logging.error(
-                    f"Connection failed: {e}, retrying in {delay} seconds...")
+                    f"Connection to {self.url} failed: {e}, retrying in {delay} seconds..."
+                )
                 time.sleep(delay)
                 delay *= 2  # Exponential backoff
                 self.reconnect_attempts += 1
 
-        logging.error("Max retries reached. Connection failed.")
+        logging.error(
+            f"Max retries reached for {self.url}. Connection failed.")
         return False
 
     def _run_websocket(self):
@@ -385,15 +390,31 @@ class WebSocketHandler:
             self.processing_complete.set()
 
 
-# Singleton instance for easy access
-websocket_handler = WebSocketHandler()
+class ConnectWebSocketOperator(bpy.types.Operator):
+    bl_idname = "ws_handler.connect_websocket"
+    bl_label = "Connect WebSocket"
+    bl_description = "Initialize WebSocket connection to Cr8tive Engine server"
+
+    def execute(self, context):
+        try:
+            handler = WebSocketHandler()
+            handler.initialize_connection()  # Initialize before connecting
+            if handler.connect():
+                self.report({'INFO'}, f"Connected to {handler.url}")
+                return {'FINISHED'}
+            else:
+                self.report({'ERROR'}, "Connection failed")
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
+        return {'CANCELLED'}
 
 
 def register():
-    """Register WebSocket handler"""
-    websocket_handler.connect()
+    """Register WebSocket handler and operator"""
+    bpy.utils.register_class(ConnectWebSocketOperator)
 
 
 def unregister():
-    """Unregister WebSocket handler"""
+    """Unregister WebSocket handler and operator"""
+    bpy.utils.unregister_class(ConnectWebSocketOperator)
     websocket_handler.disconnect()

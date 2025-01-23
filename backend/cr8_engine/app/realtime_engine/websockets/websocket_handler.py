@@ -47,14 +47,18 @@ class WebSocketHandler:
                 "template_controls": self._handle_template_controls_response
             }
 
-            handler = handlers.get(action or command)
+            handler = handlers.get(command)  # Try command first
+            if not handler:
+                # Fall back to action if no command handler
+                handler = handlers.get(action)
+
             if handler:
                 await handler(username, data, client_type)
             else:
-                self.logger.warning(f"Unhandled command: {command} for {data}")
+                self.logger.warning(f"Unhandled message: {data}")
 
         except Exception as e:
-            self.logger.error(f"Message processing error: {e}")
+            self.logger.error(f"Message processing error: {str(e)}")
             session = self.session_manager.get_session(username)
             if session:
                 target_socket = session.browser_socket if client_type == "blender" else session.blender_socket
@@ -111,10 +115,21 @@ class WebSocketHandler:
         if not session:
             return
 
+        # Set the flag to start broadcasting
+        session.should_broadcast = True
+
+        # Start the broadcasting task if it doesn't exist or has completed
         if not hasattr(session, 'broadcast_task') or session.broadcast_task.done():
             session.broadcast_task = asyncio.create_task(
                 self._broadcast_frames(username)
             )
+
+        # Notify the browser client that broadcasting has started
+        if session.browser_socket:
+            await session.browser_socket.send_json({
+                "status": "OK",
+                "message": "Frame broadcast started"
+            })
 
     async def _handle_stop_broadcast(self, username: str, data: Dict[str, Any], client_type: str):
         """Stop frame broadcasting"""
@@ -122,13 +137,18 @@ class WebSocketHandler:
         if not session:
             return
 
+        # Set the flag to stop broadcasting
+        session.should_broadcast = False
+
+        # Cancel the broadcasting task if it exists and is running
         if hasattr(session, 'broadcast_task') and not session.broadcast_task.done():
             session.broadcast_task.cancel()
             try:
-                await session.broadcast_task
+                await session.broadcast_task  # Wait for the task to be cancelled
             except asyncio.CancelledError:
                 self.logger.info(f"Broadcast task canceled for {username}")
 
+        # Notify the browser client that broadcasting has stopped
         if session.browser_socket:
             await session.browser_socket.send_json({
                 "status": "OK",
@@ -136,37 +156,59 @@ class WebSocketHandler:
             })
 
     async def _broadcast_frames(self, username: str):
-        """Broadcast frames to browser client"""
+        """Broadcast frames to browser client with pause/resume support"""
         session = self.session_manager.get_session(username)
         if not session or not session.browser_socket:
             return
 
         try:
-            while True:
-                frames = sorted(self.preview_dir.glob("frame_*.png"))
-                if not frames:
-                    await asyncio.sleep(0.1)
+            frames = sorted(self.preview_dir.glob("frame_*.png"))
+            if not frames:
+                return  # Exit if no frames are available
+
+            # Add tracking for last broadcasted frame index
+            if not hasattr(session, 'last_frame_index'):
+                session.last_frame_index = -1
+
+            for frame_index, frame in enumerate(frames):
+                # Skip frames already broadcasted if resuming
+                if frame_index <= session.last_frame_index:
                     continue
 
-                for frame in frames:
-                    try:
-                        with open(frame, 'rb') as img_file:
-                            img_str = base64.b64encode(
-                                img_file.read()).decode()
-                            await session.browser_socket.send_json({
-                                'type': 'frame',
-                                'data': img_str
-                            })
-                    except Exception as e:
-                        self.logger.error(f"Error sending frame: {e}")
-                        return
+                if not session.should_broadcast:  # Stop if flag is False
+                    break
 
+                try:
+                    with open(frame, 'rb') as img_file:
+                        img_str = base64.b64encode(img_file.read()).decode()
+                        await session.browser_socket.send_json({
+                            'type': 'frame',
+                            'data': img_str,
+                            'frame_index': frame_index
+                        })
+
+                    # Update last broadcasted frame index
+                    session.last_frame_index = frame_index
+
+                except Exception as e:
+                    self.logger.error(f"Error sending frame: {e}")
+                    session.should_broadcast = False
+                    return
+
+                # Optional: small delay between frames
                 await asyncio.sleep(0.033)  # ~30 FPS
+
+            # Send a final message indicating broadcast is complete
+            await session.browser_socket.send_json({
+                'type': 'broadcast_complete'
+            })
 
         except asyncio.CancelledError:
             self.logger.info(f"Frame broadcast cancelled for {username}")
         except Exception as e:
             self.logger.error(f"Error in frame broadcasting: {e}")
+        finally:
+            session.should_broadcast = False  # Reset the flag when broadcasting stops
 
     async def _handle_get_template_controls(self, username: str, data: Dict[str, Any], client_type: str):
         """Handle template controls request"""
@@ -188,10 +230,13 @@ class WebSocketHandler:
         """Handle template controls response"""
         message_id = data.get("data", {}).get("message_id")
         if not message_id:
+            self.logger.warning("No message_id in template controls response")
             return
 
         request_username = self.pending_requests.get(message_id)
         if not request_username:
+            self.logger.warning(
+                f"No pending request for message_id {message_id}")
             return
 
         session = self.session_manager.get_session(request_username)
@@ -201,6 +246,10 @@ class WebSocketHandler:
                 "controllables": data["data"]["controllables"]
             }
             await session.browser_socket.send_json(response)
+            self.logger.info(f"Sent template controls to {request_username}")
+        else:
+            self.logger.warning(
+                f"No session or browser socket for {request_username}")
 
         del self.pending_requests[message_id]
 

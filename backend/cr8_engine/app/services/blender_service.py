@@ -1,6 +1,7 @@
 # app/services/blender_service.py
 import logging
 import paramiko
+import shlex
 from fastapi import HTTPException
 from app.core.config import settings
 
@@ -37,69 +38,41 @@ class BlenderService:
             client = BlenderService.create_ssh_client()
 
             try:
-                # Construct the websocket URL for this specific user's Blender instance
                 websocket_url = f"ws://{settings.WS_HOST}:{settings.WS_PORT}/ws/{username}/blender"
+                safe_url = shlex.quote(websocket_url)
 
-                # Create a Python script that will be executed by Blender to set up the websocket
-                blender_script = (
-                    f"import bpy\n"
-                    f"import sys\n"
-                    f"sys.path.append('{settings.BLENDER_ADDONS_PATH}')\n"
-                    f"from websocket_client import websocket_handler\n"
-                    f"websocket_handler.initialize('{websocket_url}')\n"
-                    f"websocket_handler.connect()"
-                )
-
-                # Save the script to a temporary file on the remote machine
-                script_path = f"/tmp/blender_script_{username}.py"
-                script_command = f"echo '{blender_script}' > {script_path}"
-                stdin, stdout, stderr = client.exec_command(script_command)
-
-                if stderr.read():
-                    raise Exception("Failed to create script file")
-
-                # Construct and execute the Blender launch command
-                export_display_command = 'export DISPLAY=:1'
+                # Launch Blender
+                export_display = 'export DISPLAY=:1'
                 cd_command = f'cd "{settings.BLENDER_REMOTE_DIRECTORY}"'
-
-                # Launch Blender with the script and blend file in a new tmux session
-                tmux_session_name = f"blender_{username}"
+                tmux_session = f"blender_{username}"
                 tmux_command = (
-                    f"tmux new-session -d -s {tmux_session_name} "
-                    f"'blender {blend_file} --python {script_path}'"
+                    f"tmux new-session -d -s {tmux_session} "
+                    f"'WS_URL={safe_url} blender {shlex.quote(blend_file)} "
+                    f"--python-expr \"import bpy; bpy.ops.ws_handler.connect_websocket()\"'"
                 )
 
-                full_command = f"{export_display_command} && {cd_command} && {tmux_command}"
-
+                full_command = f"{export_display} && {cd_command} && {tmux_command}"
                 stdin, stdout, stderr = client.exec_command(full_command)
 
-                # Check for errors
                 error = stderr.read().decode().strip()
                 if error:
-                    logger.error(
-                        f"Blender launch failed for user {username}: {error}")
+                    logger.error(f"Blender launch failed: {error}")
                     return False
 
-                # Check command exit status
-                exit_status = stdout.channel.recv_exit_status()
-                if exit_status != 0:
+                if stdout.channel.recv_exit_status() != 0:
                     logger.error(
-                        f"Blender launch exited with status {exit_status} for user {username}")
+                        f"Blender launch failed with non-zero exit status")
                     return False
 
-                # Clean up the temporary script
-                client.exec_command(f"rm {script_path}")
-
-                logger.info(
-                    f"Successfully launched Blender instance for user {username}")
+                # Clean up only if launch was successful
+                logger.info(f"Launched Blender instance for {username}")
                 return True
 
             finally:
                 client.close()
 
         except Exception as e:
-            logger.error(
-                f"Error launching Blender for user {username}: {str(e)}")
+            logger.error(f"Error launching Blender: {str(e)}")
             return False
 
     @staticmethod
