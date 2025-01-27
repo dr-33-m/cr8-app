@@ -1,5 +1,9 @@
 import { Building2, Users, Target } from "lucide-react";
-import { Industry, MoodboardFormData, UsageIntent } from "@/types/moodboard";
+import {
+  Industry,
+  MoodboardFormData,
+  UsageIntent,
+} from "@/lib/types/moodboard";
 import { BaseNode } from "./BaseNode";
 import {
   Select,

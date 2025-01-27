@@ -1,4 +1,4 @@
-import type { TemplateControls } from "@/types/templateControls";
+import type { TemplateControls } from "@/lib/types/templateControls";
 
 export const areControlsAvailable = (
   controls: TemplateControls | null

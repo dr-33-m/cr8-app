@@ -1,4 +1,4 @@
-import { Industry, UsageIntent } from "@/types/moodboard";
+import { Industry, UsageIntent } from "@/lib/types/moodboard";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Users, Target } from "lucide-react";
 

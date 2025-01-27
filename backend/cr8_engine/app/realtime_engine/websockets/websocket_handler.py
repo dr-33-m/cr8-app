@@ -110,45 +110,48 @@ class WebSocketHandler:
         })
 
     async def _handle_start_broadcast(self, username: str, data: Dict[str, Any], client_type: str):
-        """Start frame broadcasting"""
+        """Start/resume frame broadcasting from the last frame or the beginning"""
         session = self.session_manager.get_session(username)
         if not session:
             return
 
-        # Set the flag to start broadcasting
+        # Do not reset last_frame_index; resume from where it left off
         session.should_broadcast = True
 
-        # Start the broadcasting task if it doesn't exist or has completed
+        # Create new task only if none exists or previous completed
         if not hasattr(session, 'broadcast_task') or session.broadcast_task.done():
             session.broadcast_task = asyncio.create_task(
                 self._broadcast_frames(username)
             )
 
-        # Notify the browser client that broadcasting has started
+        # Notify client
         if session.browser_socket:
             await session.browser_socket.send_json({
                 "status": "OK",
-                "message": "Frame broadcast started"
+                "message": "Frame broadcast started/resumed"
             })
 
     async def _handle_stop_broadcast(self, username: str, data: Dict[str, Any], client_type: str):
-        """Stop frame broadcasting"""
+        """Stop frame broadcasting immediately"""
         session = self.session_manager.get_session(username)
         if not session:
             return
 
-        # Set the flag to stop broadcasting
+        # Set flag to break broadcast loop
         session.should_broadcast = False
 
-        # Cancel the broadcasting task if it exists and is running
-        if hasattr(session, 'broadcast_task') and not session.broadcast_task.done():
-            session.broadcast_task.cancel()
-            try:
-                await session.broadcast_task  # Wait for the task to be cancelled
-            except asyncio.CancelledError:
-                self.logger.info(f"Broadcast task canceled for {username}")
+        # Cancel task if running
+        if hasattr(session, 'broadcast_task'):
+            if not session.broadcast_task.done():
+                session.broadcast_task.cancel()
+                try:
+                    await session.broadcast_task  # Handle cleanup
+                except asyncio.CancelledError:
+                    self.logger.info(f"Broadcast stopped for {username}")
+                except Exception as e:
+                    self.logger.error(f"Error stopping broadcast: {e}")
 
-        # Notify the browser client that broadcasting has stopped
+        # Notify client
         if session.browser_socket:
             await session.browser_socket.send_json({
                 "status": "OK",
@@ -156,7 +159,7 @@ class WebSocketHandler:
             })
 
     async def _broadcast_frames(self, username: str):
-        """Broadcast frames to browser client with pause/resume support"""
+        """Broadcast frames once (stops after last frame)"""
         session = self.session_manager.get_session(username)
         if not session or not session.browser_socket:
             return
@@ -164,51 +167,49 @@ class WebSocketHandler:
         try:
             frames = sorted(self.preview_dir.glob("frame_*.png"))
             if not frames:
-                return  # Exit if no frames are available
+                return
 
-            # Add tracking for last broadcasted frame index
-            if not hasattr(session, 'last_frame_index'):
-                session.last_frame_index = -1
+            # Start from the frame after the last frame that was sent
+            start_frame_index = session.last_frame_index + \
+                1 if session.last_frame_index is not None else 0
 
-            for frame_index, frame in enumerate(frames):
-                # Skip frames already broadcasted if resuming
-                if frame_index <= session.last_frame_index:
-                    continue
+            # Broadcast frames sequentially (no automatic looping)
+            for frame_index in range(start_frame_index, len(frames)):
+                frame = frames[frame_index]
 
-                if not session.should_broadcast:  # Stop if flag is False
+                if not session.should_broadcast:  # Check pause/stop flag
                     break
 
                 try:
-                    with open(frame, 'rb') as img_file:
+                    with open(frame, "rb") as img_file:
                         img_str = base64.b64encode(img_file.read()).decode()
                         await session.browser_socket.send_json({
-                            'type': 'frame',
-                            'data': img_str,
-                            'frame_index': frame_index
+                            "type": "frame",
+                            "data": img_str,
+                            "frame_index": frame_index,
                         })
-
-                    # Update last broadcasted frame index
-                    session.last_frame_index = frame_index
-
+                    session.last_frame_index = frame_index  # Track progress
                 except Exception as e:
                     self.logger.error(f"Error sending frame: {e}")
                     session.should_broadcast = False
                     return
 
-                # Optional: small delay between frames
                 await asyncio.sleep(0.033)  # ~30 FPS
 
-            # Send a final message indicating broadcast is complete
-            await session.browser_socket.send_json({
-                'type': 'broadcast_complete'
-            })
+            # Notify client the broadcast finished (only if it completed fully)
+            if session.last_frame_index == len(frames) - 1:
+                await session.browser_socket.send_json({
+                    "type": "broadcast_complete"
+                })
+                # Reset last_frame_index only after the last frame has been sent
+                session.last_frame_index = -1
 
         except asyncio.CancelledError:
-            self.logger.info(f"Frame broadcast cancelled for {username}")
+            self.logger.info(f"Broadcast cancelled for {username}")
         except Exception as e:
-            self.logger.error(f"Error in frame broadcasting: {e}")
+            self.logger.error(f"Broadcast error: {e}")
         finally:
-            session.should_broadcast = False  # Reset the flag when broadcasting stops
+            session.should_broadcast = False  # Ensure broadcast stops
 
     async def _handle_get_template_controls(self, username: str, data: Dict[str, Any], client_type: str):
         """Handle template controls request"""

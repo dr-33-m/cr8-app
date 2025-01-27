@@ -40,6 +40,10 @@ export interface CategoryImages {
 }
 
 export interface MoodboardData {
+  id: number;
+  name: string;
+  description: string;
+  user_id: number;
   categoryImages: CategoryImages;
   colorPalette: string[];
   videoReferences: string[];
@@ -123,3 +127,10 @@ export const moodboardSchema = z.object({
 });
 
 export type MoodboardFormData = z.infer<typeof moodboardSchema>;
+
+export interface MoodboardList extends MoodboardFormData {
+  id: number;
+  name: string;
+  description: string;
+  user_id: number;
+}

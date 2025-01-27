@@ -30,9 +30,9 @@ class ProjectRead(ProjectBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    user: UserRead  # Detailed user information
-    assets: List[AssetRead] = []  # Detailed asset information
-    templates: List[TemplateRead] = []  # Detailed template information
+    user: "UserRead"  # Detailed user information
+    assets: List["AssetRead"] = []  # Detailed asset information
+    templates: List["TemplateRead"] = []  # Detailed template information
 
     class Config:
         orm_mode = True

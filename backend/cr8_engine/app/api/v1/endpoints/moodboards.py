@@ -1,4 +1,5 @@
-from typing import Any, List
+import logging
+from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from app.db.session import get_db
 from supabase import Client
@@ -8,6 +9,10 @@ import json
 from datetime import datetime
 import uuid
 
+
+# Configure logging
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -196,4 +201,59 @@ async def update_moodboard(
         raise HTTPException(
             status_code=400, detail="Invalid JSON in moodboard_data")
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/list", response_model=List[Moodboard])
+async def list_moodboards(
+    db: Client = Depends(get_db),
+    logto_userId: Optional[str] = None
+) -> Any:
+    try:
+        # Base query to fetch moodboards with all required fields
+        query = db.table("moodboard").select(
+            "id", "name", "description", "user_id",
+            "storyline", "keywords", "industry", "targetAudience",
+            "theme", "tone", "videoReferences", "colorPalette",
+            "usage_intent", "created_at", "updated_at"
+        )
+
+        # If user ID is provided, filter moodboards by user
+        if logto_userId:
+            user_data = db.table("user").select("id").eq(
+                "logto_id", logto_userId).execute()
+            if user_data.data:
+                user_id = user_data.data[0]['id']
+                query = query.eq("user_id", user_id)
+
+        # Execute the query
+        result = query.execute()
+
+        # Convert to Moodboard models
+        moodboards = [
+            Moodboard(
+                id=moodboard.get("id"),
+                name=moodboard.get("name"),
+                description=moodboard.get("description"),
+                user_id=moodboard.get("user_id"),
+                storyline=moodboard.get("storyline"),
+                # Replace None with []
+                keywords=moodboard.get("keywords") or [],
+                industry=moodboard.get("industry"),
+                targetAudience=moodboard.get("targetAudience"),
+                theme=moodboard.get("theme"),
+                tone=moodboard.get("tone"),
+                videoReferences=moodboard.get(
+                    "videoReferences") or [],  # Replace None
+                colorPalette=moodboard.get(
+                    "colorPalette") or [],  # Replace None
+                usage_intent=moodboard.get("usage_intent"),
+                created_at=moodboard.get("created_at"),
+                updated_at=moodboard.get("updated_at")
+            ) for moodboard in (result.data or [])
+        ]
+
+        return moodboards
+    except Exception as e:
+        logger.error(f"Error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

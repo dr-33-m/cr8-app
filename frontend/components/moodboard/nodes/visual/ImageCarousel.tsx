@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
-import { ImageWithAnnotation } from "@/types/moodboard";
+import { ImageWithAnnotation } from "@/lib/types/moodboard";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";

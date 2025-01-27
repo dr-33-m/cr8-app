@@ -12,7 +12,7 @@ class Project(SQLModel, table=True):
     name: str
     project_status: Optional[str] = Field(default=None)
     user_id: int = Field(foreign_key="user.id")
-    user: User = Relationship(back_populates="project")
+    user: "User" = Relationship(back_populates="projects")
 
     project_type: Optional[str] = Field(default=None)
     subtype: Optional[str] = Field(default=None)
@@ -21,15 +21,12 @@ class Project(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    # Project can use multiple assets and templates
+    # Relationships
     project_assets: List["ProjectAsset"] = Relationship(
         back_populates="project")
-    project_template: "ProjectTemplate" = Relationship(
+    project_templates: List["ProjectTemplate"] = Relationship(
         back_populates="project")
-
-    projectMoodboard: Moodboard = Relationship(
-        back_populates="project")
-
+    moodboards: List["Moodboard"] = Relationship(back_populates="project")
 # Junction Tables for Many-to-Many Relationships
 
 
@@ -41,7 +38,7 @@ class ProjectTemplate(SQLModel, table=True):
         default=None, foreign_key="template.id", primary_key=True
     )
     project: "Project" = Relationship(back_populates="project_templates")
-    template: Template = Relationship(back_populates="project_templates")
+    template: "Template" = Relationship(back_populates="project_templates")
 
 
 class ProjectAsset(SQLModel, table=True):
@@ -51,5 +48,5 @@ class ProjectAsset(SQLModel, table=True):
     asset_id: Optional[int] = Field(
         default=None, foreign_key="asset.id", primary_key=True
     )
-    project: Project = Relationship(back_populates="project_assets")
-    asset: Asset = Relationship(back_populates="project_assets")
+    project: "Project" = Relationship(back_populates="project_assets")
+    asset: "Asset" = Relationship(back_populates="project_assets")

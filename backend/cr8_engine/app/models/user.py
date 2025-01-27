@@ -12,7 +12,6 @@ class User(SQLModel, table=True):
     role: Optional[str] = Field(default=UserRole.CONTENT_CREATOR)
 
     # Content Creator Specific Fields
-
     subscription_tier: Optional[str] = Field(default=SubscriptionTier.BASIC)
     subscription_active: bool = Field(default=True)
 

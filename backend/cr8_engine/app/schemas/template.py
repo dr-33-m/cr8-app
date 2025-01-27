@@ -26,8 +26,7 @@ class TemplateUpdate(BaseModel):
 
 class TemplateRead(TemplateBase):
     id: int
-    creator: UserRead
-    # Replace with more descriptive types if needed.
+    creator: "UserRead"
     project_templates: List[int] = []
 
     class Config:

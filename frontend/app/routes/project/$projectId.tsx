@@ -12,7 +12,7 @@ import { usePreviewRenderer } from "@/hooks/usePreviewRenderer";
 import { useWebSocket } from "@/hooks/useWebsocket";
 import { useSceneConfigStore } from "@/store/sceneConfiguratorStore";
 
-export const Route = createFileRoute("/project/")({
+export const Route = createFileRoute("/project/$projectId")({
   component: RouteComponent,
 });
 

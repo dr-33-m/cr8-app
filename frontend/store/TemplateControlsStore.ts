@@ -1,4 +1,4 @@
-import { TemplateControls } from "@/types/templateControls";
+import { TemplateControls } from "@/lib/types/templateControls";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 

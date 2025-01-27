@@ -1,4 +1,4 @@
-import { Theme, Tone } from "@/types/moodboard";
+import { Theme, Tone } from "@/lib/types/moodboard";
 import { Badge } from "@/components/ui/badge";
 
 interface SummaryTextualProps {

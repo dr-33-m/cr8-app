@@ -6,7 +6,7 @@ import {
   CategoryImages,
   ImageWithAnnotation,
   MoodboardFormData,
-} from "@/types/moodboard";
+} from "@/lib/types/moodboard";
 import { useFormContext } from "react-hook-form";
 import { FormError } from "@/components/ui/form-error";
 

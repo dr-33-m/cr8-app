@@ -52,8 +52,8 @@ app.add_middleware(
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(moodboards.router,
                    prefix="/api/v1/moodboards", tags=["moodboards"])
-# app.include_router(
-#     projects.router, prefix="/api/v1/projects", tags=["projects"])
+app.include_router(
+    projects.router, prefix="/api/v1/projects", tags=["projects"])
 # app.include_router(assets.router, prefix="/api/v1/assets", tags=["assets"])
 # app.include_router(
 #     templates.router, prefix="/api/v1/templates", tags=["templates"])

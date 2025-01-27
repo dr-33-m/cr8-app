@@ -1,7 +1,7 @@
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageThumbnail } from "./ImageThumbnail";
-import { ImageWithAnnotation } from "@/types/moodboard";
+import { ImageWithAnnotation } from "@/lib/types/moodboard";
 import { ChangeEvent } from "react";
 
 interface ImageGalleryProps {

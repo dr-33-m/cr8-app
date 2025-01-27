@@ -58,7 +58,7 @@ export const projectTemplates = {
   fashion: [
     {
       id: "fashion-1",
-      name: "Tozi Shoot Set",
+      name: "Noga.blend",
       thumbnail: tozi,
     },
     {

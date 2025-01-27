@@ -1,3 +1,4 @@
+import { useProjectStore } from "@/store/projectStore";
 import useUserStore from "@/store/userStore";
 import { useEffect, useRef, useState, useCallback } from "react";
 
@@ -5,8 +6,10 @@ export const useWebSocket = () => {
   const [isConnected, setIsConnected] = useState(false);
   const websocketRef = useRef<WebSocket | null>(null);
   const userInfo = useUserStore((store) => store.userInfo);
-  const blend_file = "PHOTOSHOOT.blend";
+  const { template } = useProjectStore();
+  const blend_file = template;
 
+  console.log(blend_file, "blend file");
   useEffect(() => {
     if (!userInfo?.username || !blend_file) return;
 

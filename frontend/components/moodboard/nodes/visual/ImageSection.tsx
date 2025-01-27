@@ -1,6 +1,6 @@
 import { Upload, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ImageWithAnnotation } from "@/types/moodboard";
+import { ImageWithAnnotation } from "@/lib/types/moodboard";
 import { ImageCarousel } from "./ImageCarousel";
 import { ChangeEvent } from "react";
 import { FormError } from "@/components/ui/form-error";

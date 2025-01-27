@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { projectTypes, projectTemplates, moodboards } from "@/lib/constants";
+import { projectTypes, projectTemplates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { StepIndicator } from "@/components/ui/step-indicator";
 import { ProjectFormData } from "@/lib/types/ProjectConfig";
@@ -23,9 +23,16 @@ import {
   SelectValue,
 } from "../ui/select";
 import { useNavigate } from "@tanstack/react-router";
-// import { Lock } from "lucide-react";
+import { useProjectStore } from "@/store/projectStore";
+import { toast } from "sonner";
+import { MoodboardData, MoodboardList } from "@/lib/types/moodboard";
+import useUserStore from "@/store/userStore";
+
+const c8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
 
 export function CreateProjectDialog() {
+  const userInfo = useUserStore((store) => store.userInfo);
+  const logto_userId = userInfo?.sub;
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<ProjectFormData>({
     name: "",
@@ -40,21 +47,85 @@ export function CreateProjectDialog() {
 
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
+  const [moodboards, setMoodboards] = useState<MoodboardData[]>([]);
+  const { setProjectName, setProjectTemplate } = useProjectStore();
   const navigate = useNavigate();
 
   const onSubmit = async () => {
     if (step === steps.length) {
-      // Handle form submission here
-      console.log("Form Data:", formData);
-      setLoading(true); // Start loading
-      setTimeout(() => {
-        navigate({ to: "/project" });
-        setLoading(false); // Stop loading after navigation or error
-      }, 1000); // Simulate a delay of 1 second for the API call
-      return;
+      try {
+        setLoading(true);
+
+        // Prepare project data matching backend model
+        const projectData = {
+          name: formData.name,
+          description: formData.description,
+          project_type: formData.type,
+          subtype: formData.subtype,
+          project_status: "draft", // Default initial status
+          template: formData.template,
+          moodboard: formData.moodboard,
+          logto_userId,
+        };
+
+        const response = await fetch(
+          `${c8_engine_server}/api/v1/projects/create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              // Add authentication headers if required
+              // 'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(projectData),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to create project");
+        }
+
+        const createdProject = await response.json();
+
+        // Update Zustand store
+        setProjectName(createdProject.name);
+        setProjectTemplate(formData.template);
+
+        toast.success("Project created successfully!");
+        navigate({ to: `/project/${createdProject.id}` });
+      } catch (error) {
+        console.error("Project creation error:", error);
+        toast.error("Failed to create project");
+      } finally {
+        setLoading(false);
+      }
     }
     nextStep();
   };
+
+  useEffect(() => {
+    if (!logto_userId) {
+      console.warn("No logto user ID found, skipping moodboard fetch.");
+      return;
+    }
+    const fetchMoodboards = async () => {
+      try {
+        const response = await fetch(
+          `${c8_engine_server}/api/v1/moodboards/list?logto_userId=${logto_userId}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch moodboards");
+        }
+        const data = await response.json();
+        setMoodboards(data);
+      } catch (error) {
+        console.error("Moodboard fetch error:", error);
+        toast.error("Failed to load moodboards");
+      }
+    };
+
+    fetchMoodboards();
+  }, [logto_userId]);
 
   const renderStep = () => {
     switch (step) {
@@ -110,13 +181,13 @@ export function CreateProjectDialog() {
                           setFormData({ ...formData, type: key, subtype: "" });
                         }
                       }}
-                      disabled={locked} // Disable the button if locked
+                      disabled={locked}
                       className={cn(
                         "p-4 rounded-lg border flex items-center gap-3 transition-all",
                         formData.type === key
                           ? "border-cr8-blue bg-cr8-blue/10"
                           : "border-cr8-charcoal/10 bg-cr8-dark/20 hover:bg-cr8-dark/30",
-                        locked && "opacity-50 cursor-not-allowed" // Add styles for locked items
+                        locked && "opacity-50 cursor-not-allowed"
                       )}
                     >
                       <Icon className="w-5 h-5" />
@@ -124,7 +195,6 @@ export function CreateProjectDialog() {
                         {key.replace(/([A-Z])/g, " $1").trim()}
                       </span>
                       {locked && <Lock className="w-4 h-4 ml-auto" />}{" "}
-                      {/* Add a lock icon */}
                     </button>
                   )
                 )}
@@ -185,11 +255,11 @@ export function CreateProjectDialog() {
                   </SelectTrigger>
                   <SelectContent>
                     {moodboards.map((moodboard, index) => (
-                      <SelectItem key={index} value={moodboard.name}>
+                      <SelectItem key={index} value={moodboard?.name}>
                         <div>
-                          <p className="font-medium">{moodboard.name}</p>
+                          <p className="font-medium">{moodboard?.name}</p>
                           <p className="text-sm text-gray-400">
-                            {moodboard.description}
+                            {moodboard?.description}
                           </p>
                         </div>
                       </SelectItem>
@@ -238,11 +308,11 @@ export function CreateProjectDialog() {
                   <button
                     key={template.id}
                     onClick={() =>
-                      setFormData({ ...formData, template: template.id })
+                      setFormData({ ...formData, template: template.name })
                     }
                     className={cn(
                       "rounded-lg overflow-hidden transition-all",
-                      formData.template === template.id
+                      formData.template === template.name
                         ? "ring-2 ring-cr8-blue"
                         : "ring-1 ring-cr8-charcoal/10 hover:ring-cr8-charcoal/30"
                     )}
@@ -284,9 +354,7 @@ export function CreateProjectDialog() {
         <Button
           size="lg"
           className="bg-cr8-blue hover:bg-cr8-blue/60 text-white w-full"
-          // disabled
         >
-          {/* <Lock className="w-5 h-5 mr-2" /> */}
           Create Project
         </Button>
       </DialogTrigger>
