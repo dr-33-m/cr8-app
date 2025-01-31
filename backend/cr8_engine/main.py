@@ -60,7 +60,6 @@ app.include_router(
 
 # Websocket endpoint
 session_manager = SessionManager()
-websocket_handler = WebSocketHandler(session_manager)
 
 
 @app.websocket("/ws/{username}/{client_type}")
@@ -75,6 +74,8 @@ async def websocket_endpoint(websocket: WebSocket, username: str, client_type: s
         elif client_type == "blender":
             await session_manager.register_blender(username, websocket)
             await websocket.send_json({"status": "connected", "message": "Blender registered"})
+
+        websocket_handler = WebSocketHandler(session_manager, username)
 
         try:
             while True:

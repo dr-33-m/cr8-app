@@ -12,13 +12,25 @@ from app.core.config import settings
 class WebSocketHandler:
     """Handles WebSocket message processing with session-based architecture"""
 
-    def __init__(self, session_manager):
+    def __init__(self, session_manager, username: str):
         self.logger = logging.getLogger(__name__)
         self.session_manager = session_manager
-        self.preview_dir = Path(
-            settings.BLENDER_RENDER_PREVIEW_DIRECTORY) / "test_preview"
-        self.preview_dir.mkdir(exist_ok=True, parents=True)
+        self.username = username
+        self.preview_dir = self._get_preview_dir()
         self.pending_requests: Dict[str, str] = {}  # message_id -> username
+
+    def _get_preview_dir(self):
+        # Define the base directory where previews are stored
+        # Update this path as needed
+        base_preview_dir = Path(settings.BLENDER_RENDER_PREVIEW_DIRECTORY)
+
+        # Create a user-specific directory dynamically
+        user_preview_dir = base_preview_dir / self.username / "preview"
+
+        # Ensure the directory exists
+        os.makedirs(user_preview_dir, exist_ok=True)
+
+        return user_preview_dir
 
     async def handle_message(self, username: str, data: Dict[str, Any], client_type: str):
         """

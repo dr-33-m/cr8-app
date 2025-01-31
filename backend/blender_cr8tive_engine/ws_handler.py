@@ -44,6 +44,7 @@ class WebSocketHandler:
             # Initialize without connection
             cls._instance.ws = None
             cls._instance.url = None  # Start unconfigured
+            cls._instance.username = None
             cls._instance._initialized = True  # Mark as initialized
         return cls._instance
 
@@ -58,6 +59,13 @@ class WebSocketHandler:
 
         # Get URL from environment or argument
         self.url = url or os.environ.get("WS_URL")
+
+        match = re.match(r'ws://[^/]+/ws/([^/]+)/blender', url)
+        if match:
+            self.username = match.group(1)
+        else:
+            raise ValueError(
+                "Invalid WebSocket URL format. Unable to extract username.")
 
         if not self.url:
             raise ValueError(
@@ -220,7 +228,8 @@ class WebSocketHandler:
         logging.info("Starting preview rendering")
         params = data.get('params', {})
         subcommands = params.get('subcommands', {})
-        preview_renderer = self.controllers.create_preview_renderer()
+        preview_renderer = self.controllers.create_preview_renderer(
+            self.username)
 
         try:
             # Process subcommands for updates before rendering
@@ -279,8 +288,8 @@ class WebSocketHandler:
     def _handle_generate_video(self, data):
         """Generate video based on the available frames."""
         image_sequence_directory = Path(
-            "/mnt/shared_storage/Cr8tive_Engine/Sessions/test_session") / "test_preview"
-        output_file = image_sequence_directory / "box_preview.mp4"
+            f"/mnt/shared_storage/Cr8tive_Engine/Sessions/{self.username}") / "preview"
+        output_file = image_sequence_directory / "preview.mp4"
         resolution = (1280, 720)
         fps = 30
 

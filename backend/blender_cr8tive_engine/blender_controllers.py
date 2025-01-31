@@ -87,6 +87,6 @@ class BlenderControllers:
             return False
 
     @staticmethod
-    def create_preview_renderer():
-        """Create and return a preview renderer instance"""
-        return get_preview_renderer()
+    def create_preview_renderer(self, username):
+        """Create and return a preview renderer instance with the given username"""
+        return get_preview_renderer(username)

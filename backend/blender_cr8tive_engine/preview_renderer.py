@@ -6,9 +6,9 @@ import os
 
 
 class PreviewRenderer:
-    def __init__(self):
+    def __init__(self, username):
         self.preview_dir = Path(
-            "/mnt/shared_storage/Cr8tive_Engine/Sessions/test_session") / "test_preview"
+            f"/mnt/shared_storage/Cr8tive_Engine/Sessions/{username}/preview")
         self.preview_dir.mkdir(exist_ok=True, parents=True)
 
     def setup_preview_render(self, params=None):
@@ -47,6 +47,6 @@ class PreviewRenderer:
             traceback.print_exc()
 
 
-def get_preview_renderer():
-    """Create and return a preview renderer instance"""
-    return PreviewRenderer()
+def get_preview_renderer(username):
+    """Create and return a preview renderer instance with the given username"""
+    return PreviewRenderer(username)
