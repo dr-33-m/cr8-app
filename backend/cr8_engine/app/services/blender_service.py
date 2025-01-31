@@ -16,13 +16,16 @@ class BlenderService:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
-            key = paramiko.RSAKey.from_private_key_file(settings.SSH_KEY_PATH)
+            key = paramiko.RSAKey.from_private_key_file(
+                settings.SSH_KEY_PATH, password=settings.SSH_KEY_PASSPHRASE)
             client.connect(
                 hostname=settings.SSH_LOCAL_IP,
                 username=settings.SSH_USERNAME,
                 pkey=key,
+                password=settings.SSH_KEY,
                 port=settings.SSH_PORT
             )
+
             return client
         except Exception as e:
             logger.error(f"SSH connection failed: {str(e)}")

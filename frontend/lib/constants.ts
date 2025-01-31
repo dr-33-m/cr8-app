@@ -58,7 +58,7 @@ export const projectTemplates = {
   fashion: [
     {
       id: "fashion-1",
-      name: "Noga.blend",
+      name: "thejunkshopsplashscreen.blend",
       thumbnail: tozi,
     },
     {

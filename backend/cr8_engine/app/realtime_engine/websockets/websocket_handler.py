@@ -21,14 +21,13 @@ class WebSocketHandler:
 
     def _get_preview_dir(self):
         # Define the base directory where previews are stored
-        # Update this path as needed
         base_preview_dir = Path(settings.BLENDER_RENDER_PREVIEW_DIRECTORY)
 
         # Create a user-specific directory dynamically
         user_preview_dir = base_preview_dir / self.username / "preview"
 
         # Ensure the directory exists
-        os.makedirs(user_preview_dir, exist_ok=True)
+        user_preview_dir.mkdir(exist_ok=True, parents=True)
 
         return user_preview_dir
 

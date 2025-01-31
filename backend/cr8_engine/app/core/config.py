@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     SSH_PORT: int
     SSH_LOCAL_IP: str
     SSH_KEY_PASSPHRASE: Optional[str] = None
+    SSH_KEY: str
 
     # Blender Remote Directory
     BLENDER_REMOTE_DIRECTORY: str

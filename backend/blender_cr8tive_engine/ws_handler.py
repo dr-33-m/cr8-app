@@ -1,5 +1,6 @@
 import os
 import bpy
+import re
 import json
 import threading
 import logging
