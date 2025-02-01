@@ -61,7 +61,7 @@ class WebSocketHandler:
         # Get URL from environment or argument
         self.url = url or os.environ.get("WS_URL")
 
-        match = re.match(r'ws://[^/]+/ws/([^/]+)/blender', url)
+        match = re.match(r'ws://[^/]+/ws/([^/]+)/blender', self.url)
         if match:
             self.username = match.group(1)
         else:
