@@ -45,7 +45,6 @@ class Settings(BaseSettings):
     # Blender Remote Directory
     BLENDER_REMOTE_DIRECTORY: str
     BLENDER_RENDER_PREVIEW_DIRECTORY: str
-    BLENDER_ADDONS_PATH: str
 
     @property
     def postgres_url(self) -> str:
