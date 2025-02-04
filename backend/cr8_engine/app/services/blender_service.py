@@ -41,7 +41,7 @@ class BlenderService:
             client = BlenderService.create_ssh_client()
 
             try:
-                websocket_url = f"ws://{settings.WS_HOST}:{settings.WS_PORT}/ws/{username}/blender"
+                websocket_url = f"{settings.WS_HOST}/ws/{username}/blender"
                 safe_url = shlex.quote(websocket_url)
 
                 # Launch Blender

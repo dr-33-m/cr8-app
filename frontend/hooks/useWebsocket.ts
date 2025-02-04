@@ -2,6 +2,7 @@ import { useProjectStore } from "@/store/projectStore";
 import useUserStore from "@/store/userStore";
 import { useEffect, useRef, useState, useCallback } from "react";
 
+const websocket = import.meta.env.VITE_WEBSOCKET_URL;
 export const useWebSocket = () => {
   const [isConnected, setIsConnected] = useState(false);
   const websocketRef = useRef<WebSocket | null>(null);
@@ -9,13 +10,12 @@ export const useWebSocket = () => {
   const { template } = useProjectStore();
   const blend_file = template;
 
-  console.log(blend_file, "blend file");
   useEffect(() => {
     if (!userInfo?.username || !blend_file) return;
 
     const connectWebSocket = () => {
       const ws = new WebSocket(
-        `ws://localhost:8000/ws/${userInfo?.username}/browser?blend_file=${blend_file}`
+        `${websocket}/${userInfo?.username}/browser?blend_file=${blend_file}`
       );
       websocketRef.current = ws;
 
