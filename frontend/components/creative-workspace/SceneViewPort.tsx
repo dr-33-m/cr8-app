@@ -4,7 +4,7 @@ import { LegacyRef } from "react";
 interface SceneViewPortProps {
   canvasRef: LegacyRef<HTMLCanvasElement> | undefined;
   isPreviewAvailable: boolean;
-  finalVideoUrl?: string; // New prop for the final video URL
+  finalVideoUrl?: string;
 }
 
 export function SceneViewPort({
@@ -24,8 +24,8 @@ export function SceneViewPort({
         // Render the canvas for preview
         <canvas
           ref={canvasRef}
-          width={1920}
-          height={1080}
+          width={1280}
+          height={720}
           className="w-full h-full object-cover"
         />
       ) : (

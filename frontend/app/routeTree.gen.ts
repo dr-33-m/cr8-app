@@ -13,7 +13,7 @@
 import { Route as rootRoute } from './routes/__root'
 import { Route as CallbackImport } from './routes/callback'
 import { Route as IndexImport } from './routes/index'
-import { Route as ProjectIndexImport } from './routes/project/index'
+import { Route as ProjectProjectIdImport } from './routes/project/$projectId'
 import { Route as ProjectMoodboardMoodboardIdImport } from './routes/project/moodboard/$moodboardId'
 
 // Create/Update Routes
@@ -30,9 +30,9 @@ const IndexRoute = IndexImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const ProjectIndexRoute = ProjectIndexImport.update({
-  id: '/project/',
-  path: '/project/',
+const ProjectProjectIdRoute = ProjectProjectIdImport.update({
+  id: '/project/$projectId',
+  path: '/project/$projectId',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -61,11 +61,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CallbackImport
       parentRoute: typeof rootRoute
     }
-    '/project/': {
-      id: '/project/'
-      path: '/project'
-      fullPath: '/project'
-      preLoaderRoute: typeof ProjectIndexImport
+    '/project/$projectId': {
+      id: '/project/$projectId'
+      path: '/project/$projectId'
+      fullPath: '/project/$projectId'
+      preLoaderRoute: typeof ProjectProjectIdImport
       parentRoute: typeof rootRoute
     }
     '/project/moodboard/$moodboardId': {
@@ -83,14 +83,14 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
-  '/project': typeof ProjectIndexRoute
+  '/project/$projectId': typeof ProjectProjectIdRoute
   '/project/moodboard/$moodboardId': typeof ProjectMoodboardMoodboardIdRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
-  '/project': typeof ProjectIndexRoute
+  '/project/$projectId': typeof ProjectProjectIdRoute
   '/project/moodboard/$moodboardId': typeof ProjectMoodboardMoodboardIdRoute
 }
 
@@ -98,20 +98,28 @@ export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
-  '/project/': typeof ProjectIndexRoute
+  '/project/$projectId': typeof ProjectProjectIdRoute
   '/project/moodboard/$moodboardId': typeof ProjectMoodboardMoodboardIdRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/callback' | '/project' | '/project/moodboard/$moodboardId'
+  fullPaths:
+    | '/'
+    | '/callback'
+    | '/project/$projectId'
+    | '/project/moodboard/$moodboardId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/callback' | '/project' | '/project/moodboard/$moodboardId'
+  to:
+    | '/'
+    | '/callback'
+    | '/project/$projectId'
+    | '/project/moodboard/$moodboardId'
   id:
     | '__root__'
     | '/'
     | '/callback'
-    | '/project/'
+    | '/project/$projectId'
     | '/project/moodboard/$moodboardId'
   fileRoutesById: FileRoutesById
 }
@@ -119,14 +127,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CallbackRoute: typeof CallbackRoute
-  ProjectIndexRoute: typeof ProjectIndexRoute
+  ProjectProjectIdRoute: typeof ProjectProjectIdRoute
   ProjectMoodboardMoodboardIdRoute: typeof ProjectMoodboardMoodboardIdRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CallbackRoute: CallbackRoute,
-  ProjectIndexRoute: ProjectIndexRoute,
+  ProjectProjectIdRoute: ProjectProjectIdRoute,
   ProjectMoodboardMoodboardIdRoute: ProjectMoodboardMoodboardIdRoute,
 }
 
@@ -142,7 +150,7 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/callback",
-        "/project/",
+        "/project/$projectId",
         "/project/moodboard/$moodboardId"
       ]
     },
@@ -152,8 +160,8 @@ export const routeTree = rootRoute
     "/callback": {
       "filePath": "callback.tsx"
     },
-    "/project/": {
-      "filePath": "project/index.tsx"
+    "/project/$projectId": {
+      "filePath": "project/$projectId.tsx"
     },
     "/project/moodboard/$moodboardId": {
       "filePath": "project/moodboard/$moodboardId.tsx"

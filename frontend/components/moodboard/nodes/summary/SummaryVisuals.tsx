@@ -1,4 +1,4 @@
-import { ImageWithAnnotation } from "@/types/moodboard";
+import { ImageWithAnnotation } from "@/lib/types/moodboard";
 
 interface SummaryVisualsProps {
   images: ImageWithAnnotation[];

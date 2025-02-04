@@ -1,22 +1,28 @@
 import { Music, Package, Shirt, Share2 } from "lucide-react";
 import { ProjectType } from "./types/ProjectConfig";
+import tozi from "@/assets/tozi.png";
+import classroom from "@/assets/classroom.png";
 
 export const projectTypes: Record<string, ProjectType> = {
   music: {
     icon: Music,
     subtypes: ["Art Cover", "Visualizer", "Music Video"],
+    locked: true,
   },
   product: {
     icon: Package,
     subtypes: ["Product Shoot", "Product Reel", "Product Campaign"],
+    locked: false,
   },
   fashion: {
     icon: Shirt,
     subtypes: ["Look Shoot", "Look Reel", "Fashion Show"],
+    locked: false,
   },
   socialMedia: {
     icon: Share2,
     subtypes: ["Post", "Reel", "Campaign"],
+    locked: true,
   },
 };
 
@@ -52,15 +58,13 @@ export const projectTemplates = {
   fashion: [
     {
       id: "fashion-1",
-      name: "Editorial",
-      thumbnail:
-        "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=300&h=200&fit=crop",
+      name: "thejunkshopsplashscreen.blend",
+      thumbnail: tozi,
     },
     {
       id: "fashion-2",
-      name: "Street Style",
-      thumbnail:
-        "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=300&h=200&fit=crop",
+      name: "Classroom Shoot Set",
+      thumbnail: classroom,
     },
   ],
   socialMedia: [
@@ -78,3 +82,24 @@ export const projectTemplates = {
     },
   ],
 };
+
+export const moodboards = [
+  {
+    id: "1",
+    name: "Tozi Shoot",
+    description:
+      "A moodboard curated by Tozi. Perfect for local streetwear culture photography.",
+  },
+  {
+    id: "2",
+    name: "StreetCrisis Shoot",
+    description:
+      "A moodboard curated by StreetCrisis. Perfect for streetwear shoots.",
+  },
+  {
+    id: "3",
+    name: "Noga Shoot",
+    description:
+      "A moodboard curated by Noga. Perfect for flat Caps visualization .",
+  },
+];

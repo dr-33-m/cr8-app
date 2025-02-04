@@ -1,4 +1,6 @@
+import os
 import bpy
+import re
 import json
 import threading
 import logging
@@ -40,23 +42,46 @@ class WebSocketHandler:
             cls._instance = super(WebSocketHandler, cls).__new__(cls)
             cls._instance._initialized = False
             cls._instance.lock = threading.Lock()
+            # Initialize without connection
+            cls._instance.ws = None
+            cls._instance.url = None  # Start unconfigured
+            cls._instance.username = None
+            cls._instance._initialized = True  # Mark as initialized
         return cls._instance
 
-    def __init__(self, url="ws://localhost:8000/ws/blender"):
-        if self._initialized:
-            return
+    def __init__(self):
+        # Empty __init__ since we handle initialization in __new__
+        pass
 
-        self.url = url
+    def initialize_connection(self, url=None):
+        """Call this explicitly when ready to connect"""
+        if self.ws:
+            return  # Already connected
+
+        # Get URL from environment or argument
+        self.url = url or os.environ.get("WS_URL")
+
+        match = re.match(r'wss://[^/]+/ws/([^/]+)/blender', self.url)
+        if match:
+            self.username = match.group(1)
+        else:
+            raise ValueError(
+                "Invalid WebSocket URL format. Unable to extract username.")
+
+        if not self.url:
+            raise ValueError(
+                "WebSocket URL must be set via WS_URL environment variable "
+                "or passed to initialize_connection()"
+            )
+
+        # Initialize components only when needed
+        self.ws = None
         self.wizard = TemplateWizard()
         self.controllers = BlenderControllers()
-
-        self.ws = None
-        self.ws_thread = None
-        self._initialized = True
         self.processing_complete = threading.Event()
         self.processed_commands = set()
         self.reconnect_attempts = 0
-        self.max_retries = 5  # Maximum number of retries
+        self.max_retries = 5
         self.stop_retries = False
 
     def connect(self, retries=5, delay=2):
@@ -65,11 +90,12 @@ class WebSocketHandler:
         self.reconnect_attempts = 0
         self.stop_retries = False
 
-        while self.reconnect_attempts < retries:
+        while self.reconnect_attempts < retries and not self.stop_retries:
             try:
                 if self.ws:
                     self.ws.close()
 
+                # Use the environment-configured URL
                 self.ws = websocket.WebSocketApp(
                     self.url,
                     on_message=self._on_message,
@@ -77,22 +103,24 @@ class WebSocketHandler:
                     on_close=self._on_close,
                     on_error=self._on_error,
                 )
+
                 self.processing_complete.clear()
                 self.ws_thread = threading.Thread(
                     target=self._run_websocket, daemon=True)
                 self.ws_thread.start()
 
-                logging.info("WebSocket connection initialized")
+                logging.info(f"WebSocket connection initialized to {self.url}")
                 return True
             except Exception as e:
                 logging.error(
-                    f"Connection failed: {e}, retrying in {delay} seconds..."
+                    f"Connection to {self.url} failed: {e}, retrying in {delay} seconds..."
                 )
                 time.sleep(delay)
                 delay *= 2  # Exponential backoff
                 self.reconnect_attempts += 1
 
-        logging.error("Max retries reached. Connection failed.")
+        logging.error(
+            f"Max retries reached for {self.url}. Connection failed.")
         return False
 
     def _run_websocket(self):
@@ -119,19 +147,17 @@ class WebSocketHandler:
     def _on_open(self, ws):
         self.reconnect_attempts = 0
 
-        def send_template_controls():
+        def send_init_message():
             try:
-                controllables = self.wizard.scan_controllable_objects()
                 init_message = json.dumps({
-                    'command': 'template_controls',
-                    'controllables': controllables
+                    'status': 'Connected',
                 })
                 ws.send(init_message)
-                logging.info("Sent template controls to server")
+                logging.info("Connected Successfully")
             except Exception as e:
                 logging.error(f"Error in _on_open: {e}")
 
-        execute_in_main_thread(send_template_controls, ())
+        execute_in_main_thread(send_init_message, ())
 
     def _on_message(self, ws, message):
         self.process_message(message)
@@ -203,7 +229,8 @@ class WebSocketHandler:
         logging.info("Starting preview rendering")
         params = data.get('params', {})
         subcommands = params.get('subcommands', {})
-        preview_renderer = self.controllers.create_preview_renderer()
+        preview_renderer = self.controllers.create_preview_renderer(
+            self.username)
 
         try:
             # Process subcommands for updates before rendering
@@ -248,10 +275,8 @@ class WebSocketHandler:
             # Setup preview render settings
             preview_renderer.setup_preview_render(params)
 
-            # Render multiple frames (e.g., 24 frames)
-            num_frames = params.get('num_frames', 24)
-            for frame in range(1, num_frames + 1):
-                preview_renderer.render_preview_frame(frame)
+            # Render the entire animation once
+            bpy.ops.render.opengl(animation=True)
 
             self._send_response('start_broadcast', True)
 
@@ -264,8 +289,8 @@ class WebSocketHandler:
     def _handle_generate_video(self, data):
         """Generate video based on the available frames."""
         image_sequence_directory = Path(
-            "/home/thamsanqa/Cr8-xyz Creative Studio/Test Renders") / "box_preview"
-        output_file = image_sequence_directory / "box_preview.mp4"
+            f"/mnt/shared_storage/Cr8tive_Engine/Sessions/{self.username}") / "preview"
+        output_file = image_sequence_directory / "preview.mp4"
         resolution = (1280, 720)
         fps = 30
 
@@ -319,17 +344,21 @@ class WebSocketHandler:
 
             logging.error(f"Video generation failed: {e}")
 
-    def _handle_rescan_template(self):
+    def _handle_rescan_template(self, data):
         """Rescan the controllable objects and send the response"""
         try:
             controllables = self.wizard.scan_controllable_objects()
             # Send the template controls with the actual controllables data
-            self._send_response('template_controls', True, controllables)
+            result = {
+                "controllables": controllables,
+                "message_id": data.get('message_id')
+            }
+            self._send_response('template_controls', True, result)
         except Exception as e:
             logging.error(f"Error during template rescan: {e}")
             self._send_response('template_scan_result', False)
 
-    def _send_response(self, command, result, data=None):
+    def _send_response(self, command, result, data=None, message_id=None):
         """
         Send a WebSocket response.
 
@@ -347,6 +376,9 @@ class WebSocketHandler:
         # Include the data in the response if provided
         if data is not None:
             response['data'] = data
+
+        if message_id is not None:
+            response['message_id'] = message_id
 
         # Convert the response dictionary to a JSON string
         json_response = json.dumps(response)
@@ -368,15 +400,31 @@ class WebSocketHandler:
             self.processing_complete.set()
 
 
-# Singleton instance for easy access
-websocket_handler = WebSocketHandler()
+class ConnectWebSocketOperator(bpy.types.Operator):
+    bl_idname = "ws_handler.connect_websocket"
+    bl_label = "Connect WebSocket"
+    bl_description = "Initialize WebSocket connection to Cr8tive Engine server"
+
+    def execute(self, context):
+        try:
+            handler = WebSocketHandler()
+            handler.initialize_connection()  # Initialize before connecting
+            if handler.connect():
+                self.report({'INFO'}, f"Connected to {handler.url}")
+                return {'FINISHED'}
+            else:
+                self.report({'ERROR'}, "Connection failed")
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
+        return {'CANCELLED'}
 
 
 def register():
-    """Register WebSocket handler"""
-    websocket_handler.connect()
+    """Register WebSocket handler and operator"""
+    bpy.utils.register_class(ConnectWebSocketOperator)
 
 
 def unregister():
-    """Unregister WebSocket handler"""
+    """Unregister WebSocket handler and operator"""
+    bpy.utils.unregister_class(ConnectWebSocketOperator)
     websocket_handler.disconnect()

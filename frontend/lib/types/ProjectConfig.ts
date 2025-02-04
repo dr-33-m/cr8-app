@@ -3,6 +3,7 @@ import { LucideIcon } from "lucide-react";
 export interface ProjectType {
   icon: LucideIcon;
   subtypes: string[];
+  locked: boolean;
 }
 
 export interface ProjectTemplate {

@@ -7,14 +7,14 @@ class MoodboardBase(BaseModel):
     user_id: int
     name: str
     description: str
-    storyline: str
-    keywords: List[str]
+    storyline: Optional[str] = None
+    keywords: List[str] = []  # Default empty list (not Optional)
     industry: Optional[str] = None
-    targetAudience: str
+    targetAudience: Optional[str] = None
     theme: Optional[str] = None
     tone: Optional[str] = None
-    videoReferences: List[str]
-    colorPalette: List[str]
+    videoReferences: List[str] = []  # Default empty list
+    colorPalette: List[str] = []  # Default empty list
     usage_intent: Optional[str] = None
 
     class Config:
@@ -26,17 +26,17 @@ class MoodboardCreate(MoodboardBase):
 
 
 class MoodboardUpdate(BaseModel):
-    name: Optional[str]
-    description: Optional[str]
-    storyline: Optional[str]
-    keywords: Optional[List[str]]
-    industry: Optional[str]
-    targetAudience: Optional[str]
-    theme: Optional[str]
-    tone: Optional[str]
-    videoReferences: Optional[List[str]]
-    colorPalette: Optional[List[str]]
-    usage_intent: Optional[str]
+    name: Optional[str] = None
+    description: Optional[str] = None
+    storyline: Optional[str] = None
+    keywords: Optional[List[str]] = None
+    industry: Optional[str] = None
+    targetAudience: Optional[str] = None
+    theme: Optional[str] = None
+    tone: Optional[str] = None
+    videoReferences: Optional[List[str]] = None
+    colorPalette: Optional[List[str]] = None
+    usage_intent: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -46,36 +46,6 @@ class MoodboardRead(MoodboardBase):
     id: int
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        orm_mode = True
-
-
-class MoodboardImageBase(BaseModel):
-    moodboard_id: int
-    file: str
-    annotation: Optional[str] = None
-    category: str  # e.g., compositions, actions, lighting, location
-
-    class Config:
-        orm_mode = True
-
-
-class MoodboardImageCreate(MoodboardImageBase):
-    pass
-
-
-class MoodboardImageUpdate(BaseModel):
-    file: Optional[str] = None
-    annotation: Optional[str] = None
-    category: Optional[str] = None
-
-    class Config:
-        orm_mode = True
-
-
-class MoodboardImageRead(MoodboardImageBase):
-    id: int
 
     class Config:
         orm_mode = True

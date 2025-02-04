@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/popover";
 import { SceneConfiguration } from "@/lib/types/sceneConfig";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
+import { useTemplateControlsStore } from "@/store/TemplateControlsStore";
 
 interface SceneControlsProps {
   sceneConfiguration: SceneConfiguration;
@@ -48,11 +49,12 @@ export function SceneControls({
   onUpdateSceneConfiguration,
 }: SceneControlsProps) {
   const isVisible = useVisibilityStore((state) => state.isSceneControlsVisible);
+  const templateControls = useTemplateControlsStore((state) => state.controls);
   const toggleVisibility = useVisibilityStore(
     (state) => state.toggleSceneControls
   );
   const [lightConfig, setLightConfig] = useState({
-    light_name: "controllable_Bottom_AreaLight",
+    light_name: "",
     color: "#FFFFFF",
     strength: 50,
   });
@@ -60,7 +62,7 @@ export function SceneControls({
   const handleUpdateLightConfig = (updates: Partial<typeof lightConfig>) => {
     setLightConfig((prev) => {
       const updatedConfig = { ...prev, ...updates };
-      onUpdateSceneConfiguration("lights", updatedConfig); // Assuming this updates the scene externally
+      onUpdateSceneConfiguration("lights", updatedConfig);
       return updatedConfig;
     });
   };
@@ -92,18 +94,11 @@ export function SceneControls({
                 <SelectValue placeholder="Choose light" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="controllable_Left_AreaLight">
-                  Left Area Light
-                </SelectItem>
-                <SelectItem value="controllable_Right_AreaLight">
-                  Right Area Light
-                </SelectItem>
-                <SelectItem value="controllable_Top_AreaLight">
-                  Top Area Light
-                </SelectItem>
-                <SelectItem value="controllable_Bottom_AreaLight">
-                  Bottom Area Light
-                </SelectItem>
+                {templateControls?.lights.map((light) => (
+                  <SelectItem key={light.name} value={light.name}>
+                    {light.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -200,15 +195,11 @@ export function SceneControls({
               <SelectValue placeholder="Select camera" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="controllable_Main_Camera">
-                Main Camera
-              </SelectItem>
-              <SelectItem value="controllable_GodView_Camera">
-                GodView Camera
-              </SelectItem>
-              <SelectItem value="controllable_TopView_Camera">
-                TopView Camera
-              </SelectItem>
+              {templateControls?.cameras.map((camera) => (
+                <SelectItem key={camera.name} value={camera.name}>
+                  {camera.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

@@ -1,6 +1,6 @@
 import { KeyboardEvent, useState } from "react";
 import { BookOpen, Tags, Palette, AlertCircle } from "lucide-react";
-import { MoodboardFormData, Theme, Tone } from "@/types/moodboard";
+import { MoodboardFormData, Theme, Tone } from "@/lib/types/moodboard";
 import { BaseNode } from "./BaseNode";
 import {
   Select,

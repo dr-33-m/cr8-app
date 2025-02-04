@@ -1,4 +1,4 @@
-import { VisibilityState } from "@/types/controlsVisibility";
+import { VisibilityState } from "@/lib/types/controlsVisibility";
 import { create } from "zustand";
 
 export const useVisibilityStore = create<VisibilityState>((set) => ({

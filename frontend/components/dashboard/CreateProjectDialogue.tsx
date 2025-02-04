@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,9 +14,25 @@ import { projectTypes, projectTemplates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { StepIndicator } from "@/components/ui/step-indicator";
 import { ProjectFormData } from "@/lib/types/ProjectConfig";
-import { Lock } from "lucide-react";
+import { LoaderPinwheel, Lock } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { useNavigate } from "@tanstack/react-router";
+import { useProjectStore } from "@/store/projectStore";
+import { toast } from "sonner";
+import { MoodboardData, MoodboardList } from "@/lib/types/moodboard";
+import useUserStore from "@/store/userStore";
+
+const c8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
 
 export function CreateProjectDialog() {
+  const userInfo = useUserStore((store) => store.userInfo);
+  const logto_userId = userInfo?.sub;
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<ProjectFormData>({
     name: "",
@@ -26,11 +42,90 @@ export function CreateProjectDialog() {
     template: "",
     moodboard: "",
   });
-
+  const [loading, setLoading] = useState(false);
   const steps = ["Project Details", "Type & Style", "Template", "Moodboard"];
 
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
+  const [moodboards, setMoodboards] = useState<MoodboardData[]>([]);
+  const { setProjectName, setProjectTemplate } = useProjectStore();
+  const navigate = useNavigate();
+
+  const onSubmit = async () => {
+    if (step === steps.length) {
+      try {
+        setLoading(true);
+
+        // Prepare project data matching backend model
+        const projectData = {
+          name: formData.name,
+          description: formData.description,
+          project_type: formData.type,
+          subtype: formData.subtype,
+          project_status: "draft", // Default initial status
+          template: formData.template,
+          moodboard: formData.moodboard,
+          logto_userId,
+        };
+
+        const response = await fetch(
+          `${c8_engine_server}/api/v1/projects/create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              // Add authentication headers if required
+              // 'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(projectData),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to create project");
+        }
+
+        const createdProject = await response.json();
+
+        // Update Zustand store
+        setProjectName(createdProject.name);
+        setProjectTemplate(formData.template);
+
+        toast.success("Project created successfully!");
+        navigate({ to: `/project/${createdProject.id}` });
+      } catch (error) {
+        console.error("Project creation error:", error);
+        toast.error("Failed to create project");
+      } finally {
+        setLoading(false);
+      }
+    }
+    nextStep();
+  };
+
+  useEffect(() => {
+    if (!logto_userId) {
+      console.warn("No logto user ID found, skipping moodboard fetch.");
+      return;
+    }
+    const fetchMoodboards = async () => {
+      try {
+        const response = await fetch(
+          `${c8_engine_server}/api/v1/moodboards/list?logto_userId=${logto_userId}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch moodboards");
+        }
+        const data = await response.json();
+        setMoodboards(data);
+      } catch (error) {
+        console.error("Moodboard fetch error:", error);
+        toast.error("Failed to load moodboards");
+      }
+    };
+
+    fetchMoodboards();
+  }, [logto_userId]);
 
   const renderStep = () => {
     switch (step) {
@@ -77,25 +172,32 @@ export function CreateProjectDialog() {
             <div className="space-y-3">
               <Label>Project Type</Label>
               <div className="grid grid-cols-2 gap-3">
-                {Object.entries(projectTypes).map(([key, { icon: Icon }]) => (
-                  <button
-                    key={key}
-                    onClick={() =>
-                      setFormData({ ...formData, type: key, subtype: "" })
-                    }
-                    className={cn(
-                      "p-4 rounded-lg border flex items-center gap-3 transition-all",
-                      formData.type === key
-                        ? "border-cr8-blue bg-cr8-blue/10"
-                        : "border-cr8-charcoal/10 bg-cr8-dark/20 hover:bg-cr8-dark/30"
-                    )}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="capitalize">
-                      {key.replace(/([A-Z])/g, " $1").trim()}
-                    </span>
-                  </button>
-                ))}
+                {Object.entries(projectTypes).map(
+                  ([key, { icon: Icon, locked }]) => (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        if (!locked) {
+                          setFormData({ ...formData, type: key, subtype: "" });
+                        }
+                      }}
+                      disabled={locked}
+                      className={cn(
+                        "p-4 rounded-lg border flex items-center gap-3 transition-all",
+                        formData.type === key
+                          ? "border-cr8-blue bg-cr8-blue/10"
+                          : "border-cr8-charcoal/10 bg-cr8-dark/20 hover:bg-cr8-dark/30",
+                        locked && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="capitalize">
+                        {key.replace(/([A-Z])/g, " $1").trim()}
+                      </span>
+                      {locked && <Lock className="w-4 h-4 ml-auto" />}{" "}
+                    </button>
+                  )
+                )}
               </div>
             </div>
 
@@ -141,20 +243,45 @@ export function CreateProjectDialog() {
           <div className="space-y-6">
             <div className="space-y-3">
               <Label>Select Moodboard</Label>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-left h-auto p-4"
-                onClick={() => {
-                  /* Open moodboard creation dialog */
-                }}
-              >
-                <div>
-                  <p className="font-medium">Create New Moodboard</p>
-                  <p className="text-sm text-gray-400">
-                    Start fresh with a new moodboard
-                  </p>
-                </div>
-              </Button>
+              {moodboards.length > 0 ? (
+                <Select
+                  value={formData.moodboard}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, moodboard: value });
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a moodboard" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {moodboards.map((moodboard, index) => (
+                      <SelectItem key={index} value={moodboard?.name}>
+                        <div>
+                          <p className="font-medium">{moodboard?.name}</p>
+                          <p className="text-sm text-gray-400">
+                            {moodboard?.description}
+                          </p>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left h-auto p-4"
+                  onClick={() => {
+                    /* Open moodboard creation dialog */
+                  }}
+                >
+                  <div>
+                    <p className="font-medium">Create New Moodboard</p>
+                    <p className="text-sm text-gray-400">
+                      Start fresh with a new moodboard
+                    </p>
+                  </div>
+                </Button>
+              )}
             </div>
 
             <div className="flex gap-3">
@@ -181,11 +308,11 @@ export function CreateProjectDialog() {
                   <button
                     key={template.id}
                     onClick={() =>
-                      setFormData({ ...formData, template: template.id })
+                      setFormData({ ...formData, template: template.name })
                     }
                     className={cn(
                       "rounded-lg overflow-hidden transition-all",
-                      formData.template === template.id
+                      formData.template === template.name
                         ? "ring-2 ring-cr8-blue"
                         : "ring-1 ring-cr8-charcoal/10 hover:ring-cr8-charcoal/30"
                     )}
@@ -209,9 +336,11 @@ export function CreateProjectDialog() {
               </Button>
               <Button
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
-                disabled={!formData.template}
+                disabled={!formData.template || loading}
+                onClick={onSubmit}
               >
-                Create Project
+                {loading && <LoaderPinwheel className="w-5 h-5 animate-spin" />}
+                {loading ? "Preparing Set..." : "Create Project"}
               </Button>
             </div>
           </div>
@@ -224,10 +353,8 @@ export function CreateProjectDialog() {
       <DialogTrigger asChild>
         <Button
           size="lg"
-          className="bg-cr8-blue/60 hover:bg-cr8-blue/60 text-white w-full cursor-not-allowed"
-          disabled
+          className="bg-cr8-blue hover:bg-cr8-blue/60 text-white w-full"
         >
-          <Lock className="w-5 h-5 mr-2" />
           Create Project
         </Button>
       </DialogTrigger>

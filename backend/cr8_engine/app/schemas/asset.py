@@ -3,13 +3,13 @@ from pydantic import BaseModel
 
 
 class AssetBase(BaseModel):
-    id: Optional[int]
+    id: Optional[int] = None
     name: str
-    description: Optional[str]
-    asset_type: Optional[str]
+    description: Optional[str] = None
+    asset_type: Optional[str] = None
     minio_path: str
     creator_id: int
-    price: Optional[float]
+    price: Optional[float] = None
     is_public: bool = False
     controls: Dict[str, Any] = {}
 
@@ -22,13 +22,13 @@ class AssetCreate(AssetBase):
 
 
 class AssetUpdate(BaseModel):
-    name: Optional[str]
-    description: Optional[str]
-    asset_type: Optional[str]
-    minio_path: Optional[str]
-    price: Optional[float]
-    is_public: Optional[bool]
-    controls: Optional[Dict[str, Any]]
+    name: Optional[str] = None
+    description: Optional[str] = None
+    asset_type: Optional[str] = None
+    minio_path: Optional[str] = None
+    price: Optional[float] = None
+    is_public: Optional[bool] = None
+    controls: Optional[Dict[str, Any]] = None
 
     class Config:
         orm_mode = True
@@ -39,10 +39,10 @@ class AssetRead(AssetBase):
 
 
 class FavoriteBase(BaseModel):
-    id: Optional[int]
+    id: Optional[int] = None
     user_id: int
-    asset_id: Optional[int]
-    template_id: Optional[int]
+    asset_id: Optional[int] = None
+    template_id: Optional[int] = None
 
     class Config:
         orm_mode = True
@@ -53,8 +53,8 @@ class FavoriteCreate(FavoriteBase):
 
 
 class FavoriteUpdate(BaseModel):
-    asset_id: Optional[int]
-    template_id: Optional[int]
+    asset_id: Optional[int] = None
+    template_id: Optional[int] = None
 
     class Config:
         orm_mode = True

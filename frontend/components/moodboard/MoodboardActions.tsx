@@ -2,7 +2,7 @@ import { LoaderPinwheel, Save } from "lucide-react";
 import { Button } from "../ui/button";
 import { useFormContext } from "react-hook-form";
 import { useMoodboardStore } from "@/store/moodboardStore";
-import { MoodboardFormData } from "@/types/moodboard";
+import { MoodboardFormData } from "@/lib/types/moodboard";
 import { toast } from "sonner";
 import { useState } from "react";
 

@@ -19,13 +19,9 @@ class UserBase(BaseModel):
     revenue_share: Optional[float] = Field(
         default=0.0, description="Revenue share percentage")
 
-# Pydantic model for creating a User
-
 
 class UserCreate(UserBase):
     pass
-
-# Pydantic model for updating a User
 
 
 class UserUpdate(BaseModel):
@@ -38,8 +34,6 @@ class UserUpdate(BaseModel):
         None, description="Whether the subscription is active")
     revenue_share: Optional[float] = Field(
         None, description="Revenue share percentage")
-
-# Pydantic model for reading a User (includes relationships)
 
 
 class UserRead(UserBase):

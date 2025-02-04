@@ -1,4 +1,4 @@
-import { MoodboardFormData } from "@/types/moodboard";
+import { MoodboardFormData } from "@/lib/types/moodboard";
 import { create } from "zustand";
 
 interface MoodboardStore {

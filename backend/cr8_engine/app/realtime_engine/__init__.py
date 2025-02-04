@@ -6,13 +6,13 @@ making them easy to import.
 """
 
 # Import key classes to make them accessible at the package level
-from .connection_manager import WebSocketConnectionManager
-from .server import WebSocketServer
+from .websockets.session_manager import SessionManager
+from .websockets.websocket_handler import WebSocketHandler
 
 # Optional: Define what should be imported with *
 __all__ = [
-    'WebSocketConnectionManager',
-    'WebSocketServer'
+    'SessionManager',
+    'WebSocketHandler',
 ]
 
 # Optional: Package-level version information

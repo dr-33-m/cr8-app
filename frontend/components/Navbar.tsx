@@ -14,6 +14,13 @@ import { useLogto } from "@logto/react";
 import { isBrowser } from "@/lib/utils";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import useUserStore from "@/store/userStore";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+import { Badge } from "./ui/badge";
 
 const Navbar = () => {
   const logto = isBrowser ? useLogto() : null;
@@ -34,12 +41,24 @@ const Navbar = () => {
         <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20 shadow-lg">
           <div className="flex justify-between items-center px-6 py-3">
             <div className="flex items-center">
-              <Link href="/" className="flex items-center">
+              <Link to="/" className="flex items-center">
                 <img src={cr8} alt="Cr8-xyz" className="w-10 h-10 shadow-lg" />
                 <span className="ml-2 text-xl font-semibold">Cr8-xyz</span>
               </Link>
             </div>
             <div className="flex items-center space-x-4">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Badge className="ml-2">Early Access</Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-sm">
+                      Your feedback helps us make Cr8-xyz better for you
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
