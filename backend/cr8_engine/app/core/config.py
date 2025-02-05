@@ -36,6 +36,7 @@ class Settings(BaseSettings):
 
     # SSH config
     SSH_PRIVATE_KEY: str
+    SSH_PRIVATE_KEY_PASSPHRASE: Optional[str] = None
     SSH_USERNAME: str
     SSH_PORT: int
     SSH_LOCAL_IP: str

@@ -18,7 +18,7 @@ class BlenderService:
 
         try:
             key = paramiko.RSAKey.from_private_key(
-                io.StringIO(settings.SSH_PRIVATE_KEY))
+                io.StringIO(settings.SSH_PRIVATE_KEY), password=settings.SSH_PRIVATE_KEY_PASSPHRASE)
 
             client.connect(
                 hostname=settings.SSH_LOCAL_IP,
