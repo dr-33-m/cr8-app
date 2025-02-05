@@ -17,7 +17,7 @@ class BlenderService:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
-            key = paramiko.RSAKey.from_private_key(
+            key = paramiko.pkey.PKey.from_string(
                 io.StringIO(settings.SSH_PRIVATE_KEY))
 
             client.connect(
