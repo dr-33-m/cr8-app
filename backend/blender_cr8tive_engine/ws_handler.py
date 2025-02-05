@@ -10,6 +10,8 @@ from .blender_controllers import BlenderControllers
 from .video_generator import GenerateVideo
 import tempfile
 from pathlib import Path
+import ssl
+import time  # Add this if not already imported
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -90,12 +92,28 @@ class WebSocketHandler:
         self.reconnect_attempts = 0
         self.stop_retries = False
 
+        try:
+            # Create SSL context with proper security settings
+            ssl_context = ssl.create_default_context(
+                purpose=ssl.Purpose.SERVER_AUTH,
+                cafile="/home/thamsanqa/cloudflare_cert.crt"
+            )
+            ssl_context.check_hostname = True
+            ssl_context.verify_mode = ssl.CERT_REQUIRED
+
+            # Verify the SSL context is properly configured
+            logging.info(
+                "SSL Context created with: verify_mode=CERT_REQUIRED, check_hostname=True")
+        except Exception as ssl_error:
+            logging.error(f"Failed to create SSL context: {ssl_error}")
+            return False
+
         while self.reconnect_attempts < retries and not self.stop_retries:
             try:
                 if self.ws:
                     self.ws.close()
 
-                # Use the environment-configured URL
+                # Use the environment-configured URL with SSL options
                 self.ws = websocket.WebSocketApp(
                     self.url,
                     on_message=self._on_message,
@@ -106,7 +124,9 @@ class WebSocketHandler:
 
                 self.processing_complete.clear()
                 self.ws_thread = threading.Thread(
-                    target=self._run_websocket, daemon=True)
+                    target=lambda: self._run_websocket(ssl_context),
+                    daemon=True
+                )
                 self.ws_thread.start()
 
                 logging.info(f"WebSocket connection initialized to {self.url}")
@@ -123,12 +143,26 @@ class WebSocketHandler:
             f"Max retries reached for {self.url}. Connection failed.")
         return False
 
-    def _run_websocket(self):
+    def _run_websocket(self, ssl_context):
+        """Run WebSocket with SSL context"""
         while not self.processing_complete.is_set() and not self.stop_retries:
             try:
-                self.ws.run_forever()
+                self.ws.run_forever(
+                    sslopt={
+                        "cert_reqs": ssl_context.verify_mode,
+                        "check_hostname": ssl_context.check_hostname,
+                        "ssl_context": ssl_context
+                    }
+                )
+            except ssl.SSLError as ssl_err:
+                logging.error(f"SSL Error in WebSocket connection: {ssl_err}")
+                self.stop_retries = True
+                break
+            except websocket.WebSocketException as ws_err:
+                logging.error(f"WebSocket error: {ws_err}")
+                break
             except Exception as e:
-                logging.error(f"WebSocket error: {e}")
+                logging.error(f"Unexpected error in WebSocket connection: {e}")
                 break
 
     def disconnect(self):
