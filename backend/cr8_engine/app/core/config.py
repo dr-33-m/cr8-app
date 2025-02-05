@@ -35,12 +35,11 @@ class Settings(BaseSettings):
     MINIO_BUCKET_NAME: str
 
     # SSH config
-    SSH_KEY_PATH: str
+    SSH_PRIVATE_KEY: str
     SSH_USERNAME: str
     SSH_PORT: int
     SSH_LOCAL_IP: str
     SSH_KEY_PASSPHRASE: Optional[str] = None
-    SSH_KEY: str
 
     # Blender Remote Directory
     BLENDER_REMOTE_DIRECTORY: str

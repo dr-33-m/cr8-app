@@ -1,4 +1,5 @@
 # app/services/blender_service.py
+import io
 import logging
 import paramiko
 import shlex
@@ -16,13 +17,12 @@ class BlenderService:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
-            key = paramiko.RSAKey.from_private_key_file(
-                settings.SSH_KEY_PATH, password=settings.SSH_KEY_PASSPHRASE)
+            key = io.StringIO(settings.SSH_PRIVATE_KEY)
             client.connect(
                 hostname=settings.SSH_LOCAL_IP,
                 username=settings.SSH_USERNAME,
                 pkey=key,
-                password=settings.SSH_KEY,
+                password=settings.SSH_KEY_PASSPHRASE,
                 port=settings.SSH_PORT
             )
 
