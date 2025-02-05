@@ -98,12 +98,12 @@ class WebSocketHandler:
                 purpose=ssl.Purpose.SERVER_AUTH,
                 cafile="/home/thamsanqa/cloudflare_cert.crt"
             )
-            ssl_context.check_hostname = True
+            ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_REQUIRED
 
             # Verify the SSL context is properly configured
             logging.info(
-                "SSL Context created with: verify_mode=CERT_REQUIRED, check_hostname=True")
+                "SSL Context created with: verify_mode=CERT_REQUIRED, check_hostname=False")
         except Exception as ssl_error:
             logging.error(f"Failed to create SSL context: {ssl_error}")
             return False
