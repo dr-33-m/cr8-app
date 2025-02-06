@@ -63,12 +63,17 @@ class WebSocketHandler:
         # Get URL from environment or argument
         self.url = url or os.environ.get("WS_URL")
 
-        match = re.match(r'wss://[^/]+/ws/([^/]+)/blender', self.url)
+        # Updated regex to handle both 'ws' and 'wss', local IPs, localhost, and production domains
+        match = re.match(
+            r'ws[s]?://([^:/]+)(?::\d+)?/ws/([^/]+)/blender', self.url)
         if match:
-            self.username = match.group(1)
+            # Extract host (local IP, localhost, or production domain)
+            self.host = match.group(1)
+            self.username = match.group(2)  # Extract username
         else:
             raise ValueError(
-                "Invalid WebSocket URL format. Unable to extract username.")
+                "Invalid WebSocket URL format. Unable to extract username."
+            )
 
         if not self.url:
             raise ValueError(

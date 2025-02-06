@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     BLENDER_REMOTE_DIRECTORY: str
     BLENDER_RENDER_PREVIEW_DIRECTORY: str
 
+    DEV_ENV: bool = False
+
     @property
     def postgres_url(self) -> str:
         return f"postgresql://{self.DB_user}:{urllib.parse.quote_plus(self.DB_password)}@{self.DB_host}:{self.DB_port}/{self.DB_name}"

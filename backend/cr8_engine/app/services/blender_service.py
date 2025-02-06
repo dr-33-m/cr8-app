@@ -41,9 +41,12 @@ class BlenderService:
         """Launch a Blender instance for a specific user session"""
         try:
             client = BlenderService.create_ssh_client()
-
             try:
-                websocket_url = f"{settings.WS_HOST}/ws/{username}/blender"
+                if settings.DEV_ENV:
+                    websocket_url = f"{settings.WS_HOST}:{settings.WS_PORT}/ws/{username}/blender"
+                else:
+                    websocket_url = f"{settings.WS_HOST}/ws/{username}/blender"
+
                 safe_url = shlex.quote(websocket_url)
 
                 # Launch Blender
@@ -61,23 +64,26 @@ class BlenderService:
 
                 error = stderr.read().decode().strip()
                 if error:
-                    logger.error(f"Blender launch failed: {error}")
+                    logger.error(
+                        f"Blender launch failed for {username} with file {blend_file}: {error}")
                     return False
 
                 if stdout.channel.recv_exit_status() != 0:
                     logger.error(
-                        f"Blender launch failed with non-zero exit status")
+                        f"Blender launch failed with non-zero exit status for {username} with file {blend_file}")
                     return False
 
                 # Clean up only if launch was successful
-                logger.info(f"Launched Blender instance for {username}")
+                logger.info(
+                    f"Launched Blender instance for {username} with file {blend_file}")
                 return True
 
             finally:
                 client.close()
 
         except Exception as e:
-            logger.error(f"Error launching Blender: {str(e)}")
+            logger.error(
+                f"Error launching Blender for {username} with file {blend_file}: {str(e)}")
             return False
 
     @staticmethod
