@@ -2,6 +2,7 @@ import { Music, Package, Shirt, Share2 } from "lucide-react";
 import { ProjectType } from "./types/ProjectConfig";
 import tozi from "@/assets/tozi.png";
 import classroom from "@/assets/classroom.png";
+import lebox from "@/assets/lebox.jpg";
 
 export const projectTypes: Record<string, ProjectType> = {
   music: {
@@ -57,8 +58,13 @@ export const projectTemplates = {
   ],
   fashion: [
     {
-      id: "fashion-1",
-      name: "thejunkshopsplashscreen.blend",
+      id: "lebox.blend",
+      name: "Lebox",
+      thumbnail: lebox,
+    },
+    {
+      id: "thejunkshopsplashscreen.blend",
+      name: "thejunkshopsplashscreen",
       thumbnail: tozi,
     },
     {

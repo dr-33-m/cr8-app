@@ -25,7 +25,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useProjectStore } from "@/store/projectStore";
 import { toast } from "sonner";
-import { MoodboardData, MoodboardList } from "@/lib/types/moodboard";
+import { MoodboardData } from "@/lib/types/moodboard";
 import useUserStore from "@/store/userStore";
 
 const c8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
@@ -308,11 +308,11 @@ export function CreateProjectDialog() {
                   <button
                     key={template.id}
                     onClick={() =>
-                      setFormData({ ...formData, template: template.name })
+                      setFormData({ ...formData, template: template.id })
                     }
                     className={cn(
                       "rounded-lg overflow-hidden transition-all",
-                      formData.template === template.name
+                      formData.template === template.id
                         ? "ring-2 ring-cr8-blue"
                         : "ring-1 ring-cr8-charcoal/10 hover:ring-cr8-charcoal/30"
                     )}
