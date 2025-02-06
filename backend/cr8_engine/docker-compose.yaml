@@ -1,30 +1,9 @@
-version: "3.9"
+version: "3.8"
+
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  cr8_engine:
+    build: .
     ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: "${DATABASE_URL}"
-      SUPABASE_ANON_KEY: "${SUPABASE_ANON_KEY}"
-      DB_user: "${DB_user}"
-      DB_password: "${DB_password}"
-      DB_host: "${DB_host}"
-      DB_port: 5432
-      DB_name: "${DB_name}"
-      WS_HOST: "0.0.0.0"
-      WS_PORT: 8000
-      MINIO_ENDPOINT: "${MINIO_ENDPOINT}"
-      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY}"
-      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
-      MINIO_BUCKET_NAME: "${MINIO_BUCKET_NAME}"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s # Check every 30 seconds
-      timeout: 10s # Timeout after 10 seconds
-      retries: 3 # Retry 3 times before marking as unhealthy
-      start_period: 5s # Wait 5 seconds before starting health checks
+      - "5000:8000"
     volumes:
-      - .:/app
+      - /mnt/shared_storage:/mnt/shared_storage
