@@ -393,9 +393,14 @@ class WebSocketHandler:
                 "message_id": data.get('message_id')
             }
             self._send_response('template_controls', True, result)
+            logging.info(
+                f"Successfully rescanned template with {len(controllables)} controllables")
         except Exception as e:
             logging.error(f"Error during template rescan: {e}")
-            self._send_response('template_scan_result', False)
+            self._send_response('template_controls', False, {
+                "message": str(e),
+                "message_id": data.get('message_id')
+            })
 
     def _send_response(self, command, result, data=None, message_id=None):
         """

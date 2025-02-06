@@ -1,14 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
+import { useWebSocketContext } from "@/contexts/WebSocketContext";
+import { ConnectionStatus } from "./ConnectionStatus";
 
-export function BottomControls({ children }) {
+interface BottomControlsProps {
+  children?: React.ReactNode;
+}
+
+export function BottomControls({ children }: BottomControlsProps) {
   const isVisible = useVisibilityStore(
     (state) => state.isBottomControlsVisible
   );
   const onToggleVisibility = useVisibilityStore(
     (state) => state.toggleBottomControls
   );
+  const { status, reconnect } = useWebSocketContext();
 
   return (
     <div
@@ -27,8 +34,20 @@ export function BottomControls({ children }) {
           <ChevronUp className="h-6 w-6" />
         )}
       </Button>
-      <div className="backdrop-blur-md bg-white/5 rounded-lg px-6 py-3 flex items-center space-x-6">
-        {children}
+      <div className="backdrop-blur-md bg-white/5 rounded-lg px-6 py-3 flex items-center gap-4">
+        <ConnectionStatus status={status} />
+        <div className="h-8 w-px bg-white/20" />
+        {status === "disconnected" ? (
+          <Button
+            variant="secondary"
+            onClick={reconnect}
+            className="bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            Reconnect
+          </Button>
+        ) : (
+          children
+        )}
       </div>
     </div>
   );

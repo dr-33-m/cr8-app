@@ -42,6 +42,13 @@ class WebSocketHandler:
 
             if status == "Connected":
                 self.logger.info(f"Client {username} connected")
+                # Send acknowledgment to prevent connection loop
+                session = self.session_manager.get_session(username)
+                if session and session.browser_socket:
+                    await session.browser_socket.send_json({
+                        "status": "ACK",
+                        "message": "Connection acknowledged"
+                    })
                 return
 
             # Command completion handler
@@ -226,6 +233,8 @@ class WebSocketHandler:
         """Handle template controls request"""
         message_id = str(uuid.uuid4())
         self.pending_requests[message_id] = username
+
+        print(f"{username}, {data}, {client_type}, {message_id}")
 
         session = self.session_manager.get_session(username)
         if not session or not session.blender_socket:
