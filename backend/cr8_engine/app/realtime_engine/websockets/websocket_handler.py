@@ -230,49 +230,116 @@ class WebSocketHandler:
             session.should_broadcast = False  # Ensure broadcast stops
 
     async def _handle_get_template_controls(self, username: str, data: Dict[str, Any], client_type: str):
-        """Handle template controls request"""
-        message_id = str(uuid.uuid4())
-        self.pending_requests[message_id] = username
+        """Handle template controls request with proper message tracking"""
+        try:
+            # Generate and track message ID
+            message_id = str(uuid.uuid4())
+            self.pending_requests[message_id] = username
 
-        print(f"{username}, {data}, {client_type}, {message_id}")
+            # Get session and validate connection
+            session = self.session_manager.get_session(username)
+            if not session or not session.blender_socket:
+                await self._send_error(username, "Blender client not connected")
+                return
 
-        session = self.session_manager.get_session(username)
-        if not session or not session.blender_socket:
-            await self._send_error(username, "Blender client not connected")
-            return
+            # Prepare and send command to Blender
+            command = {
+                "command": "rescan_template",
+                "message_id": message_id
+            }
+            await session.blender_socket.send_json(command)
 
-        command = {
-            "command": "rescan_template",
-            "message_id": message_id
-        }
-        await session.blender_socket.send_json(command)
+            # Log successful request
+            self.logger.info(
+                f"Sent template controls request to Blender for {username} (message_id: {message_id})")
+
+        except Exception as e:
+            self.logger.error(
+                f"Error handling template controls request: {str(e)}")
+            if 'message_id' in locals():
+                # Clean up pending request on error
+                if message_id in self.pending_requests:
+                    del self.pending_requests[message_id]
+            await self._send_error(username, f"Failed to process template controls request: {str(e)}")
 
     async def _handle_template_controls_response(self, username: str, data: Dict[str, Any], client_type: str):
         """Handle template controls response"""
-        message_id = data.get("data", {}).get("message_id")
-        if not message_id:
-            self.logger.warning("No message_id in template controls response")
-            return
+        self.logger.debug(
+            f"Received template controls response from {username}: {data}")
 
-        request_username = self.pending_requests.get(message_id)
-        if not request_username:
-            self.logger.warning(
-                f"No pending request for message_id {message_id}")
-            return
+        try:
+            # Verify and extract the response data
+            if not isinstance(data, dict):
+                self.logger.error(f"Invalid data format: {type(data)}")
+                return
 
-        session = self.session_manager.get_session(request_username)
-        if session and session.browser_socket:
+            response_data = data.get("data", {})
+            if not response_data:
+                self.logger.error("No data in template controls response")
+                return
+
+            message_id = response_data.get("message_id")
+            controllables = response_data.get("controllables", {})
+
+            if not message_id:
+                self.logger.error(
+                    "No message_id in template controls response")
+                return
+
+            # Get the requesting user from pending requests
+            request_username = self.pending_requests.get(message_id)
+            if not request_username:
+                self.logger.error(
+                    f"No pending request for message_id {message_id}")
+                return
+
+            self.logger.debug(
+                f"Processing template controls for {request_username}")
+
+            # Get the session for the requesting user
+            session = self.session_manager.get_session(request_username)
+            if not session:
+                self.logger.error(f"No session found for {request_username}")
+                return
+
+            if not session.browser_socket:
+                self.logger.error(f"No browser socket for {request_username}")
+                return
+
+            # Validate controllables data
+            if not isinstance(controllables, dict):
+                self.logger.error(
+                    f"Invalid controllables format: {type(controllables)}")
+                controllables = {}
+
+            # Prepare and send the response
             response = {
                 "command": "template_controls",
-                "controllables": data["data"]["controllables"]
+                "controllables": controllables,
+                "status": "success",
+                "message_id": message_id
             }
-            await session.browser_socket.send_json(response)
-            self.logger.info(f"Sent template controls to {request_username}")
-        else:
-            self.logger.warning(
-                f"No session or browser socket for {request_username}")
 
-        del self.pending_requests[message_id]
+            self.logger.debug(
+                f"Sending template controls to {request_username}: {response}")
+            await session.browser_socket.send_json(response)
+            self.logger.info(
+                f"Successfully sent template controls to {request_username}")
+
+        except Exception as e:
+            self.logger.error(
+                f"Error in template controls response handling: {str(e)}")
+            # Attempt to send error response if possible
+            if 'session' in locals() and session and session.browser_socket:
+                await session.browser_socket.send_json({
+                    "command": "template_controls",
+                    "status": "error",
+                    "message": str(e)
+                })
+        finally:
+            # Clean up the pending request
+            if 'message_id' in locals() and message_id in self.pending_requests:
+                del self.pending_requests[message_id]
 
     async def _handle_command_completion(self, username: str, data: Dict[str, Any]):
         """Handle command completion"""

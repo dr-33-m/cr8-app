@@ -21,6 +21,7 @@ export const Route = createFileRoute("/project/$projectId")({
 
 function RouteComponent() {
   const [selectedAsset, setSelectedAsset] = useState<number | null>(null);
+  const [blender_connected, setBlenderConnected] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
 
@@ -96,6 +97,11 @@ function RouteComponent() {
               useTemplateControlsStore.getState().setControls;
             setTemplateControls(data.controllables);
             toast.success("Template controls loaded");
+          } else if (
+            data.type === "system" &&
+            data.status === "blender_connected"
+          ) {
+            setBlenderConnected(true);
           }
         } catch (error) {
           console.error("Error handling WebSocket message:", error);
@@ -108,16 +114,16 @@ function RouteComponent() {
 
   // Request template controls when connected
   useEffect(() => {
-    if (isConnected) {
+    if (blender_connected || isConnected) {
       requestTemplateControls();
     }
-  }, [isConnected, requestTemplateControls]);
+  }, [isConnected, requestTemplateControls, blender_connected]);
 
   // Set up canvas dimensions
   useEffect(() => {
     if (canvasRef.current) {
-      canvasRef.current.width = 800; // Set your desired width
-      canvasRef.current.height = 600; // Set your desired height
+      canvasRef.current.width = 800;
+      canvasRef.current.height = 600;
     }
   }, []);
 

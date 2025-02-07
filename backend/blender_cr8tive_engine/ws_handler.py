@@ -203,14 +203,18 @@ class WebSocketHandler:
 
     def process_message(self, message):
         try:
+            logging.info(f"Processing incoming message: {message}")
             data = json.loads(message)
             command = data.get('command')
             message_id = data.get('message_id')
 
+            logging.info(
+                f"Parsed message - command: {command}, message_id: {message_id}")
+
             # Prevent reprocessing of the same command
             if (command, message_id) in self.processed_commands:
                 logging.warning(
-                    f"Skipping already processed command: {command}")
+                    f"Skipping already processed command: {command} with message_id: {message_id}")
                 return
 
             if not command:
@@ -218,15 +222,22 @@ class WebSocketHandler:
                     f"Received message without a valid command: {data}")
                 return
 
+            logging.info(f"Looking for handler for command: {command}")
+
             # Optional: Add a retry limit or cooling period
             handler_method = getattr(
                 self, self.command_handlers.get(command), None)
 
             if handler_method:
+                logging.info(
+                    f"Found handler for command {command}: {handler_method.__name__}")
+
                 def execute_handler():
                     handler_method(data)
                     # Mark this command as processed
                     self.processed_commands.add((command, message_id))
+                    logging.info(
+                        f"Marked command {command} with message_id {message_id} as processed")
                 execute_in_main_thread(execute_handler, ())
             else:
                 logging.warning(f"No handler found for command: {command}")
@@ -386,12 +397,22 @@ class WebSocketHandler:
     def _handle_rescan_template(self, data):
         """Rescan the controllable objects and send the response"""
         try:
+            message_id = data.get('message_id')
+            logging.info(
+                f"Handling template rescan request with message_id: {message_id}")
+
             controllables = self.wizard.scan_controllable_objects()
-            # Send the template controls with the actual controllables data
+            logging.info(f"Scanned {len(controllables)} controllable objects")
+
+            # Format the response to match what the main websocket handler expects
             result = {
-                "controllables": controllables,
-                "message_id": data.get('message_id')
+                "data": {
+                    "controllables": controllables,
+                    "message_id": message_id
+                }
             }
+            logging.info(
+                f"Sending template controls response with message_id: {message_id}")
             self._send_response('template_controls', True, result)
             logging.info(
                 f"Successfully rescanned template with {len(controllables)} controllables")
@@ -409,7 +430,9 @@ class WebSocketHandler:
         :param command: The command to send (e.g., 'template_controls')
         :param result: Boolean indicating success or failure
         :param data: Optional additional data to send (e.g., controllables object)
+        :param message_id: Optional message ID for tracking requests
         """
+        logging.info(f"Preparing response for command: {command}")
         status = 'success' if result else 'failed'
 
         response = {
@@ -419,13 +442,16 @@ class WebSocketHandler:
 
         # Include the data in the response if provided
         if data is not None:
-            response['data'] = data
-
-        if message_id is not None:
-            response['message_id'] = message_id
+            if isinstance(data, dict):
+                # If data is a dict, merge it with response
+                response.update(data)
+            else:
+                # Otherwise wrap it in a data object
+                response['data'] = data
 
         # Convert the response dictionary to a JSON string
         json_response = json.dumps(response)
+        logging.info(f"Sending WebSocket response: {json_response}")
 
         # Send the response via WebSocket
         self.ws.send(json_response)
