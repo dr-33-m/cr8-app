@@ -404,11 +404,11 @@ class WebSocketHandler:
             controllables = self.wizard.scan_controllable_objects()
             logging.info(f"Scanned {len(controllables)} controllable objects")
 
-            # Format the response to match what the main websocket handler expects
+            # Format the response with message_id and data
             result = {
                 "data": {
                     "controllables": controllables,
-                    "message_id": message_id
+                    "message_id": message_id  # Include in data object
                 }
             }
             logging.info(
@@ -442,12 +442,14 @@ class WebSocketHandler:
 
         # Include the data in the response if provided
         if data is not None:
-            if isinstance(data, dict):
-                # If data is a dict, merge it with response
-                response.update(data)
-            else:
-                # Otherwise wrap it in a data object
-                response['data'] = data
+            # Extract message_id if present in data
+            if isinstance(data, dict) and 'message_id' in data:
+                response['message_id'] = data['message_id']
+            elif isinstance(data, dict) and 'data' in data and isinstance(data['data'], dict) and 'message_id' in data['data']:
+                response['message_id'] = data['data']['message_id']
+
+            # Always keep data in its own field to maintain structure
+            response['data'] = data
 
         # Convert the response dictionary to a JSON string
         json_response = json.dumps(response)

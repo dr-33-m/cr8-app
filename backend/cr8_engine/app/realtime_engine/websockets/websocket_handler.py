@@ -234,7 +234,13 @@ class WebSocketHandler:
         try:
             # Generate and track message ID
             message_id = str(uuid.uuid4())
+            self.logger.debug(f"Generated new message_id: {message_id}")
+            self.logger.debug(
+                f"Current pending requests before add: {self.pending_requests}")
+
             self.pending_requests[message_id] = username
+            self.logger.debug(
+                f"Added pending request. Current state: {self.pending_requests}")
 
             # Get session and validate connection
             session = self.session_manager.get_session(username)
@@ -273,24 +279,38 @@ class WebSocketHandler:
                 self.logger.error(f"Invalid data format: {type(data)}")
                 return
 
+            # Extract data from response
             response_data = data.get("data", {})
             if not response_data:
                 self.logger.error("No data in template controls response")
+                self.logger.debug(f"Response data: {data}")
                 return
 
+            # Get message_id from response data
             message_id = response_data.get("message_id")
-            controllables = response_data.get("controllables", {})
-
             if not message_id:
                 self.logger.error(
-                    "No message_id in template controls response")
+                    "No message_id in template controls response data")
+                self.logger.debug(f"Response data: {data}")
                 return
 
+            # Extract controllables from the data object
+            controllables = response_data.get("controllables", {})
+            self.logger.debug(
+                f"Found message_id: {message_id}, controllables: {bool(controllables)}")
+
+            self.logger.debug(
+                f"Processing response with message_id: {message_id}")
+
             # Get the requesting user from pending requests
+            self.logger.debug(
+                f"Current pending requests: {self.pending_requests}")
             request_username = self.pending_requests.get(message_id)
             if not request_username:
                 self.logger.error(
                     f"No pending request for message_id {message_id}")
+                self.logger.debug(
+                    f"Available message_ids: {list(self.pending_requests.keys())}")
                 return
 
             self.logger.debug(
@@ -326,6 +346,14 @@ class WebSocketHandler:
             self.logger.info(
                 f"Successfully sent template controls to {request_username}")
 
+            # Clean up the pending request after successful response
+            if message_id in self.pending_requests:
+                self.logger.debug(
+                    f"Cleaning up pending request for message_id: {message_id}")
+                del self.pending_requests[message_id]
+                self.logger.debug(
+                    f"Pending requests after cleanup: {self.pending_requests}")
+
         except Exception as e:
             self.logger.error(
                 f"Error in template controls response handling: {str(e)}")
@@ -336,10 +364,12 @@ class WebSocketHandler:
                     "status": "error",
                     "message": str(e)
                 })
-        finally:
-            # Clean up the pending request
+            # Don't clean up pending request on error to allow for retries
             if 'message_id' in locals() and message_id in self.pending_requests:
-                del self.pending_requests[message_id]
+                self.logger.debug(
+                    f"Keeping pending request for retry. message_id: {message_id}")
+                self.logger.debug(
+                    f"Current pending requests: {self.pending_requests}")
 
     async def _handle_command_completion(self, username: str, data: Dict[str, Any]):
         """Handle command completion"""
