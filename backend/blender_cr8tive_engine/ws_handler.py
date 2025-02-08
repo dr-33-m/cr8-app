@@ -203,14 +203,18 @@ class WebSocketHandler:
 
     def process_message(self, message):
         try:
+            logging.info(f"Processing incoming message: {message}")
             data = json.loads(message)
             command = data.get('command')
             message_id = data.get('message_id')
 
+            logging.info(
+                f"Parsed message - command: {command}, message_id: {message_id}")
+
             # Prevent reprocessing of the same command
             if (command, message_id) in self.processed_commands:
                 logging.warning(
-                    f"Skipping already processed command: {command}")
+                    f"Skipping already processed command: {command} with message_id: {message_id}")
                 return
 
             if not command:
@@ -218,15 +222,22 @@ class WebSocketHandler:
                     f"Received message without a valid command: {data}")
                 return
 
+            logging.info(f"Looking for handler for command: {command}")
+
             # Optional: Add a retry limit or cooling period
             handler_method = getattr(
                 self, self.command_handlers.get(command), None)
 
             if handler_method:
+                logging.info(
+                    f"Found handler for command {command}: {handler_method.__name__}")
+
                 def execute_handler():
                     handler_method(data)
                     # Mark this command as processed
                     self.processed_commands.add((command, message_id))
+                    logging.info(
+                        f"Marked command {command} with message_id {message_id} as processed")
                 execute_in_main_thread(execute_handler, ())
             else:
                 logging.warning(f"No handler found for command: {command}")
@@ -267,20 +278,19 @@ class WebSocketHandler:
     def _handle_preview_rendering(self, data):
         logging.info("Starting preview rendering")
         params = data.get('params', {})
-        subcommands = params.get('subcommands', {})
         preview_renderer = self.controllers.create_preview_renderer(
             self.username)
 
         try:
-            # Process subcommands for updates before rendering
-            if 'camera' in subcommands:
-                camera_data = subcommands['camera']
+            # Process updates before rendering
+            if 'camera' in params:
+                camera_data = params['camera']
                 result = self.controllers.set_active_camera(
                     camera_data.get('camera_name'))
                 logging.info(f"Camera update result: {result}")
 
-            if 'lights' in subcommands:
-                light_update = subcommands['lights']
+            if 'lights' in params:
+                light_update = params['lights']
                 result = self.controllers.update_light(
                     light_update.get('light_name'),
                     color=light_update.get('color'),
@@ -288,8 +298,8 @@ class WebSocketHandler:
                 )
                 logging.info(f"Light update result: {result}")
 
-            if 'materials' in subcommands:
-                for material_update in subcommands['materials']:
+            if 'materials' in params:
+                for material_update in params['materials']:
                     result = self.controllers.update_material(
                         material_update.get('material_name'),
                         color=material_update.get('color'),
@@ -298,8 +308,8 @@ class WebSocketHandler:
                     )
                     logging.info(f"Material update result: {result}")
 
-            if 'objects' in subcommands:
-                for object_update in subcommands['objects']:
+            if 'objects' in params:
+                for object_update in params['objects']:
                     result = self.controllers.update_object(
                         object_update.get('object_name'),
                         location=object_update.get('location'),
@@ -386,16 +396,31 @@ class WebSocketHandler:
     def _handle_rescan_template(self, data):
         """Rescan the controllable objects and send the response"""
         try:
+            message_id = data.get('message_id')
+            logging.info(
+                f"Handling template rescan request with message_id: {message_id}")
+
             controllables = self.wizard.scan_controllable_objects()
-            # Send the template controls with the actual controllables data
+            logging.info(f"Scanned {len(controllables)} controllable objects")
+
+            # Format the response with message_id and data
             result = {
-                "controllables": controllables,
-                "message_id": data.get('message_id')
+                "data": {
+                    "controllables": controllables,
+                    "message_id": message_id  # Include in data object
+                }
             }
+            logging.info(
+                f"Sending template controls response with message_id: {message_id}")
             self._send_response('template_controls', True, result)
+            logging.info(
+                f"Successfully rescanned template with {len(controllables)} controllables")
         except Exception as e:
             logging.error(f"Error during template rescan: {e}")
-            self._send_response('template_scan_result', False)
+            self._send_response('template_controls', False, {
+                "message": str(e),
+                "message_id": data.get('message_id')
+            })
 
     def _send_response(self, command, result, data=None, message_id=None):
         """
@@ -404,7 +429,9 @@ class WebSocketHandler:
         :param command: The command to send (e.g., 'template_controls')
         :param result: Boolean indicating success or failure
         :param data: Optional additional data to send (e.g., controllables object)
+        :param message_id: Optional message ID for tracking requests
         """
+        logging.info(f"Preparing response for command: {command}")
         status = 'success' if result else 'failed'
 
         response = {
@@ -414,13 +441,18 @@ class WebSocketHandler:
 
         # Include the data in the response if provided
         if data is not None:
-            response['data'] = data
+            # Extract message_id if present in data
+            if isinstance(data, dict) and 'message_id' in data:
+                response['message_id'] = data['message_id']
+            elif isinstance(data, dict) and 'data' in data and isinstance(data['data'], dict) and 'message_id' in data['data']:
+                response['message_id'] = data['data']['message_id']
 
-        if message_id is not None:
-            response['message_id'] = message_id
+            # Always keep data in its own field to maintain structure
+            response['data'] = data
 
         # Convert the response dictionary to a JSON string
         json_response = json.dumps(response)
+        logging.info(f"Sending WebSocket response: {json_response}")
 
         # Send the response via WebSocket
         self.ws.send(json_response)

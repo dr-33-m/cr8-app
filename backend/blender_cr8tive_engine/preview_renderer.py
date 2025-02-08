@@ -24,6 +24,9 @@ class PreviewRenderer:
                 overlay = area.spaces[0].overlay
                 overlay.show_overlays = False
 
+                # Set render engine to EEVEE
+                bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+
                 # Switch to rendered viewport shading
                 space = area.spaces[0]
                 space.shading.type = 'RENDERED'

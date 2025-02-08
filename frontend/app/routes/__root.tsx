@@ -10,6 +10,7 @@ import Navbar from "@/components/Navbar";
 import { LogtoConfig, LogtoProvider } from "@logto/react";
 import { isBrowser } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
+import { WebSocketProvider } from "@/contexts/WebSocketContext";
 
 const config: LogtoConfig = {
   endpoint: import.meta.env.VITE_LOGTO_ENDPOINT,
@@ -51,10 +52,17 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  const handleWebSocketMessage = (data: any) => {
+    // Global message handling if needed
+    console.debug("WebSocket message:", data);
+  };
+
   return (
     <LogtoWrapper>
       <RootDocument>
-        <Outlet />
+        <WebSocketProvider onMessage={handleWebSocketMessage}>
+          <Outlet />
+        </WebSocketProvider>
       </RootDocument>
     </LogtoWrapper>
   );
@@ -69,7 +77,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       <body>
         <Navbar />
         {children}
-        <Toaster />
+        <Toaster richColors closeButton position="top-right" />
         <ScrollRestoration />
         <Scripts />
       </body>

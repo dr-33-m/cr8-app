@@ -22,6 +22,12 @@ class Session:
         self.connection_timeout = 30  # seconds to wait for Blender to connect
         self.should_broadcast = False
         self.last_frame_index = -1
+        self.pending_requests: Dict[str, str] = {}  # message_id -> username
+        self.last_connection_attempt = 0  # timestamp of last connection attempt
+        self.connection_attempts = 0  # number of connection attempts
+        # maximum number of connection attempts before giving up
+        self.max_connection_attempts = 5
+        self.base_retry_delay = 1  # base delay in seconds between retries
 
 
 class SessionManager:
@@ -32,19 +38,37 @@ class SessionManager:
     async def create_browser_session(self, username: str, websocket: WebSocket, blend_file: str) -> Session:
         """Create a new session for a browser client"""
         try:
+            current_time = asyncio.get_event_loop().time()
+
             if username in self.sessions:
                 session = self.sessions[username]
                 if session.is_active:
                     if session.state == SessionState.CONNECTED:
-                        # Instead of raising an error, update the browser socket
+                        # Update the browser socket
                         session.browser_socket = websocket
                         return session
                     else:
-                        # Clean up partial session
+                        # Check if we should allow a new connection attempt
+                        time_since_last_attempt = current_time - session.last_connection_attempt
+                        retry_delay = min(
+                            session.base_retry_delay * (2 ** session.connection_attempts), 60)
+
+                        if time_since_last_attempt < retry_delay:
+                            raise ValueError(
+                                f"Please wait {int(retry_delay - time_since_last_attempt)} seconds before reconnecting")
+
+                        if session.connection_attempts >= session.max_connection_attempts:
+                            raise ValueError(
+                                "Maximum connection attempts exceeded. Please try again later")
+
+                        # Clean up partial session and allow retry
                         await self.cleanup_session(username)
 
-            # Create new session
+            # Create new session with updated connection tracking
             session = Session(username, browser_socket=websocket)
+            session.last_connection_attempt = current_time
+            session.connection_attempts = 0 if not username in self.sessions else self.sessions[
+                username].connection_attempts + 1
             self.sessions[username] = session
 
             # Launch Blender instance using the service
@@ -190,28 +214,70 @@ class SessionManager:
 
             if client_type == "browser":
                 session.browser_socket = None
+                session.last_connection_attempt = asyncio.get_event_loop().time()
+                session.connection_attempts += 1
 
-                await asyncio.sleep(5)
+                # Calculate retry delay with exponential backoff
+                retry_delay = min(session.base_retry_delay *
+                                  (2 ** session.connection_attempts), 60)
+
+                # If we've exceeded max attempts, clean up immediately
+                if session.connection_attempts >= session.max_connection_attempts:
+                    await self.cleanup_session(username)
+                    return
+
+                # Otherwise wait briefly before cleanup to allow reconnection
+                await asyncio.sleep(retry_delay)
                 if username in self.sessions and not session.browser_socket:
-                    # Only cleanup if no new browser connection was established
                     await self.cleanup_session(username)
             else:  # blender
                 session.blender_socket = None
                 session.state = SessionState.DISCONNECTED
+
+                # Reset connection attempts when Blender disconnects
+                session.connection_attempts = 0
+
                 # Notify browser if it's still connected
                 if session.browser_socket:
                     try:
                         await session.browser_socket.send_json({
                             "type": "system",
                             "status": "blender_disconnected",
-                            "message": "Blender instance disconnected"
+                            "message": "Blender instance disconnected. Attempting to reconnect...",
+                            "shouldReconnect": True
                         })
                     except Exception as e:
                         self.logger.error(
                             f"Error notifying browser of Blender disconnect: {str(e)}")
-                # Clean up the session
-                await self.cleanup_session(username)
+
+                # Don't immediately clean up - give time for reconnection
+                await asyncio.sleep(5)
+                if username in self.sessions and not session.blender_socket:
+                    await self.cleanup_session(username)
 
     def get_session(self, username: str) -> Optional[Session]:
         """Get a session by username"""
         return self.sessions.get(username)
+
+    def add_pending_request(self, username: str, message_id: str) -> None:
+        """Add a pending request to the user's session"""
+        session = self.sessions.get(username)
+        if session:
+            session.pending_requests[message_id] = username
+            self.logger.debug(
+                f"Added pending request {message_id} for {username}")
+
+    def get_pending_request(self, message_id: str) -> Optional[str]:
+        """Get the username associated with a pending request"""
+        for session in self.sessions.values():
+            if message_id in session.pending_requests:
+                return session.pending_requests[message_id]
+        return None
+
+    def remove_pending_request(self, message_id: str) -> None:
+        """Remove a pending request from its session"""
+        for session in self.sessions.values():
+            if message_id in session.pending_requests:
+                del session.pending_requests[message_id]
+                self.logger.debug(f"Removed pending request {message_id}")
+                break
