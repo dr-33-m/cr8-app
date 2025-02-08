@@ -1,4 +1,8 @@
-export type WebSocketStatus = "connected" | "connecting" | "disconnected";
+export type WebSocketStatus =
+  | "connected"
+  | "connecting"
+  | "disconnected"
+  | "failed";
 
 export interface WebSocketMessage {
   type?: string;

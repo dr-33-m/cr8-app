@@ -17,7 +17,6 @@ class WebSocketHandler:
         self.session_manager = session_manager
         self.username = username
         self.preview_dir = self._get_preview_dir()
-        self.pending_requests: Dict[str, str] = {}  # message_id -> username
 
     def _get_preview_dir(self):
         # Define the base directory where previews are stored
@@ -42,12 +41,17 @@ class WebSocketHandler:
 
             if status == "Connected":
                 self.logger.info(f"Client {username} connected")
-                # Send acknowledgment to prevent connection loop
                 session = self.session_manager.get_session(username)
                 if session and session.browser_socket:
+                    retry_delay = min(
+                        session.base_retry_delay * (2 ** session.connection_attempts), 60)
                     await session.browser_socket.send_json({
                         "status": "ACK",
-                        "message": "Connection acknowledged"
+                        "message": "Connection acknowledged",
+                        "connectionAttempts": session.connection_attempts,
+                        "maxAttempts": session.max_connection_attempts,
+                        "retryDelay": retry_delay,
+                        "shouldRetry": session.connection_attempts < session.max_connection_attempts
                     })
                 return
 
@@ -92,9 +96,8 @@ class WebSocketHandler:
             return
 
         message_id = str(uuid.uuid4())
-        self.pending_requests[message_id] = username
-
         session = self.session_manager.get_session(username)
+        self.session_manager.add_pending_request(username, message_id)
         if not session or not session.blender_socket:
             await self._send_error(username, "Blender client not connected")
             return
@@ -234,13 +237,8 @@ class WebSocketHandler:
         try:
             # Generate and track message ID
             message_id = str(uuid.uuid4())
-            self.logger.debug(f"Generated new message_id: {message_id}")
-            self.logger.debug(
-                f"Current pending requests before add: {self.pending_requests}")
-
-            self.pending_requests[message_id] = username
-            self.logger.debug(
-                f"Added pending request. Current state: {self.pending_requests}")
+            print(f"Generated new message_id: {message_id}")
+            self.session_manager.add_pending_request(username, message_id)
 
             # Get session and validate connection
             session = self.session_manager.get_session(username)
@@ -264,8 +262,7 @@ class WebSocketHandler:
                 f"Error handling template controls request: {str(e)}")
             if 'message_id' in locals():
                 # Clean up pending request on error
-                if message_id in self.pending_requests:
-                    del self.pending_requests[message_id]
+                self.session_manager.remove_pending_request(message_id)
             await self._send_error(username, f"Failed to process template controls request: {str(e)}")
 
     async def _handle_template_controls_response(self, username: str, data: Dict[str, Any], client_type: str):
@@ -286,31 +283,41 @@ class WebSocketHandler:
                 self.logger.debug(f"Response data: {data}")
                 return
 
-            # Get message_id from response data
-            message_id = response_data.get("message_id")
+            # Log the structure of response_data for debugging
+            self.logger.debug(f"Response data structure: {response_data}")
+
+            # Extract inner data from response_data
+            inner_data = response_data.get("data", {})
+            if not inner_data:
+                self.logger.error(
+                    "No inner data in template controls response")
+                self.logger.debug(f"Response data: {response_data}")
+                return
+
+            # Log the structure of inner_data for debugging
+            self.logger.debug(f"Inner data structure: {inner_data}")
+
+            # Get message_id from inner data
+            message_id = inner_data.get("message_id")
             if not message_id:
                 self.logger.error(
                     "No message_id in template controls response data")
-                self.logger.debug(f"Response data: {data}")
+                self.logger.debug(f"Inner data: {inner_data}")
                 return
 
-            # Extract controllables from the data object
-            controllables = response_data.get("controllables", {})
-            self.logger.debug(
+            # Extract controllables from the inner data object
+            controllables = inner_data.get("controllables", {})
+            print(
                 f"Found message_id: {message_id}, controllables: {bool(controllables)}")
 
+            # Rest of the code remains unchanged...
             self.logger.debug(
                 f"Processing response with message_id: {message_id}")
-
-            # Get the requesting user from pending requests
-            self.logger.debug(
-                f"Current pending requests: {self.pending_requests}")
-            request_username = self.pending_requests.get(message_id)
+            request_username = self.session_manager.get_pending_request(
+                message_id)
             if not request_username:
                 self.logger.error(
                     f"No pending request for message_id {message_id}")
-                self.logger.debug(
-                    f"Available message_ids: {list(self.pending_requests.keys())}")
                 return
 
             self.logger.debug(
@@ -347,12 +354,7 @@ class WebSocketHandler:
                 f"Successfully sent template controls to {request_username}")
 
             # Clean up the pending request after successful response
-            if message_id in self.pending_requests:
-                self.logger.debug(
-                    f"Cleaning up pending request for message_id: {message_id}")
-                del self.pending_requests[message_id]
-                self.logger.debug(
-                    f"Pending requests after cleanup: {self.pending_requests}")
+            self.session_manager.remove_pending_request(message_id)
 
         except Exception as e:
             self.logger.error(
@@ -365,11 +367,9 @@ class WebSocketHandler:
                     "message": str(e)
                 })
             # Don't clean up pending request on error to allow for retries
-            if 'message_id' in locals() and message_id in self.pending_requests:
+            if 'message_id' in locals():
                 self.logger.debug(
                     f"Keeping pending request for retry. message_id: {message_id}")
-                self.logger.debug(
-                    f"Current pending requests: {self.pending_requests}")
 
     async def _handle_command_completion(self, username: str, data: Dict[str, Any]):
         """Handle command completion"""
