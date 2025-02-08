@@ -278,20 +278,19 @@ class WebSocketHandler:
     def _handle_preview_rendering(self, data):
         logging.info("Starting preview rendering")
         params = data.get('params', {})
-        subcommands = params.get('subcommands', {})
         preview_renderer = self.controllers.create_preview_renderer(
             self.username)
 
         try:
-            # Process subcommands for updates before rendering
-            if 'camera' in subcommands:
-                camera_data = subcommands['camera']
+            # Process updates before rendering
+            if 'camera' in params:
+                camera_data = params['camera']
                 result = self.controllers.set_active_camera(
                     camera_data.get('camera_name'))
                 logging.info(f"Camera update result: {result}")
 
-            if 'lights' in subcommands:
-                light_update = subcommands['lights']
+            if 'lights' in params:
+                light_update = params['lights']
                 result = self.controllers.update_light(
                     light_update.get('light_name'),
                     color=light_update.get('color'),
@@ -299,8 +298,8 @@ class WebSocketHandler:
                 )
                 logging.info(f"Light update result: {result}")
 
-            if 'materials' in subcommands:
-                for material_update in subcommands['materials']:
+            if 'materials' in params:
+                for material_update in params['materials']:
                     result = self.controllers.update_material(
                         material_update.get('material_name'),
                         color=material_update.get('color'),
@@ -309,8 +308,8 @@ class WebSocketHandler:
                     )
                     logging.info(f"Material update result: {result}")
 
-            if 'objects' in subcommands:
-                for object_update in subcommands['objects']:
+            if 'objects' in params:
+                for object_update in params['objects']:
                     result = self.controllers.update_object(
                         object_update.get('object_name'),
                         location=object_update.get('location'),
