@@ -30,5 +30,6 @@ export const useServerHealth = () => {
     serverStatus,
     isCheckingHealth,
     serverMessage,
+    checkHealth,
   };
 };

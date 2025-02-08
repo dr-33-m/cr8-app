@@ -14,7 +14,7 @@ import { projectTypes, projectTemplates } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { StepIndicator } from "@/components/ui/step-indicator";
 import { ProjectFormData } from "@/lib/types/ProjectConfig";
-import { LoaderPinwheel, Lock } from "lucide-react";
+import { CircleAlert, LoaderPinwheel, Lock } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -22,6 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useNavigate } from "@tanstack/react-router";
 import { useProjectStore } from "@/store/projectStore";
 import { toast } from "sonner";
@@ -32,9 +38,11 @@ import { useServerHealth } from "@/hooks/useServerHealth";
 const c8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
 
 export function CreateProjectDialog() {
-  const { serverStatus, isCheckingHealth, serverMessage } = useServerHealth();
+  const { serverStatus, isCheckingHealth, serverMessage, checkHealth } =
+    useServerHealth();
   const userInfo = useUserStore((store) => store.userInfo);
   const logto_userId = userInfo?.sub;
+  const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<ProjectFormData>({
     name: "",
@@ -129,6 +137,14 @@ export function CreateProjectDialog() {
     fetchMoodboards();
   }, [logto_userId]);
 
+  // Handle server status changes
+  useEffect(() => {
+    if (!isCheckingHealth && serverStatus === "healthy") {
+      setIsOpen(true);
+    }
+  }, [serverStatus, isCheckingHealth]);
+
+  const isDisabled = serverStatus !== "healthy" && !isCheckingHealth;
   const renderStep = () => {
     switch (step) {
       case 1:
@@ -351,35 +367,59 @@ export function CreateProjectDialog() {
   };
 
   return (
-    <Dialog>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (serverStatus !== "healthy" && !isCheckingHealth) {
+          return;
+        }
+        setIsOpen(open);
+      }}
+    >
       <DialogTrigger asChild>
         <div className="relative w-full">
           <Button
             size="lg"
             className="bg-cr8-blue hover:bg-cr8-blue/60 text-white w-full disabled:bg-gray-500"
-            disabled={serverStatus !== "healthy" || isCheckingHealth}
+            onClick={() => checkHealth()}
+            disabled={isDisabled}
           >
             {isCheckingHealth
               ? "Checking Cr8 Engine..."
               : serverMessage.buttonText}
           </Button>
           {serverStatus !== "healthy" && serverMessage.message && (
-            <div
-              className={`absolute -top-9 left-0 w-full text-center ${serverMessage.messageColor} text-sm mb-4`}
-            >
-              {serverMessage.message}
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="absolute -top-7 inset-x-0 flex justify-center">
+                  <CircleAlert className="h-5 w-5 text-yellow-500" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{serverMessage.message}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] bg-cr8-charcoal/95 backdrop-blur-xl border-white/10">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">
-            Create New Project
-          </DialogTitle>
-        </DialogHeader>
-        <StepIndicator steps={steps} currentStep={step} className="mb-6" />
-        {renderStep()}
+        {serverStatus !== "healthy" ? (
+          <div className="p-6 text-center space-y-4">
+            <h3 className="text-xl font-semibold">Cr8 Engine Unavailable </h3>
+            <p className="text-yellow-500">{serverMessage.message}</p>
+            <Button onClick={checkHealth}>Retry Connection</Button>
+          </div>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold">
+                Create New Project
+              </DialogTitle>
+            </DialogHeader>
+            <StepIndicator steps={steps} currentStep={step} className="mb-6" />
+            {renderStep()}
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

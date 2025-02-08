@@ -16,7 +16,6 @@ export const getServerMessage = (serverStatus: ServerStatus): ServerMessage => {
     return {
       buttonText: "Offline",
       message: "Cr8 Engine will be online at 6am Johannesburg time",
-      messageColor: "text-yellow-500",
     };
   }
 
@@ -25,25 +24,21 @@ export const getServerMessage = (serverStatus: ServerStatus): ServerMessage => {
       return {
         buttonText: "Create Project",
         message: "",
-        messageColor: "",
       };
     case "maintenance":
       return {
         buttonText: "Under Maintenance",
         message: "Cr8 Engine is currently under maintenance",
-        messageColor: "text-yellow-500",
       };
     case "offline":
       return {
         buttonText: "Offline",
         message: "Cr8 Engine will be online at 6am Johannesburg time",
-        messageColor: "text-yellow-500",
       };
     default:
       return {
         buttonText: "Starting Up",
         message: "Hold on while we wake up Cr8 Engine...",
-        messageColor: "text-yellow-500",
       };
   }
 };
