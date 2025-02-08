@@ -14,15 +14,45 @@ import { useLogto } from "@logto/react";
 import { isBrowser } from "@/lib/utils";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import useUserStore from "@/store/userStore";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "./ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Badge } from "./ui/badge";
+import { Textarea } from "./ui/textarea";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const Navbar = () => {
+  const [feedback, setFeedback] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+  const handleSubmitFeedback = async () => {
+    if (!feedback.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(import.meta.env.VITE_DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: `**Early Access Feedback from ${userInfo?.username || "Anonymous"}:**\n${feedback}`,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to send feedback");
+
+      toast.success("Feedback sent successfully!");
+      setFeedback("");
+      setIsPopoverOpen(false);
+    } catch (error) {
+      toast.error("Failed to send feedback. Please try again.");
+      console.error("Error sending feedback:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const logto = isBrowser ? useLogto() : null;
   const isVisible = useVisibilityStore((state) => !state.isFullscreen);
   const { userInfo, resetUserInfo } = useUserStore((store) => store);
@@ -47,18 +77,32 @@ const Navbar = () => {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Badge className="ml-2">Early Access</Badge>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-sm">
+              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                <PopoverTrigger>
+                  <Badge className="ml-2">Early Access</Badge>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <h4 className="font-medium leading-none">Send Feedback</h4>
+                    <p className="text-sm text-muted-foreground">
                       Your feedback helps us make Cr8-xyz better for you
                     </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                    <Textarea
+                      placeholder="Type your feedback here..."
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      className="min-h-[100px]"
+                    />
+                    <Button
+                      onClick={handleSubmitFeedback}
+                      disabled={isSubmitting || !feedback.trim()}
+                      className="w-full"
+                    >
+                      {isSubmitting ? "Sending..." : "Submit Feedback"}
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

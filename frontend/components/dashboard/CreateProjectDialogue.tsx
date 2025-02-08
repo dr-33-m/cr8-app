@@ -27,10 +27,12 @@ import { useProjectStore } from "@/store/projectStore";
 import { toast } from "sonner";
 import { MoodboardData } from "@/lib/types/moodboard";
 import useUserStore from "@/store/userStore";
+import { useServerHealth } from "@/hooks/useServerHealth";
 
 const c8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
 
 export function CreateProjectDialog() {
+  const { serverStatus, isCheckingHealth, serverMessage } = useServerHealth();
   const userInfo = useUserStore((store) => store.userInfo);
   const logto_userId = userInfo?.sub;
   const [step, setStep] = useState(1);
@@ -43,7 +45,7 @@ export function CreateProjectDialog() {
     moodboard: "",
   });
   const [loading, setLoading] = useState(false);
-  const steps = ["Project Details", "Type & Style", "Template", "Moodboard"];
+  const steps = ["Project Details", "Type & Style", "Moodboard", "Template"];
 
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
@@ -351,12 +353,24 @@ export function CreateProjectDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button
-          size="lg"
-          className="bg-cr8-blue hover:bg-cr8-blue/60 text-white w-full"
-        >
-          Create Project
-        </Button>
+        <div className="relative w-full">
+          <Button
+            size="lg"
+            className="bg-cr8-blue hover:bg-cr8-blue/60 text-white w-full disabled:bg-gray-500"
+            disabled={serverStatus !== "healthy" || isCheckingHealth}
+          >
+            {isCheckingHealth
+              ? "Checking Cr8 Engine..."
+              : serverMessage.buttonText}
+          </Button>
+          {serverStatus !== "healthy" && serverMessage.message && (
+            <div
+              className={`absolute -top-9 left-0 w-full text-center ${serverMessage.messageColor} text-sm mb-4`}
+            >
+              {serverMessage.message}
+            </div>
+          )}
+        </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] bg-cr8-charcoal/95 backdrop-blur-xl border-white/10">
         <DialogHeader>

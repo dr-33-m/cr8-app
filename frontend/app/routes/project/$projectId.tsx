@@ -29,6 +29,7 @@ function RouteComponent() {
     sceneConfiguration,
     updateSceneConfiguration,
     removeSceneConfiguration,
+    resetSceneConfiguration,
   } = useSceneConfigStore();
 
   const { name: projectName, template, clearProject } = useProjectStore();
@@ -80,8 +81,6 @@ function RouteComponent() {
     isLoading,
     isPlaying,
     isPreviewAvailable,
-    setIsPreviewAvailable,
-    setIsLoading,
     shootPreview,
     playbackPreview,
     stopPlaybackPreview,
@@ -150,7 +149,9 @@ function RouteComponent() {
 
         <BottomControls>
           <SceneActions
-            onShootPreview={() => shootPreview(sceneConfiguration)}
+            onShootPreview={() =>
+              shootPreview(sceneConfiguration, resetSceneConfiguration)
+            }
             onPlaybackPreview={playbackPreview}
             onStopPlaybackPreview={stopPlaybackPreview}
             onGenerateVideo={generateVideo}

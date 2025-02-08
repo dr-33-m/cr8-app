@@ -49,7 +49,7 @@ export const usePreviewRenderer = (
   );
 
   const shootPreview = useCallback(
-    (sceneConfiguration: any) => {
+    (sceneConfiguration: any, resetSceneConfiguration: () => void) => {
       if (!checkConnection()) return;
 
       setIsLoading(true);
@@ -59,6 +59,7 @@ export const usePreviewRenderer = (
         params: sceneConfiguration,
       });
       toast.info("Starting preview rendering...");
+      resetSceneConfiguration();
     },
     [checkConnection, sendMessage]
   );
@@ -113,6 +114,8 @@ export const usePreviewRenderer = (
         } else if (data.type === "viewport_stream_error") {
           setIsLoading(false);
           setIsPlaying(false);
+        } else if (data.type === "broadcast_complete") {
+          setIsPlaying(false);
         } else if (data.type === "video_generation_complete") {
           setIsLoading(false);
         }
@@ -149,11 +152,9 @@ export const usePreviewRenderer = (
     isLoading,
     isPlaying,
     isPreviewAvailable,
-    setIsPreviewAvailable,
-    setIsLoading,
     shootPreview,
     playbackPreview,
     stopPlaybackPreview,
-    generateVideo,
+    generateVideo,  
   };
 };
