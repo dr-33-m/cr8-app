@@ -2,6 +2,7 @@ import os
 import bpy
 import re
 import json
+import uuid
 import threading
 import logging
 import websocket
@@ -283,7 +284,21 @@ class WebSocketHandler:
 
     def _on_message(self, ws, message):
         """Handle incoming WebSocket message"""
-        self.process_message(message)
+        try:
+            data = json.loads(message)
+            command = data.get('command')
+
+            if command in self.command_handlers:
+                handler_name = self.command_handlers[command]
+                handler = getattr(self, handler_name)
+                execute_in_main_thread(handler, (data,))
+            else:
+                logging.warning(f"Unhandled command: {command}")
+
+        except json.JSONDecodeError:
+            logging.error("Failed to decode message as JSON")
+        except Exception as e:
+            logging.error(f"Error processing message: {str(e)}")
 
     def _on_close(self, ws, close_status_code, close_msg):
         """Handle WebSocket close event"""

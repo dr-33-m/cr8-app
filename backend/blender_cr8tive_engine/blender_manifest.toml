@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 # Example of manifest file for a Blender extension
 # Change the values according to your extension
-id = "my_example_extension"
+id = "blender_cr8tive_engine"
 version = "1.0.0"
 name = "Cr8tive Engine"
 tagline = "The freedom To Dream"
