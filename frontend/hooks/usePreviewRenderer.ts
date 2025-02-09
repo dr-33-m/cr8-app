@@ -55,7 +55,12 @@ export const usePreviewRenderer = (
       peerConnection.current = pc;
 
       // Set up event handlers
-      pc.ontrack = (event) => handleTrackEvent(event, videoRef.current);
+      pc.ontrack = (event) => {
+        handleTrackEvent(event, videoRef.current);
+        setIsPreviewAvailable(true);
+        setIsLoading(false);
+      };
+
       pc.onicecandidate = (event) => {
         if (websocketRef.current) {
           handleICECandidateEvent(event, (signal) =>
@@ -64,15 +69,25 @@ export const usePreviewRenderer = (
         }
       };
 
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "failed") {
+          toast.error("WebRTC connection failed, falling back to WebSocket");
+          if (peerConnection.current) {
+            peerConnection.current.close();
+            peerConnection.current = null;
+          }
+        }
+      };
+
       // Create and send offer
       await createAndSendOffer(pc, (signal) =>
         websocketRef.current!.send(JSON.stringify(signal))
       );
-
-      setIsPreviewAvailable(true);
     } catch (error) {
       console.error("WebRTC initialization error:", error);
-      toast.error("Failed to initialize WebRTC connection");
+      toast.error(
+        "Failed to initialize WebRTC connection, using WebSocket fallback"
+      );
     }
   }, []);
 
@@ -106,15 +121,26 @@ export const usePreviewRenderer = (
       setIsLoading(true);
       setIsPreviewAvailable(false);
 
-      // Initialize WebRTC before starting preview
-      await initializeWebRTC();
+      try {
+        // Initialize WebRTC before starting preview
+        await initializeWebRTC();
 
-      sendMessage({
-        command: "start_preview_rendering",
-        params: sceneConfiguration,
-      });
-      toast.info("Starting preview rendering...");
-      resetSceneConfiguration();
+        sendMessage({
+          command: "start_preview_rendering",
+          params: sceneConfiguration,
+        });
+        toast.info("Starting preview rendering...");
+        resetSceneConfiguration();
+      } catch (error) {
+        console.error("Error starting preview:", error);
+        // Continue with WebSocket fallback
+        sendMessage({
+          command: "start_preview_rendering",
+          params: sceneConfiguration,
+        });
+        toast.info("Starting preview rendering (WebSocket mode)...");
+        resetSceneConfiguration();
+      }
     },
     [checkConnection, sendMessage, initializeWebRTC]
   );

@@ -155,6 +155,151 @@ class WebSocketHandler:
             RTCIceServer(urls="stun:stun.l.google.com:19302")
         ])
 
+    def connect(self, retries=5, delay=2):
+        """Establish WebSocket connection with retries and exponential backoff"""
+        self.max_retries = retries
+        self.reconnect_attempts = 0
+        self.stop_retries = False
+
+        try:
+            # Create SSL context with proper security settings
+            ssl_context = ssl.create_default_context(
+                purpose=ssl.Purpose.SERVER_AUTH,
+                cafile="/home/thamsanqa/cloudflare_cert.crt"
+            )
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_REQUIRED
+
+            # Verify the SSL context is properly configured
+            logging.info(
+                "SSL Context created with: verify_mode=CERT_REQUIRED, check_hostname=False")
+        except Exception as ssl_error:
+            logging.error(f"Failed to create SSL context: {ssl_error}")
+            return False
+
+        while self.reconnect_attempts < retries and not self.stop_retries:
+            try:
+                if self.ws:
+                    self.ws.close()
+
+                # Use the environment-configured URL with SSL options
+                self.ws = websocket.WebSocketApp(
+                    self.url,
+                    on_message=self._on_message,
+                    on_open=self._on_open,
+                    on_close=self._on_close,
+                    on_error=self._on_error,
+                )
+
+                self.processing_complete.clear()
+                self.ws_thread = threading.Thread(
+                    target=lambda: self._run_websocket(ssl_context),
+                    daemon=True
+                )
+                self.ws_thread.start()
+
+                logging.info(f"WebSocket connection initialized to {self.url}")
+                return True
+            except Exception as e:
+                logging.error(
+                    f"Connection to {self.url} failed: {e}, retrying in {delay} seconds..."
+                )
+                time.sleep(delay)
+                delay *= 2  # Exponential backoff
+                self.reconnect_attempts += 1
+
+        logging.error(
+            f"Max retries reached for {self.url}. Connection failed.")
+        return False
+
+    def _run_websocket(self, ssl_context):
+        """Run WebSocket with SSL context"""
+        while not self.processing_complete.is_set() and not self.stop_retries:
+            try:
+                self.ws.run_forever(
+                    sslopt={
+                        "cert_reqs": ssl_context.verify_mode,
+                        "check_hostname": ssl_context.check_hostname,
+                        "ssl_context": ssl_context
+                    }
+                )
+            except ssl.SSLError as ssl_err:
+                logging.error(f"SSL Error in WebSocket connection: {ssl_err}")
+                self.stop_retries = True
+                break
+            except websocket.WebSocketException as ws_err:
+                logging.error(f"WebSocket error: {ws_err}")
+                break
+            except Exception as e:
+                logging.error(f"Unexpected error in WebSocket connection: {e}")
+                break
+
+    def disconnect(self):
+        """Disconnect WebSocket and cleanup resources"""
+        with self.lock:
+            self.processing_complete.set()
+            self.stop_retries = True
+
+            # Close WebSocket connection
+            if self.ws and self.ws.sock and self.ws.sock.connected:
+                self.ws.close()
+                self.ws = None
+
+            # Close WebRTC connection
+            if self.peer_connection:
+                self.peer_connection.close()
+                self.peer_connection = None
+
+            # Close data channel
+            if self.data_channel:
+                self.data_channel.close()
+                self.data_channel = None
+
+            # Stop video track
+            if self.video_track:
+                self.video_track.stop()
+                self.video_track = None
+
+            # Join WebSocket thread
+            if self.ws_thread:
+                self.ws_thread.join(timeout=2)
+                self.ws_thread = None
+
+    def _on_open(self, ws):
+        """Handle WebSocket open event"""
+        self.reconnect_attempts = 0
+
+        def send_init_message():
+            try:
+                init_message = json.dumps({
+                    'status': 'Connected',
+                })
+                ws.send(init_message)
+                logging.info("Connected Successfully")
+            except Exception as e:
+                logging.error(f"Error in _on_open: {e}")
+
+        execute_in_main_thread(send_init_message, ())
+
+    def _on_message(self, ws, message):
+        """Handle incoming WebSocket message"""
+        self.process_message(message)
+
+    def _on_close(self, ws, close_status_code, close_msg):
+        """Handle WebSocket close event"""
+        logging.info(
+            f"WebSocket connection closed. Status: {close_status_code}, Message: {close_msg}")
+        self.processing_complete.set()
+
+    def _on_error(self, ws, error):
+        """Handle WebSocket error event"""
+        logging.error(f"WebSocket error: {error}")
+        self.reconnect_attempts += 1
+        if self.reconnect_attempts >= self.max_retries:
+            logging.error("Max retries reached. Stopping WebSocket attempts.")
+            self.stop_retries = True
+            self.processing_complete.set()
+
     async def _handle_webrtc_signaling(self, data):
         """Handle WebRTC signaling messages"""
         try:
@@ -466,3 +611,33 @@ class WebSocketHandler:
             self.data_channel.send(json.dumps(message))
         elif self.ws:
             self.ws.send(json.dumps(message))
+
+
+class ConnectWebSocketOperator(bpy.types.Operator):
+    bl_idname = "ws_handler.connect_websocket"
+    bl_label = "Connect WebSocket"
+    bl_description = "Initialize WebSocket connection to Cr8tive Engine server"
+
+    def execute(self, context):
+        try:
+            handler = WebSocketHandler()
+            handler.initialize_connection()  # Initialize before connecting
+            if handler.connect():
+                self.report({'INFO'}, f"Connected to {handler.url}")
+                return {'FINISHED'}
+            else:
+                self.report({'ERROR'}, "Connection failed")
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
+        return {'CANCELLED'}
+
+
+def register():
+    """Register WebSocket handler and operator"""
+    bpy.utils.register_class(ConnectWebSocketOperator)
+
+
+def unregister():
+    """Unregister WebSocket handler and operator"""
+    bpy.utils.unregister_class(ConnectWebSocketOperator)
+    websocket_handler.disconnect()
