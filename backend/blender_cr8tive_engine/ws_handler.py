@@ -640,4 +640,5 @@ def register():
 def unregister():
     """Unregister WebSocket handler and operator"""
     bpy.utils.unregister_class(ConnectWebSocketOperator)
-    websocket_handler.disconnect()
+    handler = WebSocketHandler()
+    handler.disconnect()
