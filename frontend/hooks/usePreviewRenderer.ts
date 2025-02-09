@@ -1,9 +1,23 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { WebSocketMessage } from "@/lib/types/websocket";
+import {
+  createPeerConnection,
+  handleICECandidateEvent,
+  handleTrackEvent,
+  handleAnswer,
+  handleIncomingICECandidate,
+  createAndSendOffer,
+} from "@/lib/webrtc";
 
 interface PreviewRendererConfig {
   onMessage?: (data: any) => void;
+}
+
+interface RTCMessage {
+  command: "webrtc";
+  signalType: "offer" | "answer" | "ice-candidate";
+  signalData: any;
 }
 
 export const usePreviewRenderer = (
@@ -15,6 +29,8 @@ export const usePreviewRenderer = (
   const [isPreviewAvailable, setIsPreviewAvailable] = useState(false);
   const websocketRef = useRef<WebSocket | null>(websocket);
   const onMessageCallback = useRef(config?.onMessage);
+  const peerConnection = useRef<RTCPeerConnection | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Update refs when dependencies change
   useEffect(() => {
@@ -22,8 +38,43 @@ export const usePreviewRenderer = (
     if (!websocket) {
       setIsPlaying(false);
       setIsPreviewAvailable(false);
+      if (peerConnection.current) {
+        peerConnection.current.close();
+        peerConnection.current = null;
+      }
     }
   }, [websocket]);
+
+  // Initialize WebRTC
+  const initializeWebRTC = useCallback(async () => {
+    if (!websocketRef.current) return;
+
+    try {
+      // Create new RTCPeerConnection with event handlers
+      const pc = createPeerConnection();
+      peerConnection.current = pc;
+
+      // Set up event handlers
+      pc.ontrack = (event) => handleTrackEvent(event, videoRef.current);
+      pc.onicecandidate = (event) => {
+        if (websocketRef.current) {
+          handleICECandidateEvent(event, (signal) =>
+            websocketRef.current!.send(JSON.stringify(signal))
+          );
+        }
+      };
+
+      // Create and send offer
+      await createAndSendOffer(pc, (signal) =>
+        websocketRef.current!.send(JSON.stringify(signal))
+      );
+
+      setIsPreviewAvailable(true);
+    } catch (error) {
+      console.error("WebRTC initialization error:", error);
+      toast.error("Failed to initialize WebRTC connection");
+    }
+  }, []);
 
   useEffect(() => {
     onMessageCallback.current = config?.onMessage;
@@ -49,11 +100,15 @@ export const usePreviewRenderer = (
   );
 
   const shootPreview = useCallback(
-    (sceneConfiguration: any, resetSceneConfiguration: () => void) => {
+    async (sceneConfiguration: any, resetSceneConfiguration: () => void) => {
       if (!checkConnection()) return;
 
       setIsLoading(true);
       setIsPreviewAvailable(false);
+
+      // Initialize WebRTC before starting preview
+      await initializeWebRTC();
+
       sendMessage({
         command: "start_preview_rendering",
         params: sceneConfiguration,
@@ -61,7 +116,7 @@ export const usePreviewRenderer = (
       toast.info("Starting preview rendering...");
       resetSceneConfiguration();
     },
-    [checkConnection, sendMessage]
+    [checkConnection, sendMessage, initializeWebRTC]
   );
 
   const playbackPreview = useCallback(() => {
@@ -98,20 +153,36 @@ export const usePreviewRenderer = (
   useEffect(() => {
     if (!websocket) return;
 
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
 
         // Handle connection acknowledgment
         if (data.status === "ACK") {
-          return; // Prevent further processing of ACK messages
+          return;
+        }
+
+        // Handle WebRTC signaling messages
+        if (data.command === "webrtc") {
+          const { signalType, signalData } = data;
+
+          if (signalType === "answer" && peerConnection.current) {
+            await handleAnswer(peerConnection.current, {
+              sdp: signalData.sdp,
+              type: signalData.type,
+            });
+          } else if (signalType === "ice-candidate" && peerConnection.current) {
+            await handleIncomingICECandidate(peerConnection.current, {
+              candidate: signalData.candidate,
+              sdpMid: signalData.sdpMid,
+              sdpMLineIndex: signalData.sdpMLineIndex,
+            });
+          }
+          return;
         }
 
         // Update internal states based on message type
-        if (data.type === "frame") {
-          setIsPreviewAvailable(true);
-          setIsLoading(false);
-        } else if (data.type === "viewport_stream_error") {
+        if (data.type === "viewport_stream_error") {
           setIsLoading(false);
           setIsPlaying(false);
         } else if (data.type === "broadcast_complete") {
@@ -155,6 +226,7 @@ export const usePreviewRenderer = (
     shootPreview,
     playbackPreview,
     stopPlaybackPreview,
-    generateVideo,  
+    generateVideo,
+    videoRef,
   };
 };

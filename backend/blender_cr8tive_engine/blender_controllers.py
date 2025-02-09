@@ -1,9 +1,12 @@
 import bpy
 import mathutils
-from .preview_renderer import get_preview_renderer
+from .preview_renderer import PreviewRenderer
 
 
 class BlenderControllers:
+    def __init__(self):
+        self.preview_renderer = None
+
     @staticmethod
     def set_active_camera(camera_name):
         """Set a specific camera as active in the scene"""
@@ -86,7 +89,7 @@ class BlenderControllers:
             print(f"Error updating object: {e}")
             return False
 
-    @staticmethod
-    def create_preview_renderer(username):
-        """Create and return a preview renderer instance with the given username"""
-        return get_preview_renderer(username)
+    def create_preview_renderer(self, username: str, webrtc_track=None) -> PreviewRenderer:
+        """Create and return a preview renderer instance"""
+        self.preview_renderer = PreviewRenderer(username, webrtc_track)
+        return self.preview_renderer

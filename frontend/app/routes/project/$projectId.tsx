@@ -23,6 +23,7 @@ function RouteComponent() {
   const [selectedAsset, setSelectedAsset] = useState<number | null>(null);
   const [blender_connected, setBlenderConnected] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const navigate = useNavigate();
 
   const {
@@ -85,6 +86,7 @@ function RouteComponent() {
     playbackPreview,
     stopPlaybackPreview,
     generateVideo,
+    videoRef: previewVideoRef,
   } = usePreviewRenderer(websocket, {
     onMessage: useCallback(
       (data: any) => {
@@ -131,8 +133,10 @@ function RouteComponent() {
       <PreviewWindow>
         <SceneViewPort
           canvasRef={canvasRef}
+          videoRef={previewVideoRef}
           isPreviewAvailable={isPreviewAvailable}
           finalVideoUrl=""
+          useWebRTC={true}
         />
       </PreviewWindow>
 

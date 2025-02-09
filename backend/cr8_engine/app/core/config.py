@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     WS_HOST: str
     WS_PORT: int
 
+    # WebRTC settings
+    WEBRTC_STUN_URL: str = "stun:stun.l.google.com:19302"
+    WEBRTC_TURN_URL: Optional[str] = None
+    WEBRTC_TURN_USER: Optional[str] = None
+    WEBRTC_TURN_CRED: Optional[str] = None
+
     # CORS settings
     ALLOWED_HOSTS: List[str] = ["*"]
 

@@ -5,18 +5,35 @@ import base64
 from typing import Dict, Any, Optional
 from pathlib import Path
 import uuid
+import json
 from fastapi import WebSocket
 from app.core.config import settings
 
+# WebRTC related imports
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer, RTCIceCandidate
+from aiortc.contrib.media import MediaRelay, MediaStreamTrack
+
 
 class WebSocketHandler:
-    """Handles WebSocket message processing with session-based architecture"""
+    """Handles WebSocket message processing with session-based architecture and WebRTC support"""
 
     def __init__(self, session_manager, username: str):
         self.logger = logging.getLogger(__name__)
         self.session_manager = session_manager
         self.username = username
         self.preview_dir = self._get_preview_dir()
+
+        # WebRTC related properties
+        self.peer_connections = {}
+        self.media_relay = MediaRelay()
+        self.rtc_config = RTCConfiguration([
+            RTCIceServer(urls=settings.WEBRTC_STUN_URL),
+            RTCIceServer(
+                urls=settings.WEBRTC_TURN_URL,
+                username=settings.WEBRTC_TURN_USER,
+                credential=settings.WEBRTC_TURN_CRED
+            )
+        ])
 
     def _get_preview_dir(self):
         # Define the base directory where previews are stored
@@ -32,12 +49,17 @@ class WebSocketHandler:
 
     async def handle_message(self, username: str, data: Dict[str, Any], client_type: str):
         """
-        Process incoming WebSocket messages with proper routing
+        Process incoming WebSocket messages with proper routing including WebRTC signaling
         """
         try:
             command = data.get("command")
             action = data.get("action")
             status = data.get("status")
+
+            # Handle WebRTC signaling messages
+            if command == "webrtc":
+                await self._handle_webrtc_signaling(username, data, client_type)
+                return
 
             if status == "Connected":
                 self.logger.info(f"Client {username} connected")
@@ -66,7 +88,10 @@ class WebSocketHandler:
                 "start_broadcast": self._handle_start_broadcast,
                 "generate_video": self._handle_generate_video,
                 "get_template_controls": self._handle_get_template_controls,
-                "template_controls": self._handle_template_controls_response
+                "template_controls": self._handle_template_controls_response,
+                "webrtc_offer": self._handle_webrtc_offer,
+                "webrtc_answer": self._handle_webrtc_answer,
+                "webrtc_ice_candidate": self._handle_ice_candidate
             }
 
             handler = handlers.get(command)  # Try command first
@@ -392,3 +417,112 @@ class WebSocketHandler:
                 "status": "ERROR",
                 "message": message
             })
+
+    async def _handle_webrtc_signaling(self, username: str, data: Dict[str, Any], client_type: str):
+        """Handle WebRTC signaling messages"""
+        try:
+            session = self.session_manager.get_session(username)
+            if not session:
+                return
+
+            signal_type = data.get("signalType")
+            signal_data = data.get("signalData")
+
+            # Forward signaling messages between peers
+            target_socket = session.browser_socket if client_type == "blender" else session.blender_socket
+            if target_socket:
+                await target_socket.send_json({
+                    "command": "webrtc",
+                    "signalType": signal_type,
+                    "signalData": signal_data
+                })
+
+            # Log signaling events
+            self.logger.info(
+                f"WebRTC signaling: {signal_type} from {client_type}")
+
+        except Exception as e:
+            self.logger.error(f"WebRTC signaling error: {str(e)}")
+            await self._send_error(username, f"WebRTC signaling failed: {str(e)}")
+
+    async def _handle_webrtc_offer(self, username: str, signal_data: Dict[str, Any]):
+        """Handle WebRTC offer from client"""
+        try:
+            session = self.session_manager.get_session(username)
+            if not session:
+                return
+
+            # Create new RTCPeerConnection for this session
+            pc = RTCPeerConnection(configuration=self.rtc_config)
+            self.peer_connections[username] = pc
+
+            # Set up ICE candidate handling
+            @pc.on("icecandidate")
+            async def on_ice_candidate(event):
+                if event.candidate:
+                    await session.browser_socket.send_json({
+                        "command": "webrtc",
+                        "signalType": "ice-candidate",
+                        "signalData": {
+                            "candidate": event.candidate.sdp,
+                            "sdpMid": event.candidate.sdpMid,
+                            "sdpMLineIndex": event.candidate.sdpMLineIndex
+                        }
+                    })
+
+            # Set the remote description from the offer
+            offer = RTCSessionDescription(
+                sdp=signal_data["sdp"], type=signal_data["type"])
+            await pc.setRemoteDescription(offer)
+
+            # Create and send answer
+            answer = await pc.createAnswer()
+            await pc.setLocalDescription(answer)
+
+            await session.browser_socket.send_json({
+                "command": "webrtc",
+                "signalType": "answer",
+                "signalData": {
+                    "sdp": pc.localDescription.sdp,
+                    "type": pc.localDescription.type
+                }
+            })
+
+        except Exception as e:
+            self.logger.error(f"Error handling WebRTC offer: {str(e)}")
+            await self._send_error(username, f"Failed to process WebRTC offer: {str(e)}")
+
+    async def _handle_webrtc_answer(self, username: str, signal_data: Dict[str, Any]):
+        """Handle WebRTC answer from client"""
+        try:
+            pc = self.peer_connections.get(username)
+            if not pc:
+                self.logger.error(f"No peer connection found for {username}")
+                return
+
+            answer = RTCSessionDescription(
+                sdp=signal_data["sdp"], type=signal_data["type"])
+            await pc.setRemoteDescription(answer)
+
+        except Exception as e:
+            self.logger.error(f"Error handling WebRTC answer: {str(e)}")
+            await self._send_error(username, f"Failed to process WebRTC answer: {str(e)}")
+
+    async def _handle_ice_candidate(self, username: str, signal_data: Dict[str, Any]):
+        """Handle ICE candidate from client"""
+        try:
+            pc = self.peer_connections.get(username)
+            if not pc:
+                self.logger.error(f"No peer connection found for {username}")
+                return
+
+            candidate = RTCIceCandidate(
+                sdpMid=signal_data["sdpMid"],
+                sdpMLineIndex=signal_data["sdpMLineIndex"],
+                candidate=signal_data["candidate"]
+            )
+            await pc.addIceCandidate(candidate)
+
+        except Exception as e:
+            self.logger.error(f"Error handling ICE candidate: {str(e)}")
+            await self._send_error(username, f"Failed to process ICE candidate: {str(e)}")

@@ -11,10 +11,61 @@ from .video_generator import GenerateVideo
 import tempfile
 from pathlib import Path
 import ssl
-import time  # Add this if not already imported
+import time
+import numpy as np
+from typing import Optional
+
+# WebRTC related imports
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer, RTCIceCandidate
+from aiortc.contrib.media import MediaStreamTrack, MediaBlackhole
+from av import VideoFrame
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+class BlenderVideoStreamTrack(MediaStreamTrack):
+    """A video stream track that captures frames from Blender's viewport."""
+    kind = "video"
+
+    def __init__(self, preview_renderer):
+        super().__init__()
+        self._preview_renderer = preview_renderer
+        self._frame_count = 0
+        self._start_time = time.time()
+        self._frame_buffer = []
+        self._lock = threading.Lock()
+
+    def add_frame(self, frame_data):
+        """Add a new frame to the buffer."""
+        with self._lock:
+            # Convert frame data to numpy array
+            frame = np.frombuffer(
+                frame_data, dtype=np.uint8).reshape(720, 1280, 4)
+            # Remove alpha channel
+            frame = frame[:, :, :3]
+            self._frame_buffer.append(frame)
+
+    async def recv(self):
+        """Get the next frame."""
+        pts = int((time.time() - self._start_time) * 1000)  # milliseconds
+        self._frame_count += 1
+
+        frame = None
+        with self._lock:
+            if self._frame_buffer:
+                frame_data = self._frame_buffer.pop(0)
+                frame = VideoFrame.from_ndarray(frame_data, format="rgb24")
+            else:
+                # Create black frame if no data available
+                frame = VideoFrame.from_ndarray(
+                    np.zeros((720, 1280, 3), dtype=np.uint8),
+                    format="rgb24"
+                )
+
+        frame.pts = pts
+        frame.time_base = 1/1000  # milliseconds
+        return frame
 
 
 def execute_in_main_thread(function, args):
@@ -36,7 +87,8 @@ class WebSocketHandler:
         'update_object': '_handle_object_transformation',
         'start_preview_rendering': '_handle_preview_rendering',
         'generate_video': '_handle_generate_video',
-        'rescan_template': '_handle_rescan_template'
+        'rescan_template': '_handle_rescan_template',
+        'webrtc': '_handle_webrtc_signaling'
     }
 
     def __new__(cls):
@@ -44,32 +96,40 @@ class WebSocketHandler:
             cls._instance = super(WebSocketHandler, cls).__new__(cls)
             cls._instance._initialized = False
             cls._instance.lock = threading.Lock()
-            # Initialize without connection
             cls._instance.ws = None
-            cls._instance.url = None  # Start unconfigured
+            cls._instance.url = None
             cls._instance.username = None
-            cls._instance._initialized = True  # Mark as initialized
+            cls._instance.peer_connection = None
+            cls._instance.video_track = None
+            cls._instance._initialized = True
         return cls._instance
 
     def __init__(self):
-        # Empty __init__ since we handle initialization in __new__
-        pass
+        if not hasattr(self, '_initialized'):
+            self._initialized = False
+            self.lock = threading.Lock()
+            self.ws = None
+            self.url = None
+            self.username = None
+            self.peer_connection = None
+            self.video_track = None
+            self.data_channel = None
+            self.wizard = TemplateWizard()
+            self.controllers = BlenderControllers()
+            self._initialized = True
 
     def initialize_connection(self, url=None):
         """Call this explicitly when ready to connect"""
         if self.ws:
             return  # Already connected
 
-        # Get URL from environment or argument
         self.url = url or os.environ.get("WS_URL")
 
-        # Updated regex to handle both 'ws' and 'wss', local IPs, localhost, and production domains
         match = re.match(
             r'ws[s]?://([^:/]+)(?::\d+)?/ws/([^/]+)/blender', self.url)
         if match:
-            # Extract host (local IP, localhost, or production domain)
             self.host = match.group(1)
-            self.username = match.group(2)  # Extract username
+            self.username = match.group(2)
         else:
             raise ValueError(
                 "Invalid WebSocket URL format. Unable to extract username."
@@ -81,7 +141,6 @@ class WebSocketHandler:
                 "or passed to initialize_connection()"
             )
 
-        # Initialize components only when needed
         self.ws = None
         self.wizard = TemplateWizard()
         self.controllers = BlenderControllers()
@@ -91,198 +150,78 @@ class WebSocketHandler:
         self.max_retries = 5
         self.stop_retries = False
 
-    def connect(self, retries=5, delay=2):
-        """Establish WebSocket connection with retries and exponential backoff"""
-        self.max_retries = retries
-        self.reconnect_attempts = 0
-        self.stop_retries = False
+        # Initialize WebRTC configuration
+        self.rtc_config = RTCConfiguration([
+            RTCIceServer(urls="stun:stun.l.google.com:19302")
+        ])
 
+    async def _handle_webrtc_signaling(self, data):
+        """Handle WebRTC signaling messages"""
         try:
-            # Create SSL context with proper security settings
-            ssl_context = ssl.create_default_context(
-                purpose=ssl.Purpose.SERVER_AUTH,
-                cafile="/home/thamsanqa/cloudflare_cert.crt"
-            )
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_REQUIRED
+            signal_type = data.get("signalType")
+            signal_data = data.get("signalData")
 
-            # Verify the SSL context is properly configured
-            logging.info(
-                "SSL Context created with: verify_mode=CERT_REQUIRED, check_hostname=False")
-        except Exception as ssl_error:
-            logging.error(f"Failed to create SSL context: {ssl_error}")
-            return False
+            if signal_type == "offer":
+                # Create new RTCPeerConnection
+                self.peer_connection = RTCPeerConnection(
+                    configuration=self.rtc_config)
 
-        while self.reconnect_attempts < retries and not self.stop_retries:
-            try:
-                if self.ws:
-                    self.ws.close()
+                # Create and add video track
+                if not self.video_track:
+                    self.video_track = BlenderVideoStreamTrack(
+                        self.controllers.preview_renderer)
+                self.peer_connection.addTrack(self.video_track)
 
-                # Use the environment-configured URL with SSL options
-                self.ws = websocket.WebSocketApp(
-                    self.url,
-                    on_message=self._on_message,
-                    on_open=self._on_open,
-                    on_close=self._on_close,
-                    on_error=self._on_error,
+                # Create data channel for controls
+                self.data_channel = self.peer_connection.createDataChannel(
+                    "controls")
+                self.data_channel.onmessage = self._handle_data_channel_message
+                self.data_channel.onopen = self._handle_data_channel_open
+
+                # Set the remote description
+                offer = RTCSessionDescription(
+                    sdp=signal_data["sdp"],
+                    type=signal_data["type"]
                 )
+                await self.peer_connection.setRemoteDescription(offer)
 
-                self.processing_complete.clear()
-                self.ws_thread = threading.Thread(
-                    target=lambda: self._run_websocket(ssl_context),
-                    daemon=True
-                )
-                self.ws_thread.start()
+                # Create and send answer
+                answer = await self.peer_connection.createAnswer()
+                await self.peer_connection.setLocalDescription(answer)
 
-                logging.info(f"WebSocket connection initialized to {self.url}")
-                return True
-            except Exception as e:
-                logging.error(
-                    f"Connection to {self.url} failed: {e}, retrying in {delay} seconds..."
-                )
-                time.sleep(delay)
-                delay *= 2  # Exponential backoff
-                self.reconnect_attempts += 1
-
-        logging.error(
-            f"Max retries reached for {self.url}. Connection failed.")
-        return False
-
-    def _run_websocket(self, ssl_context):
-        """Run WebSocket with SSL context"""
-        while not self.processing_complete.is_set() and not self.stop_retries:
-            try:
-                self.ws.run_forever(
-                    sslopt={
-                        "cert_reqs": ssl_context.verify_mode,
-                        "check_hostname": ssl_context.check_hostname,
-                        "ssl_context": ssl_context
+                # Send answer back through WebSocket
+                self._send_response("webrtc", True, {
+                    "signalType": "answer",
+                    "signalData": {
+                        "sdp": self.peer_connection.localDescription.sdp,
+                        "type": self.peer_connection.localDescription.type
                     }
-                )
-            except ssl.SSLError as ssl_err:
-                logging.error(f"SSL Error in WebSocket connection: {ssl_err}")
-                self.stop_retries = True
-                break
-            except websocket.WebSocketException as ws_err:
-                logging.error(f"WebSocket error: {ws_err}")
-                break
-            except Exception as e:
-                logging.error(f"Unexpected error in WebSocket connection: {e}")
-                break
-
-    def disconnect(self):
-        """Disconnect WebSocket"""
-        with self.lock:
-            self.processing_complete.set()
-            self.stop_retries = True
-            if self.ws and self.ws.sock and self.ws.sock.connected:
-                self.ws.close()
-                self.ws = None
-
-            if self.ws_thread:
-                self.ws_thread.join(timeout=2)
-                self.ws_thread = None
-
-    def _on_open(self, ws):
-        self.reconnect_attempts = 0
-
-        def send_init_message():
-            try:
-                init_message = json.dumps({
-                    'status': 'Connected',
                 })
-                ws.send(init_message)
-                logging.info("Connected Successfully")
-            except Exception as e:
-                logging.error(f"Error in _on_open: {e}")
 
-        execute_in_main_thread(send_init_message, ())
+            elif signal_type == "ice-candidate":
+                if self.peer_connection:
+                    candidate = RTCIceCandidate(
+                        sdpMid=signal_data["sdpMid"],
+                        sdpMLineIndex=signal_data["sdpMLineIndex"],
+                        candidate=signal_data["candidate"]
+                    )
+                    await self.peer_connection.addIceCandidate(candidate)
 
-    def _on_message(self, ws, message):
-        self.process_message(message)
-
-    def process_message(self, message):
-        try:
-            logging.info(f"Processing incoming message: {message}")
-            data = json.loads(message)
-            command = data.get('command')
-            message_id = data.get('message_id')
-
-            logging.info(
-                f"Parsed message - command: {command}, message_id: {message_id}")
-
-            # Prevent reprocessing of the same command
-            if (command, message_id) in self.processed_commands:
-                logging.warning(
-                    f"Skipping already processed command: {command} with message_id: {message_id}")
-                return
-
-            if not command:
-                logging.warning(
-                    f"Received message without a valid command: {data}")
-                return
-
-            logging.info(f"Looking for handler for command: {command}")
-
-            # Optional: Add a retry limit or cooling period
-            handler_method = getattr(
-                self, self.command_handlers.get(command), None)
-
-            if handler_method:
-                logging.info(
-                    f"Found handler for command {command}: {handler_method.__name__}")
-
-                def execute_handler():
-                    handler_method(data)
-                    # Mark this command as processed
-                    self.processed_commands.add((command, message_id))
-                    logging.info(
-                        f"Marked command {command} with message_id {message_id} as processed")
-                execute_in_main_thread(execute_handler, ())
-            else:
-                logging.warning(f"No handler found for command: {command}")
-
-        except json.JSONDecodeError as e:
-            logging.error(f"Error decoding JSON message: {e}")
         except Exception as e:
-            logging.error(f"Error processing WebSocket message: {e}")
-            import traceback
-            traceback.print_exc()
-
-            # Optional: Disconnect or reset to prevent further processing
-            self.disconnect()
-
-    def _handle_camera_change(self, data):
-        result = self.controllers.set_active_camera(data.get('camera_name'))
-        self._send_response('camera_change_result', result)
-
-    def _handle_light_update(self, data):
-        result = self.controllers.update_light(
-            data.get('light_name'), color=data.get('color'), strength=data.get('strength'))
-        self._send_response('light_update_result', result)
-
-    def _handle_material_update(self, data):
-        result = self.controllers.update_material(
-            data.get('material_name'),
-            color=data.get('color'),
-            roughness=data.get('roughness'),
-            metallic=data.get('metallic')
-        )
-        self._send_response('material_update_result', result)
-
-    def _handle_object_transformation(self, data):
-        result = self.controllers.update_object(
-            data.get('object_name'), location=data.get('location'), rotation=data.get('rotation'), scale=data.get('scale'))
-        self._send_response('object_transformation_result', result)
+            logging.error(f"WebRTC signaling error: {str(e)}")
+            self._send_response("webrtc", False, {
+                "error": str(e)
+            })
 
     def _handle_preview_rendering(self, data):
-        logging.info("Starting preview rendering")
+        """Handle preview rendering with WebRTC streaming"""
+        logging.info("Starting preview rendering with WebRTC")
         params = data.get('params', {})
         preview_renderer = self.controllers.create_preview_renderer(
-            self.username)
+            self.username, webrtc_track=self.video_track)
 
         try:
-            # Process updates before rendering
+            # Process scene updates
             if 'camera' in params:
                 camera_data = params['camera']
                 result = self.controllers.set_active_camera(
@@ -318,13 +257,8 @@ class WebSocketHandler:
                     )
                     logging.info(f"Object update result: {result}")
 
-            # Cleanup any existing preview frames
-            preview_renderer.cleanup()
-
-            # Setup preview render settings
+            # Start WebRTC streaming
             preview_renderer.setup_preview_render(params)
-
-            # Render the entire animation once
             bpy.ops.render.opengl(animation=True)
 
             self._send_response('start_broadcast', True)
@@ -335,66 +269,54 @@ class WebSocketHandler:
             traceback.print_exc()
             self._send_response('Preview Rendering failed', False)
 
-    def _handle_generate_video(self, data):
-        """Generate video based on the available frames."""
-        image_sequence_directory = Path(
-            f"/mnt/shared_storage/Cr8tive_Engine/Sessions/{self.username}") / "preview"
-        output_file = image_sequence_directory / "preview.mp4"
-        resolution = (1280, 720)
-        fps = 30
-
+    def _handle_data_channel_message(self, event):
+        """Handle incoming data channel messages"""
         try:
+            data = json.loads(event.data)
+            command = data.get('command')
 
-            # Include the message_id in your processing and response
-            message_id = data.get('message_id')
-
-            # Ensure the directory exists
-            image_sequence_directory.mkdir(parents=True, exist_ok=True)
-
-            # Check if there are actually image files in the directory
-            image_files = list(image_sequence_directory.glob('*.png'))
-            if not image_files:
-                raise ValueError(
-                    "No image files found in the specified directory")
-
-            # Initialize and execute the handler
-            video_generator = GenerateVideo(
-                str(image_sequence_directory),
-                str(output_file),
-                resolution,
-                fps
-            )
-            video_generator.gen_video_from_images()
-
-            # Send success response with message_id
-            self._send_response('generate_video', {
-                "success": True,
-                "status": "completed",
-                "message_id": message_id
-            })
-
-            # Disconnect from the client if everything is successful
-            self.disconnect()
+            if command == 'rescan_template':
+                self._handle_rescan_template(data)
+            elif command == 'generate_video':
+                self._handle_generate_video(data)
+            elif command == 'change_camera':
+                self._handle_camera_change(data)
+            elif command == 'update_light':
+                self._handle_light_update(data)
+            elif command == 'update_material':
+                self._handle_material_update(data)
+            elif command == 'update_object':
+                self._handle_object_transformation(data)
 
         except Exception as e:
-            error_message = str(e)
-            logging.error(
-                f"Video generation error in directory {image_sequence_directory}: {error_message}"
-            )
-            import traceback
-            traceback.print_exc()
+            logging.error(f"Error handling data channel message: {e}")
+            self._send_error_message(str(e))
 
-            # Send error response with message_id
-            self._send_response('generate_video', {
-                "success": False,
-                "status": "failed",
-                "message_id": message_id
-            })
+    def _handle_data_channel_open(self, event):
+        """Handle data channel open event"""
+        logging.info("Data channel opened")
+        # Send initial template controls
+        self._handle_rescan_template({"message_id": str(uuid.uuid4())})
 
-            logging.error(f"Video generation failed: {e}")
+    def _send_control_message(self, message_type: str, data: dict):
+        """Send control message through data channel or WebSocket"""
+        try:
+            message = {
+                "type": message_type,
+                "data": data,
+                "timestamp": time.time()
+            }
+
+            if self.data_channel and self.data_channel.readyState == "open":
+                self.data_channel.send(json.dumps(message))
+            elif self.ws:
+                self.ws.send(json.dumps(message))
+
+        except Exception as e:
+            logging.error(f"Error sending control message: {e}")
 
     def _handle_rescan_template(self, data):
-        """Rescan the controllable objects and send the response"""
+        """Handle template rescan request"""
         try:
             message_id = data.get('message_id')
             logging.info(
@@ -403,99 +325,144 @@ class WebSocketHandler:
             controllables = self.wizard.scan_controllable_objects()
             logging.info(f"Scanned {len(controllables)} controllable objects")
 
-            # Format the response with message_id and data
             result = {
+                "command": "template_controls",
                 "data": {
                     "controllables": controllables,
-                    "message_id": message_id  # Include in data object
-                }
+                    "message_id": message_id
+                },
+                "status": "success"
             }
-            logging.info(
-                f"Sending template controls response with message_id: {message_id}")
-            self._send_response('template_controls', True, result)
-            logging.info(
-                f"Successfully rescanned template with {len(controllables)} controllables")
+
+            self._send_control_message("template_controls", result)
+
         except Exception as e:
             logging.error(f"Error during template rescan: {e}")
-            self._send_response('template_controls', False, {
-                "message": str(e),
-                "message_id": data.get('message_id')
-            })
+            self._send_error_message(str(e))
 
-    def _send_response(self, command, result, data=None, message_id=None):
-        """
-        Send a WebSocket response.
+    def _handle_generate_video(self, data):
+        """Handle video generation request"""
+        try:
+            message_id = data.get('message_id')
+            image_sequence_directory = Path(
+                f"/mnt/shared_storage/Cr8tive_Engine/Sessions/{self.username}") / "preview"
+            output_file = image_sequence_directory / "preview.mp4"
+            resolution = (1280, 720)
+            fps = 30
 
-        :param command: The command to send (e.g., 'template_controls')
-        :param result: Boolean indicating success or failure
-        :param data: Optional additional data to send (e.g., controllables object)
-        :param message_id: Optional message ID for tracking requests
-        """
-        logging.info(f"Preparing response for command: {command}")
-        status = 'success' if result else 'failed'
+            image_sequence_directory.mkdir(parents=True, exist_ok=True)
+            image_files = list(image_sequence_directory.glob('*.png'))
 
-        response = {
-            'command': command,
-            'status': status
+            if not image_files:
+                raise ValueError(
+                    "No image files found in the specified directory")
+
+            video_generator = GenerateVideo(
+                str(image_sequence_directory),
+                str(output_file),
+                resolution,
+                fps
+            )
+            video_generator.gen_video_from_images()
+
+            result = {
+                "command": "generate_video",
+                "status": "completed",
+                "message_id": message_id
+            }
+
+            self._send_control_message("video_generation", result)
+
+        except Exception as e:
+            logging.error(f"Video generation error: {e}")
+            self._send_error_message(str(e))
+
+    def _send_error_message(self, error_msg: str):
+        """Send error message through available channel"""
+        message = {
+            "status": "error",
+            "message": error_msg,
+            "timestamp": time.time()
         }
 
-        # Include the data in the response if provided
-        if data is not None:
-            # Extract message_id if present in data
-            if isinstance(data, dict) and 'message_id' in data:
-                response['message_id'] = data['message_id']
-            elif isinstance(data, dict) and 'data' in data and isinstance(data['data'], dict) and 'message_id' in data['data']:
-                response['message_id'] = data['data']['message_id']
+        if self.data_channel and self.data_channel.readyState == "open":
+            self.data_channel.send(json.dumps(message))
+        elif self.ws:
+            self.ws.send(json.dumps(message))
 
-            # Always keep data in its own field to maintain structure
-            response['data'] = data
-
-        # Convert the response dictionary to a JSON string
-        json_response = json.dumps(response)
-        logging.info(f"Sending WebSocket response: {json_response}")
-
-        # Send the response via WebSocket
-        self.ws.send(json_response)
-
-    def _on_close(self, ws, close_status_code, close_msg):
-        logging.info(
-            f"WebSocket connection closed. Status: {close_status_code}, Message: {close_msg}")
-        self.processing_complete.set()
-
-    def _on_error(self, ws, error):
-        logging.error(f"WebSocket error: {error}")
-        self.reconnect_attempts += 1
-        if self.reconnect_attempts >= self.max_retries:
-            logging.error("Max retries reached. Stopping WebSocket attempts.")
-            self.stop_retries = True
-            self.processing_complete.set()
-
-
-class ConnectWebSocketOperator(bpy.types.Operator):
-    bl_idname = "ws_handler.connect_websocket"
-    bl_label = "Connect WebSocket"
-    bl_description = "Initialize WebSocket connection to Cr8tive Engine server"
-
-    def execute(self, context):
+    def _handle_camera_change(self, data):
+        """Handle camera change request"""
         try:
-            handler = WebSocketHandler()
-            handler.initialize_connection()  # Initialize before connecting
-            if handler.connect():
-                self.report({'INFO'}, f"Connected to {handler.url}")
-                return {'FINISHED'}
-            else:
-                self.report({'ERROR'}, "Connection failed")
+            result = self.controllers.set_active_camera(
+                data.get('camera_name'))
+            self._send_control_message("camera_change", {
+                "success": result,
+                "message_id": data.get('message_id')
+            })
         except Exception as e:
-            self.report({'ERROR'}, str(e))
-        return {'CANCELLED'}
+            logging.error(f"Error changing camera: {e}")
+            self._send_error_message(str(e))
 
+    def _handle_light_update(self, data):
+        """Handle light update request"""
+        try:
+            result = self.controllers.update_light(
+                data.get('light_name'),
+                color=data.get('color'),
+                strength=data.get('strength')
+            )
+            self._send_control_message("light_update", {
+                "success": result,
+                "message_id": data.get('message_id')
+            })
+        except Exception as e:
+            logging.error(f"Error updating light: {e}")
+            self._send_error_message(str(e))
 
-def register():
-    """Register WebSocket handler and operator"""
-    bpy.utils.register_class(ConnectWebSocketOperator)
+    def _handle_material_update(self, data):
+        """Handle material update request"""
+        try:
+            result = self.controllers.update_material(
+                data.get('material_name'),
+                color=data.get('color'),
+                roughness=data.get('roughness'),
+                metallic=data.get('metallic')
+            )
+            self._send_control_message("material_update", {
+                "success": result,
+                "message_id": data.get('message_id')
+            })
+        except Exception as e:
+            logging.error(f"Error updating material: {e}")
+            self._send_error_message(str(e))
 
+    def _handle_object_transformation(self, data):
+        """Handle object transformation request"""
+        try:
+            result = self.controllers.update_object(
+                data.get('object_name'),
+                location=data.get('location'),
+                rotation=data.get('rotation'),
+                scale=data.get('scale')
+            )
+            self._send_control_message("object_update", {
+                "success": result,
+                "message_id": data.get('message_id')
+            })
+        except Exception as e:
+            logging.error(f"Error updating object: {e}")
+            self._send_error_message(str(e))
 
-def unregister():
-    """Unregister WebSocket handler and operator"""
-    bpy.utils.unregister_class(ConnectWebSocketOperator)
-    websocket_handler.disconnect()
+    def _send_response(self, command: str, success: bool, data: dict = None):
+        """Send response through available channel"""
+        message = {
+            "command": command,
+            "status": "success" if success else "failed",
+            "data": data,
+            "timestamp": time.time()
+        }
+
+        if self.data_channel and self.data_channel.readyState == "open":
+            self.data_channel.send(json.dumps(message))
+        elif self.ws:
+            self.ws.send(json.dumps(message))

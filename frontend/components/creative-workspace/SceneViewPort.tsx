@@ -2,15 +2,19 @@ import { ImageIcon } from "lucide-react";
 import { LegacyRef } from "react";
 
 interface SceneViewPortProps {
-  canvasRef: LegacyRef<HTMLCanvasElement> | undefined;
+  canvasRef?: LegacyRef<HTMLCanvasElement>;
+  videoRef?: LegacyRef<HTMLVideoElement>;
   isPreviewAvailable: boolean;
   finalVideoUrl?: string;
+  useWebRTC?: boolean;
 }
 
 export function SceneViewPort({
   canvasRef,
+  videoRef,
   isPreviewAvailable,
   finalVideoUrl,
+  useWebRTC = true,
 }: SceneViewPortProps) {
   return (
     <>
@@ -21,13 +25,25 @@ export function SceneViewPort({
           Your browser does not support the video tag.
         </video>
       ) : isPreviewAvailable ? (
-        // Render the canvas for preview
-        <canvas
-          ref={canvasRef}
-          width={1280}
-          height={720}
-          className="w-full h-full object-cover"
-        />
+        useWebRTC ? (
+          // Render WebRTC video stream for preview
+          <video
+            ref={videoRef as LegacyRef<HTMLVideoElement>}
+            autoPlay
+            playsInline
+            width={1280}
+            height={720}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          // Fallback to canvas for non-WebRTC preview
+          <canvas
+            ref={canvasRef}
+            width={1280}
+            height={720}
+            className="w-full h-full object-cover"
+          />
+        )
       ) : (
         // Render the placeholder when no preview or final video is available
         <div className="absolute inset-0 flex flex-col items-center justify-center">
