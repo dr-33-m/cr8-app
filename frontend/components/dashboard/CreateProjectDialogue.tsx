@@ -137,13 +137,6 @@ export function CreateProjectDialog() {
     fetchMoodboards();
   }, [logto_userId]);
 
-  // Handle server status changes
-  // useEffect(() => {
-  //   if (!isCheckingHealth && serverStatus === "healthy") {
-  //     setIsOpen(true);
-  //   }
-  // }, [serverStatus, isCheckingHealth]);
-
   const isServerUnhealthy =
     isCheckingHealth || (serverStatus !== "healthy" && !isCheckingHealth);
   const renderStep = () => {
