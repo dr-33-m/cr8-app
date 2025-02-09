@@ -144,7 +144,8 @@ export function CreateProjectDialog() {
     }
   }, [serverStatus, isCheckingHealth]);
 
-  const isDisabled = serverStatus !== "healthy" && !isCheckingHealth;
+  const isServerUnhealthy =
+    isCheckingHealth || (serverStatus !== "healthy" && !isCheckingHealth);
   const renderStep = () => {
     switch (step) {
       case 1:
@@ -370,7 +371,7 @@ export function CreateProjectDialog() {
     <Dialog
       open={isOpen}
       onOpenChange={(open) => {
-        if (serverStatus !== "healthy" && !isCheckingHealth) {
+        if (isServerUnhealthy) {
           return;
         }
         setIsOpen(open);
@@ -382,7 +383,7 @@ export function CreateProjectDialog() {
             size="lg"
             className="bg-cr8-blue hover:bg-cr8-blue/60 text-white w-full disabled:bg-gray-500"
             onClick={() => checkHealth()}
-            disabled={isDisabled}
+            disabled={isServerUnhealthy}
           >
             {isCheckingHealth
               ? "Checking Cr8 Engine..."
@@ -405,7 +406,9 @@ export function CreateProjectDialog() {
       <DialogContent className="sm:max-w-[600px] bg-cr8-charcoal/95 backdrop-blur-xl border-white/10">
         {serverStatus !== "healthy" ? (
           <div className="p-6 text-center space-y-4">
-            <h3 className="text-xl font-semibold">Cr8 Engine Unavailable </h3>
+            <h3 className="text-xl font-semibold">
+              Cr8 Engine Is Unavailable{" "}
+            </h3>
             <p className="text-yellow-500">{serverMessage.message}</p>
             <Button onClick={checkHealth}>Retry Connection</Button>
           </div>
