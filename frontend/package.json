@@ -38,6 +38,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.54.2",
+    "react-responsive": "^10.0.0",
     "reactflow": "^11.11.4",
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.6.0",

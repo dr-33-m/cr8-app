@@ -52,15 +52,10 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  const handleWebSocketMessage = (data: any) => {
-    // Global message handling if needed
-    console.debug("WebSocket message:", data);
-  };
-
   return (
     <LogtoWrapper>
       <RootDocument>
-        <WebSocketProvider onMessage={handleWebSocketMessage}>
+        <WebSocketProvider>
           <Outlet />
         </WebSocketProvider>
       </RootDocument>

@@ -124,7 +124,7 @@ export const useWebSocket = (onMessage?: (data: any) => void) => {
         setStatus("connected");
         reconnectAttemptsRef.current = 0;
         isManuallyDisconnected.current = false;
-        toast.success("Connected to server");
+        toast.success("Connected to Cr8 Engine");
 
         while (messageQueueRef.current.length > 0) {
           const message = messageQueueRef.current.shift();
@@ -163,7 +163,7 @@ export const useWebSocket = (onMessage?: (data: any) => void) => {
           }
         } catch (error) {
           console.error("Error parsing WebSocket message:", error);
-          toast.error("Failed to process server message");
+          toast.error("Failed to process message");
         }
       };
     } catch (error) {

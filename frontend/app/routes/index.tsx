@@ -8,6 +8,8 @@ import { isBrowser } from "@/lib/utils";
 import { CardGlass } from "@/components/ui/card-glass";
 import { CreateProjectDialog } from "@/components/dashboard/CreateProjectDialogue";
 import { CreateMoodboardDialog } from "@/components/moodboard/CreateMoodboardDIalogue";
+import { useMediaQuery } from "react-responsive";
+import { MobileMessage } from "@/components/MobileMessage";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -15,6 +17,7 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const [activeTab, setActiveTab] = useState("create");
+  const isMobile = useMediaQuery({ maxWidth: 768 });
   // FIXME: This is a temporary solution until we have a proper way to handle authentication in the Server.
   const logto = isBrowser ? useLogto() : null;
 
@@ -91,6 +94,8 @@ function Home() {
             </Tabs>
           </div>
         </main>
+      ) : isMobile ? (
+        <MobileMessage />
       ) : (
         <SignIn />
       )}
