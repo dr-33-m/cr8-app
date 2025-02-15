@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { MoodboardData } from "@/lib/types/moodboard";
 import useUserStore from "@/store/userStore";
 import { useServerHealth } from "@/hooks/useServerHealth";
+import { MoodboardForm } from "@/components/moodboard/MoodboardForm";
 
 const c8_engine_server = import.meta.env.VITE_CR8_ENGINE_SERVER;
 
@@ -139,6 +140,7 @@ export function CreateProjectDialog() {
 
   const isServerUnhealthy =
     isCheckingHealth || (serverStatus !== "healthy" && !isCheckingHealth);
+  const areMoodboardsAvailable = moodboards.length > 0;
   const renderStep = () => {
     switch (step) {
       case 1:
@@ -254,8 +256,8 @@ export function CreateProjectDialog() {
         return (
           <div className="space-y-6">
             <div className="space-y-3">
-              <Label>Select Moodboard</Label>
-              {moodboards.length > 0 ? (
+              <Label>{`${areMoodboardsAvailable ? "Select a moodboard" : "Start by Creating a new moodboard"}`}</Label>
+              {areMoodboardsAvailable ? (
                 <Select
                   value={formData.moodboard}
                   onValueChange={(value) => {
@@ -279,34 +281,22 @@ export function CreateProjectDialog() {
                   </SelectContent>
                 </Select>
               ) : (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left h-auto p-4"
-                  onClick={() => {
-                    /* Open moodboard creation dialog */
-                  }}
-                >
-                  <div>
-                    <p className="font-medium">Create New Moodboard</p>
-                    <p className="text-sm text-gray-400">
-                      Start fresh with a new moodboard
-                    </p>
-                  </div>
-                </Button>
+                <MoodboardForm />
               )}
             </div>
-
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={prevStep}>
-                Back
-              </Button>
-              <Button
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-                onClick={nextStep}
-              >
-                Next Step
-              </Button>
-            </div>
+            {areMoodboardsAvailable && (
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={prevStep}>
+                  Back
+                </Button>
+                <Button
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  onClick={nextStep}
+                >
+                  Next Step
+                </Button>
+              </div>
+            )}
           </div>
         );
 

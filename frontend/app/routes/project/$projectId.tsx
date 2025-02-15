@@ -14,6 +14,7 @@ import { useSceneConfigStore } from "@/store/sceneConfiguratorStore";
 import { useProjectStore } from "@/store/projectStore";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
+import { useServerHealth } from "@/hooks/useServerHealth";
 
 export const Route = createFileRoute("/project/$projectId")({
   component: RouteComponent,
@@ -23,6 +24,7 @@ function RouteComponent() {
   const [selectedAsset, setSelectedAsset] = useState<number | null>(null);
   const [blender_connected, setBlenderConnected] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { serverStatus } = useServerHealth();
   const navigate = useNavigate();
 
   const {
@@ -37,12 +39,12 @@ function RouteComponent() {
 
   // Redirect if no project data is available
   useEffect(() => {
-    if (!projectName || !template) {
+    if (!projectName || !template || serverStatus !== "healthy") {
       toast.error("No project data found");
       navigate({ to: "/" });
       return;
     }
-  }, [projectName, template, navigate]);
+  }, [projectName, template, navigate, serverStatus]);
 
   // Cleanup project data when leaving
   useEffect(() => {

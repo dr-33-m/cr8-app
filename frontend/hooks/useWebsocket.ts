@@ -4,7 +4,6 @@ import useUserStore from "@/store/userStore";
 import { toast } from "sonner";
 import { WebSocketMessage, WebSocketStatus } from "@/lib/types/websocket";
 
-const INITIAL_RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_DELAY = 30000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const BASE_DELAY = 2000;
@@ -84,9 +83,7 @@ export const useWebSocket = (onMessage?: (data: any) => void) => {
     }
 
     const delay = calculateReconnectDelay();
-    toast.info(
-      `Attempting to reconnect in ${delay / 1000} seconds... (Attempt ${reconnectAttemptsRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})`
-    );
+    toast.info(`Attempting to reconnect in ${delay / 1000} seconds...`);
 
     // Clear any existing timeout
     if (reconnectTimeoutRef.current) {

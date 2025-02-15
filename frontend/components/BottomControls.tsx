@@ -3,12 +3,17 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { useMatchRoute } from "@tanstack/react-router";
+import { isEmpty } from "lodash";
+import { useEffect, useState } from "react";
 
 interface BottomControlsProps {
   children?: React.ReactNode;
 }
 
 export function BottomControls({ children }: BottomControlsProps) {
+  const matchRoute = useMatchRoute();
+  const [isMoodboardRoute, setMoodboardRoute] = useState(false);
   const isVisible = useVisibilityStore(
     (state) => state.isBottomControlsVisible
   );
@@ -16,6 +21,14 @@ export function BottomControls({ children }: BottomControlsProps) {
     (state) => state.toggleBottomControls
   );
   const { status, reconnect } = useWebSocketContext();
+
+  useEffect(() => {
+    if (matchRoute({ to: "/project/moodboard/$moodboardId" })) {
+      setMoodboardRoute(true);
+    } else {
+      setMoodboardRoute(false);
+    }
+  });
 
   return (
     <div
@@ -35,9 +48,13 @@ export function BottomControls({ children }: BottomControlsProps) {
         )}
       </Button>
       <div className="backdrop-blur-md bg-white/5 rounded-lg px-6 py-3 flex items-center gap-4">
-        <ConnectionStatus status={status} />
-        <div className="h-8 w-px bg-white/20" />
-        {status === "disconnected" ? (
+        {!isMoodboardRoute && (
+          <>
+            <ConnectionStatus status={status} />
+            <div className="h-8 w-px bg-white/20" />
+          </>
+        )}
+        {status === "disconnected" && !isMoodboardRoute ? (
           <Button
             variant="secondary"
             onClick={reconnect}
