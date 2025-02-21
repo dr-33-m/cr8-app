@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any, List
+from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 from .user import User
 
@@ -6,18 +7,18 @@ from .user import User
 class Template(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    description: Optional[str] = None
-    minio_path: str  # Path to template in MinIO storage
-    thumbnail_path: Optional[str] = None  # Path to thumbnail in MinIO storage
-    tags: Optional[List[str]] = Field(sa_column=Column(JSON))
+    template_type: str
+    templateData: Dict[str, Any] = Field(sa_column=Column(JSON))
+    thumbnail: str
+    compatible_templates: Optional[List[int]] = Field(sa_column=Column(JSON))
+    is_public: bool = Field(default=True)
     creator_id: int = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
     creator: "User" = Relationship(back_populates="created_templates")
-
-    price: Optional[float] = None
-    is_public: bool = Field(default=False)
 
     # Relationships
     project_templates: List["ProjectTemplate"] = Relationship(
         back_populates="template")
     favorites: List["Favorite"] = Relationship(
-        back_populates="template")  # Add this line
+        back_populates="template")
