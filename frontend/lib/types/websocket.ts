@@ -13,6 +13,19 @@ export interface WebSocketMessage {
   data?: any;
   params?: any;
   controllables?: any;
+
+  // Asset Placer properties
+  empty_name?: string;
+  filepath?: string;
+  asset_name?: string;
+  degrees?: number;
+  scale_percent?: number;
+  reset?: boolean;
+  mode?: string;
+  scale_factor?: number;
+  center_origin?: boolean;
+  empty1_name?: string;
+  empty2_name?: string;
 }
 
 export interface WebSocketError {
@@ -82,4 +95,32 @@ export interface PreviewCommandMessage extends WebSocketMessage {
     | "stop_playback_preview"
     | "generate_video";
   params?: any;
+}
+
+// Asset Placer Message Types
+export interface AssetPlacerCommandMessage extends WebSocketMessage {
+  command:
+    | "append_asset"
+    | "remove_assets"
+    | "swap_assets"
+    | "rotate_assets"
+    | "scale_assets"
+    | "get_asset_info";
+}
+
+export interface AssetPlacerResponseMessage extends WebSocketMessage {
+  command:
+    | "append_asset_result"
+    | "remove_assets_result"
+    | "swap_assets_result"
+    | "rotate_assets_result"
+    | "scale_assets_result"
+    | "asset_info_result";
+  status: "success" | "failed";
+  data: {
+    success: boolean;
+    message: string;
+    object_name?: string;
+    assets?: any[];
+  };
 }

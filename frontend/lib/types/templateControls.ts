@@ -21,7 +21,7 @@ interface Light {
 
 interface ControllableObject {
   name: string;
-  type: "LIGHT" | "CAMERA";
+  type: "LIGHT" | "CAMERA" | "EMPTY";
   supported_controls: SupportedControl[];
 }
 

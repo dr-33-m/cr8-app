@@ -2,16 +2,11 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
+import { useAssetPlacerStore } from "@/store/assetPlacerStore";
+import { AssetItem } from "./AssetItem";
 
-interface AssetSelectionProps {
-  selectedAsset: number | null;
-  onSelectAsset: (id: number) => void;
-}
-
-export function AssetSelection({
-  selectedAsset,
-  onSelectAsset,
-}: AssetSelectionProps) {
+// No props needed as we use the store for state management
+export function AssetSelection() {
   const isVisible = useVisibilityStore(
     (state) => state.isAssetSelectionVisible
   );
@@ -37,13 +32,13 @@ export function AssetSelection({
       </Button>
       <div className="backdrop-blur-md bg-white/5 rounded-lg p-4 w-80">
         <h2 className="text-xl font-semibold mb-4 text-white">Select Assets</h2>
-        <Tabs defaultValue="Clothes" className="w-full">
+        <Tabs defaultValue="Assets" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-4 bg-white/5">
             <TabsTrigger
-              value="Clothes"
+              value="Assets"
               className="data-[state=active]:bg-[#0077B6] data-[state=active]:text-white"
             >
-              Clothing
+              Assets
             </TabsTrigger>
             <TabsTrigger
               value="Venues"
@@ -58,19 +53,12 @@ export function AssetSelection({
               Performances
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="Clothes" className="grid grid-cols-3 gap-2">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className={`aspect-square bg-white/10 rounded-lg cursor-pointer hover:ring-2 hover:ring-[#FFD100] transition-all ${
-                  selectedAsset === i ? "ring-2 ring-[#FFD100]" : ""
-                }`}
-                onClick={() => onSelectAsset(i)}
-                role="button"
-                tabIndex={0}
-                aria-label={`Select asset ${i}`}
-              />
-            ))}
+          <TabsContent value="Assets" className="grid grid-cols-3 gap-2">
+            {useAssetPlacerStore((state) => state.availableAssets).map(
+              (asset) => (
+                <AssetItem key={asset.id} asset={asset} />
+              )
+            )}
           </TabsContent>
           <TabsContent value="Venues">
             <p className="text-white/70">Venues here</p>

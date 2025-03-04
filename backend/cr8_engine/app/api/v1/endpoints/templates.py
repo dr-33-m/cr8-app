@@ -45,17 +45,46 @@ async def create_template(
         thumbnail_filename = f"thumbnail_{thumbnail.filename}"
         thumbnail_url = await upload_file_to_minio(thumbnail_content, thumbnail_folder, thumbnail_filename)
 
-    # Prepare template payload
-    template_payload = {
-        "name": template_data_dict.get("name"),
-        "template_type": template_data_dict.get("type", "camera"),
-        "templateData": {
+    # Get template type
+    template_type = template_data_dict.get("type", "camera")
+
+    # Prepare template data based on type
+    template_data = {}
+    if template_type == "camera":
+        template_data = {
             "relative_transform": template_data_dict.get("relative_transform"),
             "focal_length": template_data_dict.get("focal_length"),
             "dof_distance": template_data_dict.get("dof_distance"),
             "animation_data": template_data_dict.get("animation_data"),
             "constraints": template_data_dict.get("constraints", []),
-        },
+        }
+    elif template_type == "light":
+        template_data = {
+            "lights": []
+        }
+        # Process each light in the template
+        for light in template_data_dict.get("lights", []):
+            light_data = {
+                "light_settings": light.get("light_settings", {}),
+                "relative_transform": light.get("relative_transform"),
+                "animation_data": light.get("animation_data"),
+                "constraints": light.get("constraints", [])
+            }
+            template_data["lights"].append(light_data)
+    elif template_type == "product_animation":
+        # Simply use the templateData as is for product animations
+        template_data = template_data_dict.get("templateData", {})
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported template type: {template_type}"
+        )
+
+    # Prepare template payload
+    template_payload = {
+        "name": template_data_dict.get("name"),
+        "template_type": template_type,
+        "templateData": template_data,
         "thumbnail": thumbnail_url,
         "creator_id": creator_id,
         "is_public": template_data_dict.get("is_public", True),

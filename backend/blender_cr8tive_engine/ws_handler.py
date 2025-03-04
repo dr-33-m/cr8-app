@@ -8,6 +8,7 @@ import websocket
 from .template_wizard import TemplateWizard
 from .blender_controllers import BlenderControllers
 from .video_generator import GenerateVideo
+from .asset_placer import AssetPlacer
 import tempfile
 from pathlib import Path
 import ssl
@@ -36,7 +37,14 @@ class WebSocketHandler:
         'update_object': '_handle_object_transformation',
         'start_preview_rendering': '_handle_preview_rendering',
         'generate_video': '_handle_generate_video',
-        'rescan_template': '_handle_rescan_template'
+        'rescan_template': '_handle_rescan_template',
+        # Asset Placer commands
+        'append_asset': '_handle_append_asset',
+        'remove_assets': '_handle_remove_assets',
+        'swap_assets': '_handle_swap_assets',
+        'rotate_assets': '_handle_rotate_assets',
+        'scale_assets': '_handle_scale_assets',
+        'get_asset_info': '_handle_get_asset_info'
     }
 
     def __new__(cls):
@@ -85,6 +93,7 @@ class WebSocketHandler:
         self.ws = None
         self.wizard = TemplateWizard()
         self.controllers = BlenderControllers()
+        self.asset_placer = AssetPlacer()  # Initialize the asset placer
         self.processing_complete = threading.Event()
         self.processed_commands = set()
         self.reconnect_attempts = 0
@@ -418,6 +427,205 @@ class WebSocketHandler:
         except Exception as e:
             logging.error(f"Error during template rescan: {e}")
             self._send_response('template_controls', False, {
+                "message": str(e),
+                "message_id": data.get('message_id')
+            })
+
+    def _handle_append_asset(self, data):
+        """Handle appending an asset to an empty"""
+        try:
+            message_id = data.get('message_id')
+            logging.info(
+                f"Handling append asset request with message_id: {message_id}")
+
+            # Extract parameters from the request
+            empty_name = data.get('empty_name')
+            filepath = data.get('filepath')
+            asset_name = data.get('asset_name')
+            mode = data.get('mode', 'PLACE')
+            scale_factor = data.get('scale_factor', 1.0)
+            center_origin = data.get('center_origin', False)
+
+            # Call the asset placer to append the asset
+            result = self.asset_placer.append_asset(
+                empty_name,
+                filepath,
+                asset_name,
+                mode=mode,
+                scale_factor=scale_factor,
+                center_origin=center_origin
+            )
+
+            logging.info(f"Asset append result: {result}")
+
+            # Send response with the result
+            self._send_response('append_asset_result', result.get('success', False), {
+                "data": result,
+                "message_id": message_id
+            })
+
+        except Exception as e:
+            logging.error(f"Error during asset append: {e}")
+            import traceback
+            traceback.print_exc()
+            self._send_response('append_asset_result', False, {
+                "message": str(e),
+                "message_id": data.get('message_id')
+            })
+
+    def _handle_remove_assets(self, data):
+        """Handle removing assets from an empty"""
+        try:
+            message_id = data.get('message_id')
+            logging.info(
+                f"Handling remove assets request with message_id: {message_id}")
+
+            # Extract parameters from the request
+            empty_name = data.get('empty_name')
+
+            # Call the asset placer to remove the assets
+            result = self.asset_placer.remove_assets(empty_name)
+
+            logging.info(f"Asset removal result: {result}")
+
+            # Send response with the result
+            self._send_response('remove_assets_result', result.get('success', False), {
+                "data": result,
+                "message_id": message_id
+            })
+
+        except Exception as e:
+            logging.error(f"Error during asset removal: {e}")
+            import traceback
+            traceback.print_exc()
+            self._send_response('remove_assets_result', False, {
+                "message": str(e),
+                "message_id": data.get('message_id')
+            })
+
+    def _handle_swap_assets(self, data):
+        """Handle swapping assets between two empties"""
+        try:
+            message_id = data.get('message_id')
+            logging.info(
+                f"Handling swap assets request with message_id: {message_id}")
+
+            # Extract parameters from the request
+            empty1_name = data.get('empty1_name')
+            empty2_name = data.get('empty2_name')
+
+            # Call the asset placer to swap the assets
+            result = self.asset_placer.swap_assets(empty1_name, empty2_name)
+
+            logging.info(f"Asset swap result: {result}")
+
+            # Send response with the result
+            self._send_response('swap_assets_result', result.get('success', False), {
+                "data": result,
+                "message_id": message_id
+            })
+
+        except Exception as e:
+            logging.error(f"Error during asset swap: {e}")
+            import traceback
+            traceback.print_exc()
+            self._send_response('swap_assets_result', False, {
+                "message": str(e),
+                "message_id": data.get('message_id')
+            })
+
+    def _handle_rotate_assets(self, data):
+        """Handle rotating assets on an empty"""
+        try:
+            message_id = data.get('message_id')
+            logging.info(
+                f"Handling rotate assets request with message_id: {message_id}")
+
+            # Extract parameters from the request
+            empty_name = data.get('empty_name')
+            degrees = data.get('degrees')
+            reset = data.get('reset', False)
+
+            # Call the asset placer to rotate the assets
+            result = self.asset_placer.rotate_assets(
+                empty_name, degrees, reset)
+
+            logging.info(f"Asset rotation result: {result}")
+
+            # Send response with the result
+            self._send_response('rotate_assets_result', result.get('success', False), {
+                "data": result,
+                "message_id": message_id
+            })
+
+        except Exception as e:
+            logging.error(f"Error during asset rotation: {e}")
+            import traceback
+            traceback.print_exc()
+            self._send_response('rotate_assets_result', False, {
+                "message": str(e),
+                "message_id": data.get('message_id')
+            })
+
+    def _handle_scale_assets(self, data):
+        """Handle scaling assets on an empty"""
+        try:
+            message_id = data.get('message_id')
+            logging.info(
+                f"Handling scale assets request with message_id: {message_id}")
+
+            # Extract parameters from the request
+            empty_name = data.get('empty_name')
+            scale_percent = data.get('scale_percent')
+            reset = data.get('reset', False)
+
+            # Call the asset placer to scale the assets
+            result = self.asset_placer.scale_assets(
+                empty_name, scale_percent, reset)
+
+            logging.info(f"Asset scaling result: {result}")
+
+            # Send response with the result
+            self._send_response('scale_assets_result', result.get('success', False), {
+                "data": result,
+                "message_id": message_id
+            })
+
+        except Exception as e:
+            logging.error(f"Error during asset scaling: {e}")
+            import traceback
+            traceback.print_exc()
+            self._send_response('scale_assets_result', False, {
+                "message": str(e),
+                "message_id": data.get('message_id')
+            })
+
+    def _handle_get_asset_info(self, data):
+        """Handle getting information about assets on an empty"""
+        try:
+            message_id = data.get('message_id')
+            logging.info(
+                f"Handling get asset info request with message_id: {message_id}")
+
+            # Extract parameters from the request
+            empty_name = data.get('empty_name')
+
+            # Call the asset placer to get the asset info
+            result = self.asset_placer.get_asset_info(empty_name)
+
+            logging.info(f"Asset info result: {result}")
+
+            # Send response with the result
+            self._send_response('asset_info_result', result.get('success', False), {
+                "data": result,
+                "message_id": message_id
+            })
+
+        except Exception as e:
+            logging.error(f"Error during get asset info: {e}")
+            import traceback
+            traceback.print_exc()
+            self._send_response('asset_info_result', False, {
                 "message": str(e),
                 "message_id": data.get('message_id')
             })

@@ -66,8 +66,29 @@ class WebSocketHandler:
                 "start_broadcast": self._handle_start_broadcast,
                 "generate_video": self._handle_generate_video,
                 "get_template_controls": self._handle_get_template_controls,
-                "template_controls": self._handle_template_controls_response
+                "template_controls": self._handle_template_controls_response,
+                # Asset Placer handlers
+                "append_asset": self._handle_asset_operation,
+                "remove_assets": self._handle_asset_operation,
+                "swap_assets": self._handle_asset_operation,
+                "rotate_assets": self._handle_asset_operation,
+                "scale_assets": self._handle_asset_operation,
+                "get_asset_info": self._handle_asset_operation
             }
+
+            # Check for asset operation responses
+            asset_response_commands = [
+                "append_asset_result",
+                "remove_assets_result",
+                "swap_assets_result",
+                "rotate_assets_result",
+                "scale_assets_result",
+                "asset_info_result"
+            ]
+
+            if command in asset_response_commands:
+                await self._handle_asset_operation_response(username, data, client_type)
+                return
 
             handler = handlers.get(command)  # Try command first
             if not handler:
@@ -383,6 +404,98 @@ class WebSocketHandler:
             "message_id": data.get("message_id"),
             "status": "success"
         })
+
+    async def _handle_asset_operation(self, username: str, data: Dict[str, Any], client_type: str):
+        """Handle asset operations (append, remove, swap, rotate, scale, info)"""
+        if client_type != "browser":
+            return
+
+        try:
+            # Generate and track message ID
+            message_id = str(uuid.uuid4())
+            self.logger.info(
+                f"Generated new message_id for asset operation: {message_id}")
+            self.session_manager.add_pending_request(username, message_id)
+
+            # Get session and validate connection
+            session = self.session_manager.get_session(username)
+            if not session or not session.blender_socket:
+                await self._send_error(username, "Blender client not connected")
+                return
+
+            # Prepare command with original data plus message_id
+            command = {**data, "message_id": message_id}
+
+            # Forward to Blender
+            await session.blender_socket.send_json(command)
+
+            # Confirm receipt to browser
+            await session.browser_socket.send_json({
+                "status": "OK",
+                "message": f"{data.get('command')} request sent to Blender",
+                "message_id": message_id
+            })
+
+            self.logger.info(
+                f"Asset operation {data.get('command')} forwarded to Blender for {username}")
+
+        except Exception as e:
+            self.logger.error(f"Error handling asset operation: {str(e)}")
+            if 'message_id' in locals():
+                # Clean up pending request on error
+                self.session_manager.remove_pending_request(message_id)
+            await self._send_error(username, f"Failed to process asset operation: {str(e)}")
+
+    async def _handle_asset_operation_response(self, username: str, data: Dict[str, Any], client_type: str):
+        """Handle responses from asset operations"""
+        if client_type != "blender":
+            return
+
+        try:
+            # Extract message_id and response data
+            message_id = data.get("message_id")
+            if not message_id:
+                self.logger.error("No message_id in asset operation response")
+                return
+
+            # Find requesting user
+            request_username = self.session_manager.get_pending_request(
+                message_id)
+            if not request_username:
+                self.logger.error(
+                    f"No pending request for message_id {message_id}")
+                return
+
+            # Get session
+            session = self.session_manager.get_session(request_username)
+            if not session or not session.browser_socket:
+                self.logger.error(f"No valid session for {request_username}")
+                return
+
+            # Forward response to browser
+            await session.browser_socket.send_json(data)
+            self.logger.info(
+                f"Asset operation response forwarded to browser for {request_username}")
+
+            # Clean up
+            self.session_manager.remove_pending_request(message_id)
+
+        except Exception as e:
+            self.logger.error(
+                f"Error handling asset operation response: {str(e)}")
+            # Don't clean up pending request on error to allow for retries
+            if 'message_id' in locals() and 'request_username' in locals():
+                self.logger.debug(
+                    f"Keeping pending request for retry. message_id: {message_id}")
+                # Try to send error to browser if possible
+                session = self.session_manager.get_session(request_username)
+                if session and session.browser_socket:
+                    await session.browser_socket.send_json({
+                        "command": data.get("command", "unknown_asset_operation"),
+                        "status": "error",
+                        "message": str(e),
+                        "message_id": message_id
+                    })
 
     async def _send_error(self, username: str, message: str):
         """Send error message to browser client"""

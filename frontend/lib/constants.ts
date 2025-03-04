@@ -58,7 +58,7 @@ export const projectTemplates = {
   ],
   fashion: [
     {
-      id: "lebox.blend",
+      id: "assetPlacer.blend",
       name: "Lebox",
       thumbnail: lebox,
     },

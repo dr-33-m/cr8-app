@@ -21,7 +21,6 @@ export const Route = createFileRoute("/project/$projectId")({
 });
 
 function RouteComponent() {
-  const [selectedAsset, setSelectedAsset] = useState<number | null>(null);
   const [blender_connected, setBlenderConnected] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { serverStatus } = useServerHealth();
@@ -104,6 +103,41 @@ function RouteComponent() {
           ) {
             setBlenderConnected(true);
           }
+          // Handle asset operation responses
+          else if (data.command === "append_asset_result") {
+            if (data.status === "success") {
+              toast.success("Asset placed successfully");
+            } else {
+              toast.error(
+                `Failed to place asset: ${data.data?.message || "Unknown error"}`
+              );
+              // Could revert optimistic update here if needed
+            }
+          } else if (data.command === "remove_assets_result") {
+            if (data.status === "success") {
+              toast.success("Asset removed successfully");
+            } else {
+              toast.error(
+                `Failed to remove asset: ${data.data?.message || "Unknown error"}`
+              );
+            }
+          } else if (data.command === "rotate_assets_result") {
+            if (data.status === "success") {
+              toast.success("Asset rotated successfully");
+            } else {
+              toast.error(
+                `Failed to rotate asset: ${data.data?.message || "Unknown error"}`
+              );
+            }
+          } else if (data.command === "scale_assets_result") {
+            if (data.status === "success") {
+              toast.success("Asset scaled successfully");
+            } else {
+              toast.error(
+                `Failed to scale asset: ${data.data?.message || "Unknown error"}`
+              );
+            }
+          }
         } catch (error) {
           console.error("Error handling WebSocket message:", error);
           toast.error("Failed to process server message");
@@ -144,10 +178,7 @@ function RouteComponent() {
           onUpdateSceneConfiguration={updateSceneConfiguration}
         />
 
-        <AssetSelection
-          selectedAsset={selectedAsset}
-          onSelectAsset={setSelectedAsset}
-        />
+        <AssetSelection />
 
         <BottomControls>
           <SceneActions
