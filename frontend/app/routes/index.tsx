@@ -27,7 +27,7 @@ function Home() {
         <main className="container mx-auto px-4 pt-28 pb-8">
           <div className="max-w-5xl mx-auto">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-48 mx-auto grid-cols-2 bg-white/10 p-1">
+              <TabsList className="grid w-48 mx-auto grid-cols-2 bg-cr8-charcoal/10 border-white/10 border rounded-lg p-1">
                 <TabsTrigger
                   value="create"
                   className="data-[state=active]:bg-[#0077B6] data-[state=active]:text-white"

@@ -10,9 +10,11 @@ export interface WebSocketMessage {
   payload?: any;
   status?: string;
   message?: string;
+  message_id?: string; // Added to support both message and message_id
   data?: any;
   params?: any;
   controllables?: any;
+  recovery?: boolean; // Added for browser_ready recovery mode
 
   // Asset Placer properties
   empty_name?: string;
@@ -26,6 +28,23 @@ export interface WebSocketMessage {
   center_origin?: boolean;
   empty1_name?: string;
   empty2_name?: string;
+
+  // Scene control properties
+  camera_name?: string;
+  light_name?: string;
+  material_name?: string;
+  object_name?: string;
+  color?: string | number[];
+  strength?: number;
+  roughness?: number;
+  metallic?: number;
+  location?: number[];
+  rotation?: number[];
+  scale?: number[];
+
+  // Animation properties
+  animation_type?: "camera" | "light" | "product_animation";
+  animation_id?: string;
 }
 
 export interface WebSocketError {
@@ -108,6 +127,28 @@ export interface AssetPlacerCommandMessage extends WebSocketMessage {
     | "get_asset_info";
 }
 
+// Scene Control Message Types
+export interface SceneControlCommandMessage extends WebSocketMessage {
+  command:
+    | "update_camera"
+    | "update_light"
+    | "update_material"
+    | "update_object";
+}
+
+export interface SceneControlResponseMessage extends WebSocketMessage {
+  command:
+    | "update_camera_result"
+    | "update_light_result"
+    | "update_material_result"
+    | "update_object_result";
+  status: "success" | "failed";
+  data: {
+    success: boolean;
+    message: string;
+  };
+}
+
 export interface AssetPlacerResponseMessage extends WebSocketMessage {
   command:
     | "append_asset_result"
@@ -122,5 +163,27 @@ export interface AssetPlacerResponseMessage extends WebSocketMessage {
     message: string;
     object_name?: string;
     assets?: any[];
+  };
+}
+
+// Animation Message Types
+export interface AnimationCommandMessage extends WebSocketMessage {
+  command:
+    | "load_camera_animation"
+    | "load_light_animation"
+    | "load_product_animation";
+  animation_id: string;
+  empty_name: string;
+}
+
+export interface AnimationResponseMessage extends WebSocketMessage {
+  command:
+    | "camera_animation_result"
+    | "light_animation_result"
+    | "product_animation_result";
+  status: "success" | "failed";
+  data: {
+    success: boolean;
+    message: string;
   };
 }

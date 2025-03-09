@@ -48,21 +48,17 @@ export const usePreviewRenderer = (
     [checkConnection]
   );
 
-  const shootPreview = useCallback(
-    (sceneConfiguration: any, resetSceneConfiguration: () => void) => {
-      if (!checkConnection()) return;
+  const shootPreview = useCallback(() => {
+    if (!checkConnection()) return;
 
-      setIsLoading(true);
-      setIsPreviewAvailable(false);
-      sendMessage({
-        command: "start_preview_rendering",
-        params: sceneConfiguration,
-      });
-      toast.info("Starting preview rendering...");
-      resetSceneConfiguration();
-    },
-    [checkConnection, sendMessage]
-  );
+    setIsLoading(true);
+    setIsPreviewAvailable(false);
+    sendMessage({
+      command: "start_preview_rendering",
+      params: {}, // Empty params since scene updates are sent separately
+    });
+    toast.info("Starting preview rendering...");
+  }, [checkConnection, sendMessage]);
 
   const playbackPreview = useCallback(() => {
     if (!checkConnection()) return;
@@ -155,6 +151,6 @@ export const usePreviewRenderer = (
     shootPreview,
     playbackPreview,
     stopPlaybackPreview,
-    generateVideo,  
+    generateVideo,
   };
 };

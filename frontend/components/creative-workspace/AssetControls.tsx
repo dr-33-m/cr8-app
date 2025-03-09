@@ -1,6 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAssetPlacerStore } from "@/store/assetPlacerStore";
 import { useAssetPlacer } from "@/hooks/useAssetPlacer";
 
@@ -12,7 +18,16 @@ export function AssetControls({ assetId }: AssetControlsProps) {
   const placedAsset = useAssetPlacerStore((state) =>
     state.placedAssets.find((a) => a.assetId === assetId)
   );
-  const { rotateAsset, scaleAsset, removeAsset } = useAssetPlacer();
+  // Get all available assets once
+  const availableAssets = useAssetPlacerStore((state) => state.availableAssets);
+
+  // Create filtered assets list with useMemo
+  const replacementAssets = useMemo(() => {
+    return availableAssets.filter((a) => a.id !== assetId);
+  }, [availableAssets, assetId]);
+
+  const { rotateAsset, scaleAsset, removeAsset, replaceAsset } =
+    useAssetPlacer();
 
   const [rotation, setRotation] = useState(placedAsset?.rotation || 0);
   const [scale, setScale] = useState(placedAsset?.scale || 100);
@@ -75,7 +90,24 @@ export function AssetControls({ assetId }: AssetControlsProps) {
         >
           Remove
         </Button>
-        <Button className="bg-[#0077B6] hover:bg-[#0077B6]/80">Replace</Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="bg-[#0077B6] hover:bg-[#0077B6]/80">
+              Replace
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-[#1C1C1C] border-white/20">
+            {replacementAssets.map((asset) => (
+              <DropdownMenuItem
+                key={asset.id}
+                onClick={() => replaceAsset(assetId, asset.id)}
+                className="text-white hover:bg-white/10"
+              >
+                {asset.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

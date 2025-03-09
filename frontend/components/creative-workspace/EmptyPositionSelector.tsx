@@ -24,7 +24,9 @@ export function EmptyPositionSelector({ assetId }: EmptyPositionSelectorProps) {
 
   // Filter empty objects - memoized so it only recalculates when controls change
   const empties = useMemo(() => {
-    return (controls?.objects || []).filter((obj) => obj.type === "EMPTY");
+    return (controls?.objects || []).filter(
+      (obj) => obj.object_type === "EMPTY"
+    );
   }, [controls]);
 
   const { placeAsset } = useAssetPlacer();
@@ -48,7 +50,7 @@ export function EmptyPositionSelector({ assetId }: EmptyPositionSelectorProps) {
               <SelectContent className="bg-[#1C1C1C] border-white/20">
                 {empties.map((empty) => (
                   <SelectItem key={empty.name} value={empty.name}>
-                    {empty.name}
+                    {empty.displayName}
                   </SelectItem>
                 ))}
               </SelectContent>

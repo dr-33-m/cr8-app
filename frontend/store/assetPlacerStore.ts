@@ -52,6 +52,8 @@ export const useAssetPlacerStore = create<AssetPlacerState>()(
         return get().placedAssets.find((asset) => asset.assetId === assetId)
           ?.emptyName;
       },
+
+      clearPlacedAssets: () => set({ placedAssets: [] }),
     }),
     {
       name: "asset-placer-storage",

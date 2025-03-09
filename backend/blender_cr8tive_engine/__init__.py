@@ -1,8 +1,9 @@
 from . import (
-    ws_handler,
-    template_wizard,
-    blender_controllers,
-    preview_renderer
+    ws,
+    core,
+    assets,
+    rendering,
+    templates
 )
 import bpy
 
@@ -21,12 +22,12 @@ bl_info = {
 
 def register():
     """Register all components of the addon"""
-    ws_handler.register()
+    ws.register()
 
 
 def unregister():
     """Unregister all components of the addon"""
-    ws_handler.unregister()
+    ws.unregister()
 
 
 if __name__ == "__main__":

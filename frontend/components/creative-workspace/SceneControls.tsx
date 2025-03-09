@@ -1,7 +1,17 @@
 import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Sun, Camera, Layers, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Sun,
+  Camera,
+  Layers,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Repeat,
+} from "lucide-react";
+import { AnimationsControl } from "@/components/animations/AnimationsControl";
+import { SwapAssetsControl } from "./SwapAssetsControl";
 import {
   Accordion,
   AccordionContent,
@@ -69,7 +79,7 @@ export function SceneControls({
 
   const controls: ControlItem[] = [
     {
-      name: "Light Controls",
+      name: "Light",
       icon: <Sun className="h-5 w-5 mr-2" />,
       color: "#FFD100",
       control: ({
@@ -96,7 +106,7 @@ export function SceneControls({
               <SelectContent>
                 {templateControls?.lights.map((light) => (
                   <SelectItem key={light.name} value={light.name}>
-                    {light.name}
+                    {light.displayName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -180,7 +190,7 @@ export function SceneControls({
       ),
     },
     {
-      name: "Camera Controls",
+      name: "Camera",
       icon: <Camera className="h-5 w-5 mr-2" />,
       color: "#0077B6",
       control: (
@@ -197,7 +207,7 @@ export function SceneControls({
             <SelectContent>
               {templateControls?.cameras.map((camera) => (
                 <SelectItem key={camera.name} value={camera.name}>
-                  {camera.name}
+                  {camera.displayName}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -206,28 +216,16 @@ export function SceneControls({
       ),
     },
     {
-      name: "Variation",
-      icon: <Layers className="h-5 w-5 mr-2" />,
-      color: "#FF006E",
-      control: (
-        <div className="flex space-x-2 mt-2">
-          {[
-            { value: "V1", label: "V1" },
-            { value: "V2", label: "V2" },
-            { value: "V3", label: "V3" },
-          ].map((item, index) => (
-            <Button
-              key={index}
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => console.log(item.value)} // Replace with actual logic
-            >
-              {item.label}
-            </Button>
-          ))}
-        </div>
-      ),
+      name: "Animations",
+      icon: <Play className="h-5 w-5 mr-2" />,
+      color: "#10B981",
+      control: <AnimationsControl />,
+    },
+    {
+      name: "Swap Assets",
+      icon: <Repeat className="h-5 w-5 mr-2" />,
+      color: "#9333EA",
+      control: <SwapAssetsControl />,
     },
   ];
 

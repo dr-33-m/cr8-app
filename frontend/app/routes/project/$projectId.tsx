@@ -12,6 +12,8 @@ import { usePreviewRenderer } from "@/hooks/usePreviewRenderer";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { useSceneConfigStore } from "@/store/sceneConfiguratorStore";
 import { useProjectStore } from "@/store/projectStore";
+import { useAnimationStore } from "@/store/animationStore";
+import { useAssetPlacerStore } from "@/store/assetPlacerStore";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerHealth } from "@/hooks/useServerHealth";
@@ -21,7 +23,6 @@ export const Route = createFileRoute("/project/$projectId")({
 });
 
 function RouteComponent() {
-  const [blender_connected, setBlenderConnected] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { serverStatus } = useServerHealth();
   const navigate = useNavigate();
@@ -50,8 +51,10 @@ function RouteComponent() {
     return () => {
       clearProject();
       clearControls();
+      useAssetPlacerStore.getState().clearPlacedAssets();
+      useAnimationStore.getState().clearSelections();
     };
-  }, [clearProject]);
+  }, [clearProject, clearControls]);
 
   const updateCanvas = useCallback((imageData: string) => {
     if (!canvasRef.current) {
@@ -75,7 +78,7 @@ function RouteComponent() {
     img.src = `data:image/png;base64,${imageData}`;
   }, []);
 
-  const { websocket, isConnected, requestTemplateControls } =
+  const { websocket, isFullyConnected, requestTemplateControls } =
     useWebSocketContext();
 
   const {
@@ -92,17 +95,8 @@ function RouteComponent() {
         try {
           if (data.type === "frame") {
             updateCanvas(data.data);
-          } else if (data.command === "template_controls") {
-            const setTemplateControls =
-              useTemplateControlsStore.getState().setControls;
-            setTemplateControls(data.controllables);
-            toast.success("Template controls loaded");
-          } else if (
-            data.type === "system" &&
-            data.status === "blender_connected"
-          ) {
-            setBlenderConnected(true);
           }
+          // Template controls are now handled by the WebSocketContext handler
           // Handle asset operation responses
           else if (data.command === "append_asset_result") {
             if (data.status === "success") {
@@ -147,12 +141,23 @@ function RouteComponent() {
     ),
   });
 
-  // Request template controls when connected
+  // Track if animations have been loaded
+  const animationsLoaded = useRef(false);
+
+  // Request template controls and animations when connected
   useEffect(() => {
-    if (blender_connected || isConnected) {
+    if (isFullyConnected) {
+      // Request template controls
       requestTemplateControls();
+
+      // Load animations if not already loaded
+      if (!animationsLoaded.current) {
+        animationsLoaded.current = true;
+        const fetchAnimations = useAnimationStore.getState().fetchAllAnimations;
+        fetchAnimations();
+      }
     }
-  }, [isConnected, requestTemplateControls, blender_connected]);
+  }, [isFullyConnected, requestTemplateControls]);
 
   // Set up canvas dimensions
   useEffect(() => {

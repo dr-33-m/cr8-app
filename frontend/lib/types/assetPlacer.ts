@@ -29,6 +29,7 @@ export interface AssetPlacerState {
   isAssetPlaced: (assetId: string) => boolean;
   getPlacedAssetByEmptyName: (emptyName: string) => PlacedAsset | undefined;
   getEmptyNameForAsset: (assetId: string) => string | undefined;
+  clearPlacedAssets: () => void;
 }
 
 // Initial static assets (to be replaced with API call later)

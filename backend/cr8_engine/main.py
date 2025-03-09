@@ -1,4 +1,6 @@
 import uvicorn
+import json
+import websockets
 from sqlmodel import create_engine, SQLModel
 from fastapi import FastAPI, WebSocket, status, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -154,31 +156,117 @@ session_manager = SessionManager()
 
 @app.websocket("/ws/{username}/{client_type}")
 async def websocket_endpoint(websocket: WebSocket, username: str, client_type: str, blend_file: str = None):
-    await websocket.accept()
+    # Track if we've accepted the connection
+    connection_accepted = False
 
     try:
+        await websocket.accept()
+        connection_accepted = True
+
         if client_type == "browser":
-            session = await session_manager.create_browser_session(username, websocket, blend_file)
-            await websocket.send_json({"status": "connected", "message": "Session created"})
+            try:
+                session = await session_manager.create_browser_session(username, websocket, blend_file)
+                await websocket.send_json({"status": "connected", "message": "Session created"})
+            except ValueError as ve:
+                # Handle specific ValueError exceptions gracefully
+                error_message = str(ve)
+                logger.warning(f"Browser connection rejected: {error_message}")
+                try:
+                    await websocket.send_json({
+                        "status": "error",
+                        "message": error_message,
+                        "code": "connection_rejected"
+                    })
+                except Exception as send_error:
+                    logger.warning(
+                        f"Could not send error response: {str(send_error)}")
+
+                try:
+                    await websocket.close()
+                except Exception as close_error:
+                    logger.warning(
+                        f"Error closing websocket: {str(close_error)}")
+
+                return  # Exit early without raising the exception further
 
         elif client_type == "blender":
-            await session_manager.register_blender(username, websocket)
-            await websocket.send_json({"status": "connected", "message": "Blender registered"})
+            try:
+                await session_manager.register_blender(username, websocket)
+                try:
+                    await websocket.send_json({
+                        "command": "connection_confirmation",
+                        "status": "connected",
+                        "message": "Blender registered"
+                    })
+                except Exception as send_error:
+                    logger.warning(
+                        f"Could not send confirmation to Blender: {str(send_error)}")
+                    # Even if we can't send confirmation, continue as the connection might still work
+            except ValueError as ve:
+                logger.warning(f"Blender registration failed: {str(ve)}")
+                try:
+                    await websocket.send_json({"status": "error", "message": str(ve)})
+                except Exception:
+                    pass  # Socket might already be closed
+
+                try:
+                    await websocket.close()
+                except Exception:
+                    pass  # Socket might already be closed
+
+                return  # Exit early
 
         websocket_handler = WebSocketHandler(session_manager, username)
 
         try:
             while True:
-                data = await websocket.receive_json()
-                # Process message with the handler
-                await websocket_handler.handle_message(username, data, client_type)
+                try:
+                    data = await websocket.receive_json()
+                    # Process message with the handler
+                    await websocket_handler.handle_message(username, data, client_type)
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"Invalid JSON received: {str(json_err)}")
+                    continue  # Skip this message but keep connection open
 
         except WebSocketDisconnect:
+            logger.info(f"WebSocket disconnected: {username}/{client_type}")
+            await session_manager.handle_disconnect(username, client_type)
+
+    except ValueError as ve:
+        # Handle any other ValueError exceptions
+        logger.warning(
+            f"WebSocket error for {username}/{client_type}: {str(ve)}")
+        if connection_accepted:
+            try:
+                await websocket.send_json({"status": "error", "message": str(ve)})
+            except Exception:
+                pass  # Socket might already be closed
+
+            try:
+                await websocket.close()
+            except Exception:
+                pass  # Socket might already be closed
+
+    except websockets.exceptions.ConnectionClosedError as conn_err:
+        # Handle connection closed errors gracefully
+        logger.warning(
+            f"Connection closed: {username}/{client_type}: {str(conn_err)}")
+        if client_type == "blender":
+            # Notify session manager of Blender disconnect
             await session_manager.handle_disconnect(username, client_type)
 
     except Exception as e:
-        await websocket.close()
-        raise e
+        logger.error(f"Unexpected WebSocket error: {str(e)}")
+        if connection_accepted:
+            try:
+                await websocket.send_json({"status": "error", "message": "Internal server error"})
+            except Exception:
+                pass  # Socket might already be closed
+
+            try:
+                await websocket.close()
+            except Exception:
+                pass  # Socket might already be closed
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

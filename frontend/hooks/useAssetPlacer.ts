@@ -96,10 +96,81 @@ export function useAssetPlacer() {
     [getEmptyNameForAsset, sendMessage, updatePlacedAssetProperties]
   );
 
+  const replaceAsset = useCallback(
+    (currentAssetId: string, newAssetId: string) => {
+      const emptyName = getEmptyNameForAsset(currentAssetId);
+      if (!emptyName) {
+        toast.error("Asset placement not found");
+        return;
+      }
+
+      const newAsset = availableAssets.find((a) => a.id === newAssetId);
+      if (!newAsset) {
+        toast.error("Replacement asset not found");
+        return;
+      }
+
+      sendMessage({
+        command: "append_asset",
+        empty_name: emptyName,
+        filepath: newAsset.filepath,
+        asset_name: newAsset.name,
+        mode: "REPLACE",
+      });
+
+      // Update local state optimistically
+      removePlacedAssetState(currentAssetId);
+      updatePlacedAssetState(newAssetId, emptyName);
+      toast.info(`Replacing with ${newAsset.name} at ${emptyName}`);
+    },
+    [
+      availableAssets,
+      sendMessage,
+      getEmptyNameForAsset,
+      removePlacedAssetState,
+      updatePlacedAssetState,
+    ]
+  );
+
+  const swapAssets = useCallback(
+    (assetId1: string, assetId2: string) => {
+      const emptyName1 = getEmptyNameForAsset(assetId1);
+      const emptyName2 = getEmptyNameForAsset(assetId2);
+
+      if (!emptyName1 || !emptyName2) {
+        toast.error("One or both asset placements not found");
+        return;
+      }
+
+      sendMessage({
+        command: "swap_assets",
+        empty1_name: emptyName1,
+        empty2_name: emptyName2,
+      });
+
+      // Update local state optimistically
+      const asset1 = { ...placedAssets.find((a) => a.assetId === assetId1)! };
+      const asset2 = { ...placedAssets.find((a) => a.assetId === assetId2)! };
+
+      updatePlacedAssetProperties(assetId1, { emptyName: emptyName2 });
+      updatePlacedAssetProperties(assetId2, { emptyName: emptyName1 });
+
+      toast.info(`Swapping assets between ${emptyName1} and ${emptyName2}`);
+    },
+    [
+      sendMessage,
+      getEmptyNameForAsset,
+      placedAssets,
+      updatePlacedAssetProperties,
+    ]
+  );
+
   return {
     placeAsset,
     removeAsset,
     rotateAsset,
     scaleAsset,
+    replaceAsset,
+    swapAssets,
   };
 }

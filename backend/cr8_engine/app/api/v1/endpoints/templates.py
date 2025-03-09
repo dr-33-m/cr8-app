@@ -71,7 +71,7 @@ async def create_template(
                 "constraints": light.get("constraints", [])
             }
             template_data["lights"].append(light_data)
-    elif template_type == "product_animation":
+    elif template_type == "product":
         # Simply use the templateData as is for product animations
         template_data = template_data_dict.get("templateData", {})
     else:
@@ -163,4 +163,117 @@ async def list_templates(
 
     except Exception as e:
         print(f"Error in list_templates: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/animations", response_model=List[TemplateRead])
+async def list_animations(
+    db: Client = Depends(get_db),
+    logto_userId: Optional[str] = None,
+    animation_type: Optional[str] = None
+):
+    """
+    List animations by type: camera, light, or product
+    Returns minimal data without full templateData to reduce payload size
+    """
+    try:
+        # Start with base query - select only necessary fields for list view
+        # Explicitly exclude templateData to reduce payload size
+        query = db.table("template").select(
+            "id,name,template_type,thumbnail,is_public,created_at,updated_at,creator_id")
+
+        # Filter by animation types
+        animation_types = []
+        if animation_type:
+            if animation_type.lower() == "camera":
+                animation_types.append("camera")
+            elif animation_type.lower() == "light":
+                animation_types.append("light")
+            elif animation_type.lower() == "product":
+                animation_types.append("product")
+        else:
+            # If no specific type is requested, include all animation types
+            animation_types = ["camera", "light", "product"]
+
+        # Apply the filter for animation types
+        if len(animation_types) == 1:
+            query = query.eq("template_type", animation_types[0])
+        else:
+            query = query.in_("template_type", animation_types)
+
+        # Handle user-specific and public templates
+        if logto_userId:
+            user_data = db.table("user").select("id").eq(
+                "logto_id", logto_userId).execute()
+            if user_data.data and len(user_data.data) > 0:
+                user_id = user_data.data[0]['id']
+                query = query.filter('is_public', 'eq', True).filter(
+                    'creator_id', 'eq', user_id)
+        else:
+            query = query.eq("is_public", True)
+
+        # Execute the query
+        result = query.execute()
+
+        if result.data is None:
+            return []
+
+        # Convert to TemplateRead schema with empty templateData
+        return [
+            TemplateRead(
+                id=template.get("id"),
+                name=template.get("name"),
+                template_type=template.get("template_type"),
+                templateData={},  # Empty object since middleware will fetch full data when needed
+                thumbnail=template.get("thumbnail"),
+                compatible_templates=template.get("compatible_templates"),
+                is_public=template.get("is_public"),
+                created_at=template.get("created_at"),
+                updated_at=template.get("updated_at"),
+                creator_id=template.get("creator_id")
+            ) for template in result.data
+        ]
+    except Exception as e:
+        print(f"Error in list_animations: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/animations/{animation_id}", response_model=TemplateRead)
+async def get_animation(
+    animation_id: str,
+    db: Client = Depends(get_db),
+):
+    """
+    Get details for a specific animation
+    """
+    try:
+        result = db.table("template").select(
+            "*").eq("id", animation_id).execute()
+
+        if not result.data or len(result.data) == 0:
+            raise HTTPException(status_code=404, detail="Animation not found")
+
+        template = result.data[0]
+
+        # Check if it's an animation type
+        if template.get("template_type") not in ["camera", "light", "product"]:
+            raise HTTPException(
+                status_code=400, detail="Specified ID is not an animation")
+
+        return TemplateRead(
+            id=template.get("id"),
+            name=template.get("name"),
+            template_type=template.get("template_type"),
+            templateData=template.get("templateData"),
+            thumbnail=template.get("thumbnail"),
+            compatible_templates=template.get("compatible_templates"),
+            is_public=template.get("is_public"),
+            created_at=template.get("created_at"),
+            updated_at=template.get("updated_at"),
+            creator_id=template.get("creator_id")
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_animation: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -33,6 +33,24 @@ export const useSceneConfigStore = create<SceneConfigStore>((set) => ({
         case "light":
           delete newConfig.lights;
           break;
+        case "material":
+          if (newConfig.materials && assetId) {
+            newConfig.materials = newConfig.materials.filter(
+              (m) => m.material_name !== assetId
+            );
+          } else {
+            delete newConfig.materials;
+          }
+          break;
+        case "object":
+          if (newConfig.objects && assetId) {
+            newConfig.objects = newConfig.objects.filter(
+              (o) => o.object_name !== assetId
+            );
+          } else {
+            delete newConfig.objects;
+          }
+          break;
       }
       return { sceneConfiguration: newConfig };
     }),

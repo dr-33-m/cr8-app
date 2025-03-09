@@ -1,0 +1,114 @@
+# Cr8-xyz Project Rules
+version: 1.0
+systems:
+  websocket:
+    message_routing:
+      - pattern: "command"
+        handler: "command_handlers"
+        tracking: true
+      - pattern: "action"
+        handler: "action_handlers"
+        tracking: true
+      - pattern: "status"
+        handler: "status_handlers"
+        tracking: false
+
+    session_management:
+      max_retries: 5
+      base_delay: 2000
+      max_delay: 30000
+      reconnect_strategy: "exponential_backoff"
+
+  asset_operations:
+    operations:
+      - name: "append_asset"
+        params:
+          [
+            "empty_name",
+            "filepath",
+            "asset_name",
+            "mode",
+            "scale_factor",
+            "center_origin",
+          ]
+        tracking: true
+      - name: "remove_assets"
+        params: ["empty_name"]
+        tracking: true
+      - name: "swap_assets"
+        params: ["empty1_name", "empty2_name"]
+        tracking: true
+      - name: "rotate_assets"
+        params: ["empty_name", "degrees", "reset"]
+        tracking: true
+      - name: "scale_assets"
+        params: ["empty_name", "scale_percent", "reset"]
+        tracking: true
+      - name: "get_asset_info"
+        params: ["empty_name"]
+        tracking: true
+
+  template_controls:
+    scan_interval: 300
+    max_controllables: 50
+    tracking: true
+
+  error_handling:
+    patterns:
+      - type: "connection_error"
+        retry: true
+        max_attempts: 5
+      - type: "message_processing_error"
+        retry: false
+        notify: true
+      - type: "asset_operation_error"
+        retry: true
+        max_attempts: 3
+
+  knowledge_graph:
+    auto_update:
+      - trigger: "file_modified"
+        paths: ["backend/**", "frontend/**"]
+        action: "update_entity"
+      - trigger: "new_endpoint"
+        action: "create_api_documentation"
+      - trigger: "asset_operation"
+        action: "update_asset_relationships"
+      - trigger: "websocket_message"
+        action: "update_session_context"
+      - trigger: "file_modified"
+        paths: ["frontend/hooks/**"]
+        action: "update_documentation"
+
+  context_capture:
+    session_history:
+      max_depth: 10
+    auto_record:
+      - command_patterns: ["pnpm run *", "python manage.py *"]
+      - file_patterns: ["*.tsx", "*.py"]
+      - websocket_messages: true
+
+  integrations:
+    mcp_server: "github.com/modelcontextprotocol/servers/tree/main/src/memory"
+    auto_sync: true
+
+  security:
+    sensitive_files:
+      - "**/blender_cr8tive_engine/blender_manifest.toml"
+      - "**/app/core/config.py"
+      - ".env"
+    practices:
+      - "Never expose MinIO credentials"
+      - "Validate asset operation parameters"
+
+  components:
+    relationships:
+      - from: "frontend"
+        to: "cr8_engine"
+        type: "sends_commands_to"
+      - from: "cr8_engine"
+        to: "blender_cr8tive_engine"
+        type: "controls"
+      - from: "frontend"
+        to: "blender_cr8tive_engine"
+        type: "indirect_control"

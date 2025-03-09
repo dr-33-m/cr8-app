@@ -1,6 +1,6 @@
 import bpy
 import mathutils
-from .preview_renderer import get_preview_renderer
+from ..rendering.preview_renderer import get_preview_renderer
 
 
 class BlenderControllers:
