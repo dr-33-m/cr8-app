@@ -124,8 +124,8 @@ export const useWebSocket = (onMessage?: (data: any) => void) => {
         setStatus("connected");
         reconnectAttemptsRef.current = 0;
         isManuallyDisconnected.current = false;
-        toast.success("Connected to Cr8 Engine");
 
+        // Process any queued messages
         while (messageQueueRef.current.length > 0) {
           const message = messageQueueRef.current.shift();
           if (message) sendMessage(message);

@@ -1,9 +1,9 @@
 import { useCallback } from "react";
-import { useWebSocket } from "./useWebsocket";
+import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { v4 as uuidv4 } from "uuid";
 
 export function useMaterialControl() {
-  const { sendMessage } = useWebSocket();
+  const { sendMessage } = useWebSocketContext();
 
   /**
    * Update a material's properties

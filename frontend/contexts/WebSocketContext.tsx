@@ -149,6 +149,9 @@ export function WebSocketProvider({
 
     // Check for initial connection confirmation
     if (data.status === "connected" && data.message === "Session created") {
+      // Show connection toast
+      toast.success("Connected to Cr8 Engine");
+
       // Signal that browser is ready for Blender to connect, but only if we haven't already reconnected
       setTimeout(() => {
         if (
