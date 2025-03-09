@@ -1,11 +1,11 @@
-import {
-  OnRemoveAssetFunction,
-  SceneConfiguration,
-} from "@/lib/types/sceneConfig";
-import { useEffect, useRef, useState } from "react";
-import { DesignTray } from "./changes-tray";
 import { Button } from "../ui/button";
-import { Clapperboard, LoaderPinwheel, Pause, Play } from "lucide-react";
+import {
+  Clapperboard,
+  LoaderPinwheel,
+  Pause,
+  Play,
+  Download,
+} from "lucide-react";
 
 interface SceneActionsProps {
   isLoading: boolean;
@@ -15,8 +15,6 @@ interface SceneActionsProps {
   onPlaybackPreview: () => void;
   onStopPlaybackPreview: () => void;
   onGenerateVideo: () => void;
-  assets: SceneConfiguration;
-  onRemoveAsset?: OnRemoveAssetFunction;
 }
 
 export function SceneActions({
@@ -24,31 +22,10 @@ export function SceneActions({
   onPlaybackPreview,
   onStopPlaybackPreview,
   onGenerateVideo,
-  assets,
-  onRemoveAsset,
   isLoading,
   isPlaying,
   isFinalVideoReady,
 }: SceneActionsProps) {
-  const [isAssetBoxOpen, setIsAssetBoxOpen] = useState(false);
-  const assetBoxRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        assetBoxRef.current &&
-        !assetBoxRef.current.contains(event.target as Node)
-      ) {
-        setIsAssetBoxOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
   return (
     <>
       {!isFinalVideoReady ? (
@@ -111,18 +88,11 @@ export function SceneActions({
         </Button>
       )}
       <div className="h-8 w-px bg-white/20" />
-      {isFinalVideoReady ? (
-        <Button className="text-[#FFD100] hover:bg-[#FFD100]/5 bg-[#FFD100]/10 ">
+      {isFinalVideoReady && (
+        <Button className="text-[#FFD100] hover:bg-[#FFD100]/5 bg-[#FFD100]/10">
+          <Download className="h-5 w-5 mr-2" />
           Download
         </Button>
-      ) : (
-        <DesignTray
-          onClick={() => setIsAssetBoxOpen(!isAssetBoxOpen)}
-          isActive={isAssetBoxOpen}
-          assets={assets}
-          onRemoveAsset={onRemoveAsset}
-          onClose={() => setIsAssetBoxOpen(false)}
-        />
       )}
     </>
   );

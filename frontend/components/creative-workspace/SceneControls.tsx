@@ -30,17 +30,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { SceneConfiguration } from "@/lib/types/sceneConfig";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import { useTemplateControlsStore } from "@/store/TemplateControlsStore";
-
-interface SceneControlsProps {
-  sceneConfiguration: SceneConfiguration;
-  onUpdateSceneConfiguration: (
-    key: keyof SceneConfiguration,
-    value: any
-  ) => void;
-}
+import { useCameraControl } from "@/hooks/useCameraControl";
+import { useLightControl } from "@/hooks/useLightControl";
+import { useMaterialControl } from "@/hooks/useMaterialControl";
+import { useObjectControl } from "@/hooks/useObjectControl";
+import { toast } from "sonner";
 
 type ControlItem = {
   name: string;
@@ -54,15 +50,21 @@ type ControlItem = {
       }) => ReactNode);
 };
 
-export function SceneControls({
-  sceneConfiguration,
-  onUpdateSceneConfiguration,
-}: SceneControlsProps) {
+export function SceneControls() {
+  // Get control hooks
+  const { updateCamera } = useCameraControl();
+  const { updateLight } = useLightControl();
+  const { updateMaterial } = useMaterialControl();
+  const { updateObject } = useObjectControl();
+
   const isVisible = useVisibilityStore((state) => state.isSceneControlsVisible);
   const templateControls = useTemplateControlsStore((state) => state.controls);
   const toggleVisibility = useVisibilityStore(
     (state) => state.toggleSceneControls
   );
+
+  // Local state for UI
+  const [selectedCamera, setSelectedCamera] = useState("");
   const [lightConfig, setLightConfig] = useState({
     light_name: "",
     color: "#FFFFFF",
@@ -72,7 +74,25 @@ export function SceneControls({
   const handleUpdateLightConfig = (updates: Partial<typeof lightConfig>) => {
     setLightConfig((prev) => {
       const updatedConfig = { ...prev, ...updates };
-      onUpdateSceneConfiguration("lights", updatedConfig);
+
+      // If light_name is being updated, send the websocket message
+      if (updates.light_name) {
+        updateLight(
+          updates.light_name,
+          updatedConfig.color,
+          updatedConfig.strength
+        );
+        toast.info(`Updated light: ${updates.light_name}`);
+      }
+      // If other properties are updated and we have a selected light
+      else if (updatedConfig.light_name) {
+        updateLight(
+          updatedConfig.light_name,
+          updatedConfig.color,
+          updatedConfig.strength
+        );
+      }
+
       return updatedConfig;
     });
   };
@@ -196,10 +216,12 @@ export function SceneControls({
       control: (
         <div className="mt-2">
           <Select
-            onValueChange={(value) =>
-              onUpdateSceneConfiguration("camera", { camera_name: value })
-            }
-            value={sceneConfiguration.camera?.camera_name}
+            onValueChange={(value) => {
+              setSelectedCamera(value);
+              updateCamera(value);
+              toast.info(`Camera updated: ${value}`);
+            }}
+            value={selectedCamera}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select camera" />

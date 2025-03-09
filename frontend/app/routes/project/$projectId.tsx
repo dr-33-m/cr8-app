@@ -10,7 +10,6 @@ import { SceneActions } from "@/components/creative-workspace/SceneActions";
 import { useTemplateControlsStore } from "@/store/TemplateControlsStore";
 import { usePreviewRenderer } from "@/hooks/usePreviewRenderer";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
-import { useSceneConfigStore } from "@/store/sceneConfiguratorStore";
 import { useProjectStore } from "@/store/projectStore";
 import { useAnimationStore } from "@/store/animationStore";
 import { useAssetPlacerStore } from "@/store/assetPlacerStore";
@@ -26,13 +25,6 @@ function RouteComponent() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { serverStatus } = useServerHealth();
   const navigate = useNavigate();
-
-  const {
-    sceneConfiguration,
-    updateSceneConfiguration,
-    removeSceneConfiguration,
-    resetSceneConfiguration,
-  } = useSceneConfigStore();
 
   const { name: projectName, template, clearProject } = useProjectStore();
   const { clearControls } = useTemplateControlsStore();
@@ -178,23 +170,16 @@ function RouteComponent() {
       </PreviewWindow>
 
       <ControlsOverlay>
-        <SceneControls
-          sceneConfiguration={sceneConfiguration}
-          onUpdateSceneConfiguration={updateSceneConfiguration}
-        />
+        <SceneControls />
 
         <AssetSelection />
 
         <BottomControls>
           <SceneActions
-            onShootPreview={() =>
-              shootPreview(sceneConfiguration, resetSceneConfiguration)
-            }
+            onShootPreview={shootPreview}
             onPlaybackPreview={playbackPreview}
             onStopPlaybackPreview={stopPlaybackPreview}
             onGenerateVideo={generateVideo}
-            assets={sceneConfiguration}
-            onRemoveAsset={removeSceneConfiguration}
             isLoading={isLoading}
             isPlaying={isPlaying}
             isFinalVideoReady={false}
