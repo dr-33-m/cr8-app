@@ -6,3 +6,4 @@ __pycache__/
 *.log
 *.zip
 .vscode
+backend/cr8_engine/.env*

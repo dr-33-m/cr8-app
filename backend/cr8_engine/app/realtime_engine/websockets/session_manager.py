@@ -40,7 +40,7 @@ class SessionManager:
         self.sessions: Dict[str, Session] = {}
         self.logger = logging.getLogger(__name__)
 
-    async def create_browser_session(self, username: str, websocket: WebSocket, blend_file: str) -> Session:
+    async def create_browser_session(self, username: str, websocket: WebSocket, blend_file_path: str) -> Session:
         """Create a new session for a browser client"""
         try:
             current_time = asyncio.get_event_loop().time()
@@ -84,14 +84,14 @@ class SessionManager:
                         else:
                             # Blender is running but in unexpected state - reset to allow browser_ready
                             session.state = "waiting_for_browser_ready"
-                            session.blend_file = blend_file
+                            session.blend_file = blend_file_path
                             self.logger.info(
                                 f"Blender running but in state {session.state} for {username}, resetting")
                             return session
                     else:
                         # Blender is not running but session exists - reset to allow new launch
                         session.state = "waiting_for_browser_ready"
-                        session.blend_file = blend_file
+                        session.blend_file = blend_file_path
                         session.blender_socket = None
                         session.blender_socket_closed = True
                         self.logger.info(
@@ -127,7 +127,7 @@ class SessionManager:
             session = Session(username, browser_socket=websocket)
             session.last_connection_attempt = current_time
             # Store blend_file for later use when launching Blender
-            session.blend_file = blend_file
+            session.blend_file = blend_file_path
 
             # Reset connection attempts for new sessions or increment for retries
             if not username in self.sessions:

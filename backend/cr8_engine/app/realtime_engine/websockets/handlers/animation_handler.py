@@ -6,7 +6,6 @@ import logging
 import uuid
 from typing import Dict, Any, Optional
 from .base_specialized_handler import BaseSpecializedHandler
-from app.db.session import get_db
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -51,22 +50,10 @@ class AnimationHandler(BaseSpecializedHandler):
                 await self.send_error(username, 'load_camera_animation', 'Missing empty_name parameter', message_id)
                 return
 
-            # Fetch animation data from database
-            db = get_db()
-            result = db.table("template").select(
-                "*").eq("id", animation_id).execute()
-
-            if not result.data or len(result.data) == 0:
-                await self.send_error(username, 'load_camera_animation', f'Animation {animation_id} not found', message_id)
-                return
-
-            template = result.data[0]
-            template_data = template.get("templateData", {})
-
             # Prepare the message to forward to Blender
             blender_data = {
                 'empty_name': empty_name,
-                'template_data': template_data,
+                'template_data': {},
                 'message_id': message_id
             }
 
@@ -138,22 +125,10 @@ class AnimationHandler(BaseSpecializedHandler):
                 await self.send_error(username, 'load_light_animation', 'Missing empty_name parameter', message_id)
                 return
 
-            # Fetch animation data from database
-            db = get_db()
-            result = db.table("template").select(
-                "*").eq("id", animation_id).execute()
-
-            if not result.data or len(result.data) == 0:
-                await self.send_error(username, 'load_light_animation', f'Animation {animation_id} not found', message_id)
-                return
-
-            template = result.data[0]
-            template_data = template.get("templateData", {})
-
             # Prepare the message to forward to Blender
             blender_data = {
                 'empty_name': empty_name,
-                'template_data': template_data,
+                'template_data': {},
                 'message_id': message_id
             }
 
@@ -225,22 +200,10 @@ class AnimationHandler(BaseSpecializedHandler):
                 await self.send_error(username, 'load_product_animation', 'Missing empty_name parameter', message_id)
                 return
 
-            # Fetch animation data from database
-            db = get_db()
-            result = db.table("template").select(
-                "*").eq("id", animation_id).execute()
-
-            if not result.data or len(result.data) == 0:
-                await self.send_error(username, 'load_product_animation', f'Animation {animation_id} not found', message_id)
-                return
-
-            template = result.data[0]
-            template_data = template.get("templateData", {})
-
             # Prepare the message to forward to Blender
             blender_data = {
                 'empty_name': empty_name,
-                'template_data': template_data,
+                'template_data': {},
                 'message_id': message_id
             }
 

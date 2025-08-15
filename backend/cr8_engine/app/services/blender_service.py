@@ -1,141 +1,76 @@
-# app/services/blender_service.py
-import io
+import subprocess
+import asyncio
 import logging
-import paramiko
-import shlex
-from fastapi import HTTPException
-from app.core.config import settings
-
-logger = logging.getLogger(__name__)
+import os
+from typing import Dict, Optional
 
 
 class BlenderService:
-    @staticmethod
-    def create_ssh_client() -> paramiko.SSHClient:
-        """Create and configure SSH client with key-based authentication using settings"""
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    _instances: Dict[str, subprocess.Popen] = {}
+    logger = logging.getLogger(__name__)
+
+    @classmethod
+    async def launch_instance(cls, username: str, blend_file_path: str = None) -> bool:
+        if username in cls._instances and cls._instances[username].poll() is None:
+            cls.logger.info(
+                f"Blender instance for {username} is already running.")
+            return True
 
         try:
-            key = paramiko.RSAKey.from_private_key(
-                io.StringIO(settings.SSH_PRIVATE_KEY), password=settings.SSH_PRIVATE_KEY_PASSPHRASE)
+            # Handle default blend file if no path provided
+            if not blend_file_path:
+                blend_file_path = "/home/thamsanqaj/cr8-xyz/templates/default.blend"
 
-            client.connect(
-                hostname=settings.SSH_LOCAL_IP,
-                username=settings.SSH_USERNAME,
-                pkey=key,
-                password=settings.SSH_KEY_PASSPHRASE,
-                port=settings.SSH_PORT
-            )
+            # Validate that the blend file exists
+            if not os.path.exists(blend_file_path):
+                cls.logger.error(f"Blend file not found: {blend_file_path}")
+                return False
 
-            return client
+            # This command assumes 'blender' is in the system's PATH
+            # You might need to specify the full path to the Blender executable
+            command = [
+                "/home/thamsanqaj/Garage/blender-git/build_linux_debug/bin/blender",
+                blend_file_path,
+                "--python-expr",
+                "import bpy; bpy.ops.ws_handler.connect_websocket()",
+            ]
+
+            # Set the WebSocket URL as an environment variable for the Blender process
+            env = os.environ.copy()
+            env["WS_URL"] = f"ws://localhost:8000/ws/{username}/blender"
+            env["CR8_USERNAME"] = username
+
+            process = subprocess.Popen(
+                command, env=env)
+            cls._instances[username] = process
+            cls.logger.info(
+                f"Launched Blender instance for {username} with PID {process.pid}")
+            return True
+        except FileNotFoundError:
+            cls.logger.error(
+                "'blender' command not found. Make sure Blender is installed and in your PATH.")
+            return False
         except Exception as e:
-            logger.error(f"SSH connection failed: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"SSH connection failed: {str(e)}"
-            )
-
-    @staticmethod
-    async def launch_instance(username: str, blend_file: str) -> bool:
-        """Launch a Blender instance for a specific user session"""
-        try:
-            client = BlenderService.create_ssh_client()
-            try:
-                if settings.DEV_ENV:
-                    websocket_url = f"{settings.WS_HOST}:{settings.WS_PORT}/ws/{username}/blender"
-                else:
-                    websocket_url = f"{settings.WS_HOST}/ws/{username}/blender"
-
-                safe_url = shlex.quote(websocket_url)
-
-                # Launch Blender
-                export_display = 'export DISPLAY=:1'
-                cd_command = f'cd "{settings.BLENDER_REMOTE_DIRECTORY}"'
-                tmux_session = f"blender_{username}"
-                tmux_command = (
-                    f"tmux new-session -d -s {tmux_session} "
-                    f"'WS_URL={safe_url} blender {shlex.quote(blend_file)} "
-                    f"--python-expr \"import bpy; bpy.ops.ws_handler.connect_websocket()\"'"
-                )
-
-                full_command = f"{export_display} && {cd_command} && {tmux_command}"
-                stdin, stdout, stderr = client.exec_command(full_command)
-
-                error = stderr.read().decode().strip()
-                if error:
-                    logger.error(
-                        f"Blender launch failed for {username} with file {blend_file}: {error}")
-                    return False
-
-                if stdout.channel.recv_exit_status() != 0:
-                    logger.error(
-                        f"Blender launch failed with non-zero exit status for {username} with file {blend_file}")
-                    return False
-
-                # Clean up only if launch was successful
-                logger.info(
-                    f"Launched Blender instance for {username} with file {blend_file}")
-                return True
-
-            finally:
-                client.close()
-
-        except Exception as e:
-            logger.error(
-                f"Error launching Blender for {username} with file {blend_file}: {str(e)}")
+            cls.logger.error(f"Failed to launch Blender for {username}: {e}")
             return False
 
-    @staticmethod
-    async def terminate_instance(username: str) -> bool:
-        """Terminate a Blender instance for a specific user"""
-        try:
-            client = BlenderService.create_ssh_client()
+    @classmethod
+    async def check_instance_status(cls, username: str) -> bool:
+        if username in cls._instances:
+            return cls._instances[username].poll() is None
+        return False
 
-            try:
-                # Kill the tmux session for this user's Blender instance
-                tmux_session_name = f"blender_{username}"
-                kill_command = f"tmux kill-session -t {tmux_session_name}"
-
-                stdin, stdout, stderr = client.exec_command(kill_command)
-
-                error = stderr.read().decode().strip()
-                if error and "no server running" not in error.lower():
-                    logger.error(
-                        f"Error terminating Blender for user {username}: {error}")
-                    return False
-
-                logger.info(
-                    f"Successfully terminated Blender instance for user {username}")
-                return True
-
-            finally:
-                client.close()
-
-        except Exception as e:
-            logger.error(
-                f"Error terminating Blender for user {username}: {str(e)}")
-            return False
-
-    @staticmethod
-    async def check_instance_status(username: str) -> bool:
-        """Check if a Blender instance is running for a specific user"""
-        try:
-            client = BlenderService.create_ssh_client()
-
-            try:
-                tmux_session_name = f"blender_{username}"
-                check_command = f"tmux has-session -t {tmux_session_name}"
-
-                stdin, stdout, stderr = client.exec_command(check_command)
-
-                # tmux has-session returns 0 if the session exists
-                return stdout.channel.recv_exit_status() == 0
-
-            finally:
-                client.close()
-
-        except Exception as e:
-            logger.error(
-                f"Error checking Blender status for user {username}: {str(e)}")
-            return False
+    @classmethod
+    async def terminate_instance(cls, username: str) -> bool:
+        if username in cls._instances:
+            process = cls._instances[username]
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                cls.logger.info(f"Terminated Blender instance for {username}")
+            del cls._instances[username]
+            return True
+        return False

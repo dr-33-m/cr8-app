@@ -11,4 +11,5 @@ export interface VisibilityState {
   toggleAssetSelection: () => void;
   toggleBottomControls: () => void;
   toggleFullscreen: () => void;
+  reset: () => void;
 }

@@ -11,18 +11,10 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as CallbackImport } from './routes/callback'
 import { Route as IndexImport } from './routes/index'
-import { Route as ProjectProjectIdImport } from './routes/project/$projectId'
-import { Route as ProjectMoodboardMoodboardIdImport } from './routes/project/moodboard/$moodboardId'
+import { Route as WorkspaceIndexImport } from './routes/workspace/index'
 
 // Create/Update Routes
-
-const CallbackRoute = CallbackImport.update({
-  id: '/callback',
-  path: '/callback',
-  getParentRoute: () => rootRoute,
-} as any)
 
 const IndexRoute = IndexImport.update({
   id: '/',
@@ -30,18 +22,11 @@ const IndexRoute = IndexImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const ProjectProjectIdRoute = ProjectProjectIdImport.update({
-  id: '/project/$projectId',
-  path: '/project/$projectId',
+const WorkspaceIndexRoute = WorkspaceIndexImport.update({
+  id: '/workspace/',
+  path: '/workspace/',
   getParentRoute: () => rootRoute,
 } as any)
-
-const ProjectMoodboardMoodboardIdRoute =
-  ProjectMoodboardMoodboardIdImport.update({
-    id: '/project/moodboard/$moodboardId',
-    path: '/project/moodboard/$moodboardId',
-    getParentRoute: () => rootRoute,
-  } as any)
 
 // Populate the FileRoutesByPath interface
 
@@ -54,25 +39,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
-    '/callback': {
-      id: '/callback'
-      path: '/callback'
-      fullPath: '/callback'
-      preLoaderRoute: typeof CallbackImport
-      parentRoute: typeof rootRoute
-    }
-    '/project/$projectId': {
-      id: '/project/$projectId'
-      path: '/project/$projectId'
-      fullPath: '/project/$projectId'
-      preLoaderRoute: typeof ProjectProjectIdImport
-      parentRoute: typeof rootRoute
-    }
-    '/project/moodboard/$moodboardId': {
-      id: '/project/moodboard/$moodboardId'
-      path: '/project/moodboard/$moodboardId'
-      fullPath: '/project/moodboard/$moodboardId'
-      preLoaderRoute: typeof ProjectMoodboardMoodboardIdImport
+    '/workspace/': {
+      id: '/workspace/'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceIndexImport
       parentRoute: typeof rootRoute
     }
   }
@@ -82,60 +53,37 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/callback': typeof CallbackRoute
-  '/project/$projectId': typeof ProjectProjectIdRoute
-  '/project/moodboard/$moodboardId': typeof ProjectMoodboardMoodboardIdRoute
+  '/workspace': typeof WorkspaceIndexRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/callback': typeof CallbackRoute
-  '/project/$projectId': typeof ProjectProjectIdRoute
-  '/project/moodboard/$moodboardId': typeof ProjectMoodboardMoodboardIdRoute
+  '/workspace': typeof WorkspaceIndexRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
-  '/callback': typeof CallbackRoute
-  '/project/$projectId': typeof ProjectProjectIdRoute
-  '/project/moodboard/$moodboardId': typeof ProjectMoodboardMoodboardIdRoute
+  '/workspace/': typeof WorkspaceIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/callback'
-    | '/project/$projectId'
-    | '/project/moodboard/$moodboardId'
+  fullPaths: '/' | '/workspace'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/callback'
-    | '/project/$projectId'
-    | '/project/moodboard/$moodboardId'
-  id:
-    | '__root__'
-    | '/'
-    | '/callback'
-    | '/project/$projectId'
-    | '/project/moodboard/$moodboardId'
+  to: '/' | '/workspace'
+  id: '__root__' | '/' | '/workspace/'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CallbackRoute: typeof CallbackRoute
-  ProjectProjectIdRoute: typeof ProjectProjectIdRoute
-  ProjectMoodboardMoodboardIdRoute: typeof ProjectMoodboardMoodboardIdRoute
+  WorkspaceIndexRoute: typeof WorkspaceIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CallbackRoute: CallbackRoute,
-  ProjectProjectIdRoute: ProjectProjectIdRoute,
-  ProjectMoodboardMoodboardIdRoute: ProjectMoodboardMoodboardIdRoute,
+  WorkspaceIndexRoute: WorkspaceIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -149,22 +97,14 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/callback",
-        "/project/$projectId",
-        "/project/moodboard/$moodboardId"
+        "/workspace/"
       ]
     },
     "/": {
       "filePath": "index.tsx"
     },
-    "/callback": {
-      "filePath": "callback.tsx"
-    },
-    "/project/$projectId": {
-      "filePath": "project/$projectId.tsx"
-    },
-    "/project/moodboard/$moodboardId": {
-      "filePath": "project/moodboard/$moodboardId.tsx"
+    "/workspace/": {
+      "filePath": "workspace/index.tsx"
     }
   }
 }

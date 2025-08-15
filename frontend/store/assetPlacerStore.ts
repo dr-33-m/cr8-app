@@ -54,6 +54,13 @@ export const useAssetPlacerStore = create<AssetPlacerState>()(
       },
 
       clearPlacedAssets: () => set({ placedAssets: [] }),
+
+      reset: () =>
+        set({
+          availableAssets: STATIC_ASSETS,
+          placedAssets: [],
+          selectedAssetId: null,
+        }),
     }),
     {
       name: "asset-placer-storage",

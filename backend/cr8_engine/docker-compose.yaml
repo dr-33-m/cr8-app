@@ -1,9 +1,0 @@
-version: "3.8"
-
-services:
-  cr8_engine:
-    build: .
-    ports:
-      - "5000:8000"
-    volumes:
-      - /mnt/shared_storage:/mnt/shared_storage

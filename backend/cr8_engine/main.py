@@ -1,135 +1,32 @@
 import uvicorn
 import json
 import websockets
-from sqlmodel import create_engine, SQLModel
-from fastapi import FastAPI, WebSocket, status, WebSocketDisconnect, HTTPException
+import logging
+from urllib.parse import unquote
+from fastapi import FastAPI, WebSocket, status, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager, closing
-import asyncio
-import socket
-import time
-import logging
-import errno
-from typing import Tuple
-from app.core.config import settings
-from app.api.v1.endpoints import users, projects, assets, templates, moodboards
 from app.realtime_engine.websockets.session_manager import SessionManager
 from app.realtime_engine.websockets.websocket_handler import WebSocketHandler
-from app.db.session import get_db
-from app.db.base import Base
-
-from app.models import User, Project, Asset, Template, Moodboard
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup events
-    engine = create_engine(settings.postgres_url, echo=True)
-    metadata = SQLModel.metadata
-    metadata.create_all(engine)  # This will create tables based on your models
-
-    yield
+from app.api.v1.endpoints import blend_files
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    description="CG Content Platform API",
-    version="0.1.0",
-    lifespan=lifespan
+    title="Cr8 WebSocket Server",
+    description="A lightweight WebSocket server for real-time communication with Blender.",
+    version="1.0.0",
 )
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-async def attempt_connection(ip: str, port: int, timeout: float = 1) -> Tuple[int, float]:
-    """Attempt to connect to the specified IP and port."""
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
-        sock.settimeout(timeout)
-        start_time = time.time()
-        result = sock.connect_ex((ip, port))
-        response_time = (time.time() - start_time) * 1000
-        return result, response_time
+# Dummy settings for CORS
 
 
-@app.get("/health", tags=["health"])
-async def health_check():
-    try:
-        ip = settings.SSH_LOCAL_IP
-        port = settings.SSH_PORT
-        max_retries = 3
-        base_delay = 0.5  # Base delay in seconds
+class Settings:
+    ALLOWED_HOSTS = ["*"]
 
-        for attempt in range(max_retries):
-            try:
-                logger.info(
-                    f"Attempting connection to {ip}:{port} (Attempt {attempt + 1}/{max_retries})")
-                result, response_time = await attempt_connection(ip, port)
 
-                if result == 0:
-                    logger.info(
-                        f"Successfully connected to {ip}:{port} in {round(response_time, 2)}ms")
-                    return JSONResponse(
-                        status_code=status.HTTP_200_OK,
-                        content={
-                            "status": "healthy",
-                            "message": "The server is running",
-                            "connection": {
-                                "ip": ip,
-                                "port": port,
-                                "response_time_ms": round(response_time, 2),
-                                "attempts": attempt + 1
-                            }
-                        }
-                    )
-
-                # Handle EAGAIN/EWOULDBLOCK specifically
-                if result == errno.EAGAIN:
-                    if attempt < max_retries - 1:
-                        # Exponential backoff
-                        delay = base_delay * (2 ** attempt)
-                        logger.warning(
-                            f"Resource temporarily unavailable (EAGAIN). Retrying in {delay}s...")
-                        await asyncio.sleep(delay)
-                        continue
-                    error_msg = "Resource temporarily unavailable (EAGAIN) after all retry attempts"
-                else:
-                    error_msg = f"Failed to connect to {ip}:{port} (Error code: {result})"
-
-                logger.error(error_msg)
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=error_msg
-                )
-
-            except socket.timeout:
-                if attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)
-                    logger.warning(
-                        f"Connection timeout. Retrying in {delay}s...")
-                    await asyncio.sleep(delay)
-                    continue
-                error_msg = f"Connection timeout to {ip}:{port} after {max_retries} attempts"
-                logger.error(error_msg)
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=error_msg
-                )
-            except socket.error as e:
-                error_msg = f"Socket error connecting to {ip}:{port}: {str(e)}"
-                logger.error(error_msg)
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=error_msg
-                )
-
-    except Exception as e:
-        logger.error(f"Unexpected error in health check: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(e)
-        )
+settings = Settings()
 
 # Set up CORS
 app.add_middleware(
@@ -140,32 +37,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.get("/health", tags=["health"])
+async def health_check():
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"status": "healthy"})
+
 # Include API routers
-app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
-app.include_router(moodboards.router,
-                   prefix="/api/v1/moodboards", tags=["moodboards"])
-app.include_router(
-    projects.router, prefix="/api/v1/projects", tags=["projects"])
-app.include_router(
-    templates.router, prefix="/api/v1/templates", tags=["templates"])
-# app.include_router(assets.router, prefix="/api/v1/assets", tags=["assets"])
+app.include_router(blend_files.router, prefix="/api/v1", tags=["blend-files"])
 
 # Websocket endpoint
 session_manager = SessionManager()
 
 
 @app.websocket("/ws/{username}/{client_type}")
-async def websocket_endpoint(websocket: WebSocket, username: str, client_type: str, blend_file: str = None):
+async def websocket_endpoint(websocket: WebSocket, username: str, client_type: str):
     # Track if we've accepted the connection
     connection_accepted = False
 
     try:
+        query_params = websocket.url.query
+        blend_file_path = None
+        if query_params:
+            params = dict(x.split('=') for x in query_params.split('&'))
+            # Support both old "blend_file" and new "blend_file_path" parameters
+            raw_path = params.get(
+                "blend_file_path") or params.get("blend_file")
+            # URL decode the path if it exists
+            if raw_path:
+                blend_file_path = unquote(raw_path)
+
         await websocket.accept()
         connection_accepted = True
 
         if client_type == "browser":
             try:
-                session = await session_manager.create_browser_session(username, websocket, blend_file)
+                session = await session_manager.create_browser_session(username, websocket, blend_file_path)
                 await websocket.send_json({"status": "connected", "message": "Session created"})
             except ValueError as ve:
                 # Handle specific ValueError exceptions gracefully

@@ -9,7 +9,6 @@ import uuid
 from pathlib import Path
 from typing import Dict, Any
 from .base_specialized_handler import BaseSpecializedHandler
-from app.core.config import settings
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -38,7 +37,7 @@ class PreviewHandler(BaseSpecializedHandler):
             Path: The path to the user's preview directory
         """
         # Define the base directory where previews are stored
-        base_preview_dir = Path(settings.BLENDER_RENDER_PREVIEW_DIRECTORY)
+        base_preview_dir = Path("/tmp/blender_renders")
 
         # Create a user-specific directory dynamically
         user_preview_dir = base_preview_dir / username / "preview"

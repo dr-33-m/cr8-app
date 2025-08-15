@@ -10,6 +10,7 @@ interface TemplateControlsState {
   clearControls: () => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
+  reset: () => void;
 }
 
 export const useTemplateControlsStore = create<TemplateControlsState>()(
@@ -22,6 +23,12 @@ export const useTemplateControlsStore = create<TemplateControlsState>()(
       clearControls: () => set({ controls: null }),
       setError: (error) => set({ error }),
       setLoading: (loading) => set({ isLoading: loading }),
+      reset: () =>
+        set({
+          controls: null,
+          isLoading: false,
+          error: null,
+        }),
     }),
     {
       name: "template-controls-storage",

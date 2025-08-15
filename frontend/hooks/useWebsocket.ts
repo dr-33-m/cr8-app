@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useProjectStore } from "@/store/projectStore";
 import useUserStore from "@/store/userStore";
 import { toast } from "sonner";
 import { WebSocketMessage, WebSocketStatus } from "@/lib/types/websocket";
@@ -17,8 +16,7 @@ export const useWebSocket = (onMessage?: (data: any) => void) => {
   const isManuallyDisconnected = useRef(false);
   const messageQueueRef = useRef<WebSocketMessage[]>([]);
 
-  const userInfo = useUserStore((store) => store.userInfo);
-  const { template } = useProjectStore();
+  const { username } = useUserStore();
   const websocketUrl = import.meta.env.VITE_WEBSOCKET_URL;
 
   useEffect(() => {
@@ -26,11 +24,20 @@ export const useWebSocket = (onMessage?: (data: any) => void) => {
   }, [onMessage]);
 
   const getWebSocketUrl = useCallback(() => {
-    if (!userInfo?.username || !template) {
+    if (!username) {
       return null;
     }
-    return `${websocketUrl}/${userInfo.username}/browser?blend_file=${template}`;
-  }, [userInfo?.username, template, websocketUrl]);
+
+    const { fullBlendFilePath } = useUserStore.getState();
+
+    if (fullBlendFilePath) {
+      const encodedPath = encodeURIComponent(fullBlendFilePath);
+      return `${websocketUrl}/${username}/browser?blend_file_path=${encodedPath}`;
+    }
+
+    // Fallback to default if no blend file selected
+    return `${websocketUrl}/${username}/browser`;
+  }, [username, websocketUrl]);
 
   const calculateReconnectDelay = useCallback(() => {
     return Math.min(
@@ -191,13 +198,13 @@ export const useWebSocket = (onMessage?: (data: any) => void) => {
   }, [sendMessage]);
 
   useEffect(() => {
-    if (userInfo?.username && template) {
+    if (username) {
       connect();
     }
     return () => {
       disconnect();
     };
-  }, [connect, disconnect, userInfo?.username, template]);
+  }, [connect, disconnect, username]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {

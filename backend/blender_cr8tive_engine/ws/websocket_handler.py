@@ -9,7 +9,6 @@ import json
 import threading
 import logging
 import websocket
-import ssl
 import time
 import bpy
 from pathlib import Path
@@ -132,24 +131,33 @@ class WebSocketHandler:
         if self.ws:
             return  # Already connected
 
+        logging.info(f"WS_URL from env: {os.environ.get('WS_URL')}")
+        logging.info(
+            f"CR8_USERNAME from env: {os.environ.get('CR8_USERNAME')}")
+
         # Get URL from environment or argument
         self.url = url or os.environ.get("WS_URL")
+        self.username = os.environ.get("CR8_USERNAME")
 
-        # Updated regex to handle both 'ws' and 'wss', local IPs, localhost, and production domains
-        match = re.match(
-            r'ws[s]?://([^:/]+)(?::\d+)?/ws/([^/]+)/blender', self.url)
-        if match:
-            # Extract host (local IP, localhost, or production domain)
-            self.host = match.group(1)
-            self.username = match.group(2)  # Extract username
+        if not self.url:
+            logging.error("No WS_URL found in environment variables")
+            return
 
-            # Set username in SessionManager
-            session_manager = SessionManager.get_instance()
-            session_manager.set_username(self.username)
-        else:
-            raise ValueError(
-                "Invalid WebSocket URL format. Unable to extract username."
-            )
+        # Fallback to parsing username from URL if not in environment
+        if not self.username:
+            # Simplified regex for local development
+            match = re.match(r'ws://([^:/]+):\d+/ws/([^/]+)/blender', self.url)
+            if match:
+                self.host = match.group(1)
+                self.username = match.group(2)
+            else:
+                raise ValueError(
+                    "Username not found in CR8_USERNAME or WebSocket URL."
+                )
+
+        # Set username in SessionManager
+        session_manager = SessionManager.get_instance()
+        session_manager.set_username(self.username)
 
         if not self.url:
             raise ValueError(
@@ -169,28 +177,11 @@ class WebSocketHandler:
         self.reconnect_attempts = 0
         self.stop_retries = False
 
-        try:
-            # Create SSL context with proper security settings
-            ssl_context = ssl.create_default_context(
-                purpose=ssl.Purpose.SERVER_AUTH,
-                cafile="/home/thamsanqa/cloudflare_cert.crt"
-            )
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_REQUIRED
-
-            # Verify the SSL context is properly configured
-            logging.info(
-                "SSL Context created with: verify_mode=CERT_REQUIRED, check_hostname=False")
-        except Exception as ssl_error:
-            logging.error(f"Failed to create SSL context: {ssl_error}")
-            return False
-
         while self.reconnect_attempts < retries and not self.stop_retries:
             try:
                 if self.ws:
                     self.ws.close()
 
-                # Use the environment-configured URL with SSL options
                 self.ws = websocket.WebSocketApp(
                     self.url,
                     on_message=self._on_message,
@@ -199,14 +190,12 @@ class WebSocketHandler:
                     on_error=self._on_error,
                 )
 
-                # Set WebSocket in ResponseManager
                 response_manager = ResponseManager.get_instance()
                 response_manager.set_websocket(self.ws)
 
                 self.processing_complete.clear()
                 self.ws_thread = threading.Thread(
-                    target=lambda: self._run_websocket(ssl_context),
-                    daemon=True
+                    target=self._run_websocket, daemon=True
                 )
                 self.ws_thread.start()
 
@@ -217,28 +206,18 @@ class WebSocketHandler:
                     f"Connection to {self.url} failed: {e}, retrying in {delay} seconds..."
                 )
                 time.sleep(delay)
-                delay *= 2  # Exponential backoff
+                delay *= 2
                 self.reconnect_attempts += 1
 
         logging.error(
             f"Max retries reached for {self.url}. Connection failed.")
         return False
 
-    def _run_websocket(self, ssl_context):
-        """Run WebSocket with SSL context"""
+    def _run_websocket(self):
+        """Run WebSocket without SSL"""
         while not self.processing_complete.is_set() and not self.stop_retries:
             try:
-                self.ws.run_forever(
-                    sslopt={
-                        "cert_reqs": ssl_context.verify_mode,
-                        "check_hostname": ssl_context.check_hostname,
-                        "ssl_context": ssl_context
-                    }
-                )
-            except ssl.SSLError as ssl_err:
-                logging.error(f"SSL Error in WebSocket connection: {ssl_err}")
-                self.stop_retries = True
-                break
+                self.ws.run_forever()
             except websocket.WebSocketException as ws_err:
                 logging.error(f"WebSocket error: {ws_err}")
                 break

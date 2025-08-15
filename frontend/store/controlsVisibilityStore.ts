@@ -36,4 +36,11 @@ export const useVisibilityStore = create<VisibilityState>((set) => ({
       isAssetSelectionVisible: state.isFullscreen,
       isBottomControlsVisible: state.isFullscreen,
     })),
+  reset: () =>
+    set({
+      isSceneControlsVisible: true,
+      isAssetSelectionVisible: true,
+      isBottomControlsVisible: true,
+      isFullscreen: false,
+    }),
 }));

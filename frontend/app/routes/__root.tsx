@@ -7,25 +7,7 @@ import { Meta, Scripts } from "@tanstack/start";
 import type { ReactNode } from "react";
 import CSS from "@/styles/globals.css?url";
 import Navbar from "@/components/Navbar";
-import { LogtoConfig, LogtoProvider } from "@logto/react";
-import { isBrowser } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
-import { WebSocketProvider } from "@/contexts/WebSocketContext";
-
-const config: LogtoConfig = {
-  endpoint: import.meta.env.VITE_LOGTO_ENDPOINT,
-  appId: import.meta.env.VITE_LOGTO_APP_ID,
-};
-
-const LogtoWrapper = ({ children }: { children: ReactNode }) => {
-  // FIXME: This is a temporary solution until we have a proper way to handle authentication in the Server.
-  if (!isBrowser) {
-    // Avoid initializing Logto during SSR
-    return <>{children}</>;
-  }
-
-  return <LogtoProvider config={config}>{children}</LogtoProvider>;
-};
 
 export const Route = createRootRoute({
   head: () => ({
@@ -53,13 +35,9 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <LogtoWrapper>
-      <RootDocument>
-        <WebSocketProvider>
-          <Outlet />
-        </WebSocketProvider>
-      </RootDocument>
-    </LogtoWrapper>
+    <RootDocument>
+      <Outlet />
+    </RootDocument>
   );
 }
 

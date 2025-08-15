@@ -10,8 +10,6 @@ import {
 } from "./ui/dropdown-menu";
 import cr8 from "@/assets/cr8.png";
 import { Link } from "@tanstack/react-router";
-import { useLogto } from "@logto/react";
-import { isBrowser } from "@/lib/utils";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import useUserStore from "@/store/userStore";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -19,11 +17,14 @@ import { Badge } from "./ui/badge";
 import { Textarea } from "./ui/textarea";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useLogout } from "@/lib/services/logoutService";
 
 const Navbar = () => {
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const logout = useLogout();
+  const { username } = useUserStore();
 
   const handleSubmitFeedback = async () => {
     if (!feedback.trim()) return;
@@ -36,7 +37,7 @@ const Navbar = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: `**Early Access Feedback from ${userInfo?.username || "Anonymous"}:**\n${feedback}`,
+          content: `**Early Access Feedback from ${username || "Anonymous"}:**\n${feedback}`,
         }),
       });
 
@@ -53,17 +54,13 @@ const Navbar = () => {
     }
   };
 
-  const logto = isBrowser ? useLogto() : null;
   const isVisible = useVisibilityStore((state) => !state.isFullscreen);
-  const { userInfo, resetUserInfo } = useUserStore((store) => store);
 
   const handleSignOut = async () => {
-    if (logto) {
-      await logto.signOut(import.meta.env.VITE_SIGN_OUT_URI);
-      resetUserInfo();
-    }
+    await logout();
   };
-  return logto?.isAuthenticated ? (
+
+  return username ? (
     <nav
       className={`fixed top-4 left-4 right-4 z-50 transition-all transform -translate-y-1/2 duration-300  ${isVisible ? "translate-y-0" : "-translate-y-full"} `}
     >
@@ -116,10 +113,7 @@ const Navbar = () => {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {userInfo?.username || "John Doe"}
-                      </p>
-                      <p className="text-xs leading-none text-white/70">
-                        {userInfo?.email || "yourEmailHere"}
+                        {username}
                       </p>
                     </div>
                   </DropdownMenuLabel>

@@ -30,6 +30,7 @@ export interface AssetPlacerState {
   getPlacedAssetByEmptyName: (emptyName: string) => PlacedAsset | undefined;
   getEmptyNameForAsset: (assetId: string) => string | undefined;
   clearPlacedAssets: () => void;
+  reset: () => void;
 }
 
 // Initial static assets (to be replaced with API call later)

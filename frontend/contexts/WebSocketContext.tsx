@@ -5,6 +5,7 @@ import {
   useCallback,
   useRef,
   useState,
+  useEffect,
 } from "react";
 import { useWebSocket } from "@/hooks/useWebsocket";
 import {
@@ -176,6 +177,24 @@ export function WebSocketProvider({
     wsHookWithHandler.sendMessage
   );
   animationHandlersRef.current = animationHandlers;
+
+  // Listen for logout events to disconnect WebSocket
+  useEffect(() => {
+    const handleLogoutDisconnect = () => {
+      console.log("Logout event received, disconnecting WebSocket");
+      if (wsHookWithHandler.websocket) {
+        wsHookWithHandler.disconnect();
+        setBlenderConnected(false);
+        setAlreadyReconnected(false);
+      }
+    };
+
+    window.addEventListener("logout-disconnect", handleLogoutDisconnect);
+
+    return () => {
+      window.removeEventListener("logout-disconnect", handleLogoutDisconnect);
+    };
+  }, [wsHookWithHandler.websocket, wsHookWithHandler.disconnect]);
 
   // Create the context value with the combined connection state
   const contextValue = {

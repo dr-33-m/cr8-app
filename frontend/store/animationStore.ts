@@ -21,6 +21,7 @@ interface AnimationState {
   fetchAllAnimations: () => Promise<void>;
   selectAnimation: (type: "camera" | "light" | "product", id: string) => void;
   clearSelections: () => void;
+  reset: () => void;
 }
 
 export const useAnimationStore = create<AnimationState>()(
@@ -77,6 +78,22 @@ export const useAnimationStore = create<AnimationState>()(
 
       clearSelections: () =>
         set({
+          selectedAnimations: {
+            camera: null,
+            light: null,
+            product: null,
+          },
+        }),
+
+      reset: () =>
+        set({
+          animations: {
+            camera: [],
+            light: [],
+            product: [],
+          },
+          isLoading: false,
+          error: null,
           selectedAnimations: {
             camera: null,
             light: null,
