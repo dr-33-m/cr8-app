@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronUp, Send, Bot } from "lucide-react";
+import { ChevronDown, ChevronUp, SendHorizontal } from "lucide-react";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { ConnectionStatus } from "./ConnectionStatus";
@@ -84,26 +84,24 @@ export function BottomControls({ children }: BottomControlsProps) {
             Reconnect
           </Button>
         ) : isFullyConnected ? (
-          /* B.L.A.Z.E Chat Interface */
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-blue-400" />
-            <span className="text-white text-sm font-medium">B.L.A.Z.E</span>
+          /* Chat Interface */
+          <div className="relative">
             <Input
               placeholder="Tell B.L.A.Z.E what to do..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="min-w-[300px] bg-white/10 border-white/20 text-white placeholder:text-white/60"
+              className="min-w-[300px] pr-10 bg-cr8-charcoal/10 border-white/10 backdrop-blur-md shadow-lg text-white placeholder:text-white/60"
               disabled={isLoading}
             />
-            <Button
+            <SendHorizontal
               onClick={handleSendMessage}
-              disabled={!message.trim() || isLoading}
-              size="icon"
-              className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+              className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 cursor-pointer transition-colors duration-200 ${
+                !message.trim() || isLoading
+                  ? "text-gray-500 cursor-not-allowed"
+                  : "text-blue-400 hover:text-blue-300"
+              }`}
+            />
           </div>
         ) : (
           <div className="text-white/60 text-sm">

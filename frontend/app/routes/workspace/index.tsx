@@ -107,7 +107,7 @@ function WorkspaceContent() {
   }, [isFullyConnected, requestTemplateControls]);
 
   return (
-    <div className="relative w-full h-screen bg-[#1C1C1C] text-white">
+    <div className="relative w-full h-screen bg-[#1C1C1C] text-white overflow-hidden">
       <PreviewWindow>
         <SceneViewPort
           videoRef={videoRef}
