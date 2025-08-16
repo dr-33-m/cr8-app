@@ -50,6 +50,14 @@ export function processWebSocketMessage(
       return;
     }
 
+    // Handle B.L.A.Z.E Agent responses
+    if (data.type === "agent_response") {
+      if (handlers.onAgentResponse) {
+        handlers.onAgentResponse(data);
+      }
+      return;
+    }
+
     // Handle asset operation responses
     if (
       data.command?.endsWith("_result") &&

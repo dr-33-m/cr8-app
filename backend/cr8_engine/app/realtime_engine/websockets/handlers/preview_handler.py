@@ -56,7 +56,7 @@ class PreviewHandler(BaseSpecializedHandler):
             data: The message data
             client_type: The type of client (browser or blender)
         """
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:
@@ -112,7 +112,7 @@ class PreviewHandler(BaseSpecializedHandler):
             data: The message data
             client_type: The type of client (browser or blender)
         """
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:

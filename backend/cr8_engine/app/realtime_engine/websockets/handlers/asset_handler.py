@@ -16,7 +16,7 @@ class AssetHandler(BaseSpecializedHandler):
 
     async def handle_append_asset(self, username: str, data: Dict[str, Any], client_type: str) -> None:
         """Handle appending an asset to an empty"""
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:
@@ -86,7 +86,7 @@ class AssetHandler(BaseSpecializedHandler):
 
     async def handle_remove_assets(self, username: str, data: Dict[str, Any], client_type: str) -> None:
         """Handle removing assets from an empty"""
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:
@@ -141,7 +141,7 @@ class AssetHandler(BaseSpecializedHandler):
 
     async def handle_swap_assets(self, username: str, data: Dict[str, Any], client_type: str) -> None:
         """Handle swapping assets between two empties"""
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:
@@ -203,7 +203,7 @@ class AssetHandler(BaseSpecializedHandler):
 
     async def handle_rotate_assets(self, username: str, data: Dict[str, Any], client_type: str) -> None:
         """Handle rotating assets on an empty"""
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:
@@ -262,7 +262,7 @@ class AssetHandler(BaseSpecializedHandler):
 
     async def handle_scale_assets(self, username: str, data: Dict[str, Any], client_type: str) -> None:
         """Handle scaling assets on an empty"""
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:
@@ -321,7 +321,7 @@ class AssetHandler(BaseSpecializedHandler):
 
     async def handle_get_asset_info(self, username: str, data: Dict[str, Any], client_type: str) -> None:
         """Handle getting asset info from an empty"""
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:

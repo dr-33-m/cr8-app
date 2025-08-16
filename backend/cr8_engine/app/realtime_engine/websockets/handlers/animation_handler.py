@@ -24,7 +24,7 @@ class AnimationHandler(BaseSpecializedHandler):
             client_type: The type of client (browser or blender)
         """
         # Only process requests from browser clients
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:
@@ -99,7 +99,7 @@ class AnimationHandler(BaseSpecializedHandler):
             client_type: The type of client (browser or blender)
         """
         # Only process requests from browser clients
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:
@@ -174,7 +174,7 @@ class AnimationHandler(BaseSpecializedHandler):
             client_type: The type of client (browser or blender)
         """
         # Only process requests from browser clients
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:
@@ -249,7 +249,7 @@ class AnimationHandler(BaseSpecializedHandler):
             client_type: The type of client (browser or blender)
         """
         # Only process requests from browser clients
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:

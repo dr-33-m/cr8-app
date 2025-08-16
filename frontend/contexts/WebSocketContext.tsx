@@ -131,6 +131,15 @@ export function WebSocketProvider({
           }
         },
 
+        // Handle B.L.A.Z.E Agent responses
+        onAgentResponse: (data) => {
+          if (data.status === "success") {
+            toast.success("B.L.A.Z.E: " + data.message);
+          } else if (data.status === "error") {
+            toast.error("B.L.A.Z.E Error: " + data.message);
+          }
+        },
+
         // Forward to custom handler if provided
         onCustomMessage: onMessage,
       });

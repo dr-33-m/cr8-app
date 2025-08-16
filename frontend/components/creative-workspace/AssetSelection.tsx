@@ -1,11 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
-import { useAssetPlacerStore } from "@/store/assetPlacerStore";
-import { AssetItem } from "./AssetItem";
 
-// No props needed as we use the store for state management
 export function AssetSelection() {
   const isVisible = useVisibilityStore(
     (state) => state.isAssetSelectionVisible
@@ -30,43 +26,33 @@ export function AssetSelection() {
           <ChevronLeft className="h-6 w-6" />
         )}
       </Button>
-      <div className="backdrop-blur-md bg-white/5 rounded-lg p-4 w-80">
-        <h2 className="text-xl font-semibold mb-4 text-white">Select Assets</h2>
-        <Tabs defaultValue="Assets" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4 bg-white/5">
-            <TabsTrigger
-              value="Assets"
-              className="data-[state=active]:bg-[#0077B6] data-[state=active]:text-white"
-            >
-              Assets
-            </TabsTrigger>
-            <TabsTrigger
-              value="Venues"
-              className="data-[state=active]:bg-[#5C0A98] data-[state=active]:text-white"
-            >
-              Venues
-            </TabsTrigger>
-            <TabsTrigger
-              value="Performances"
-              className="data-[state=active]:bg-[#FF006E] data-[state=active]:text-white"
-            >
-              Performances
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="Assets" className="grid grid-cols-3 gap-2">
-            {useAssetPlacerStore((state) => state.availableAssets).map(
-              (asset) => (
-                <AssetItem key={asset.id} asset={asset} />
-              )
-            )}
-          </TabsContent>
-          <TabsContent value="Venues">
-            <p className="text-white/70">Venues here</p>
-          </TabsContent>
-          <TabsContent value="Performances">
-            <p className="text-white/70">Performances here</p>
-          </TabsContent>
-        </Tabs>
+      <div className="backdrop-blur-md bg-white/5 rounded-lg p-6 w-80">
+        <h2 className="text-xl font-semibold mb-4 text-white">
+          Asset Management
+        </h2>
+        <div className="text-center text-white/60 py-8 space-y-4">
+          <div className="text-6xl mb-4">
+            <Package className="h-16 w-16 mx-auto text-orange-400" />
+          </div>
+          <div>
+            <p className="text-lg font-medium text-white">Coming Soon</p>
+            <p className="text-sm mt-2">
+              Advanced asset management powered by B.L.A.Z.E AI
+            </p>
+          </div>
+          <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3 mt-4">
+            <p className="text-xs text-orange-200">
+              💡 Use the chat interface below to manage assets with natural
+              language
+            </p>
+          </div>
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-2 mt-3">
+            <p className="text-xs text-orange-300">
+              🎯 Try: "Place the Jordan shoes on the table" or "Remove all
+              assets from the scene"
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

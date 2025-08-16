@@ -21,9 +21,9 @@ class CameraHandler(BaseSpecializedHandler):
         Args:
             username: The username of the client
             data: The message data
-            client_type: The type of client (browser or blender)
+            client_type: The type of client (browser, blender, or agent)
         """
-        if client_type != "browser":
+        if client_type not in ["browser", "agent"]:
             return
 
         try:

@@ -3,12 +3,16 @@ import json
 import websockets
 import logging
 from urllib.parse import unquote
+from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, status, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.realtime_engine.websockets.session_manager import SessionManager
 from app.realtime_engine.websockets.websocket_handler import WebSocketHandler
 from app.api.v1.endpoints import blend_files
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI(
     title="Cr8 WebSocket Server",
