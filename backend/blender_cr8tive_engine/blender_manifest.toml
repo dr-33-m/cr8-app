@@ -6,7 +6,7 @@ id = "my_example_extension"
 version = "1.0.0"
 name = "Cr8tive Engine"
 tagline = "The freedom To Dream"
-maintainer = "Thamsanqa Dreem <thamsanqa.dev@gmail.com>"
+maintainer = "Thamsanqa J Ncube <thamsanqa.dev@gmail.com>"
 # Supported types: "add-on", "theme"
 type = "add-on"
 

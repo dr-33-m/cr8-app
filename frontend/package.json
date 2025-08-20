@@ -12,8 +12,12 @@
     "3d/CGI",
     "Content Creation"
   ],
-  "author": "Thamsanqa Dreem",
-  "license": "ISC",
+  "author": "Thamsanqa J Ncube",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://code.streetcrisis.online/Cr8-xyz/cr8-app.git"
+  },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.2",
@@ -39,7 +43,6 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.54.2",
     "react-responsive": "^10.0.0",
-    "reactflow": "^11.11.4",
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",

@@ -10,7 +10,7 @@ from .panels import VIEW3D_PT_TemplateSystem, VIEW3D_PT_CameraTemplates, VIEW3D_
 
 bl_info = {
     "name": "Cr8-xyz Animation Engine",
-    "author": "Thamsanqa Dreem",
+    "author": "Thamsanqa J Ncube",
     "version": (1, 0),
     "blender": (4, 3, 2),
     "location": "View3D > Sidebar > Template System",
