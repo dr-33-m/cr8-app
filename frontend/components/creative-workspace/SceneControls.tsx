@@ -36,7 +36,7 @@ export function SceneControls() {
           <div>
             <p className="text-lg font-medium text-white">Coming Soon</p>
             <p className="text-sm mt-2">
-              Advanced scene controls powered by B.L.A.Z.E AI
+              Advanced scene controls powered by B.L.A.Z.E
             </p>
           </div>
           <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3 mt-4">

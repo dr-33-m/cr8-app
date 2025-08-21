@@ -26,7 +26,7 @@ export function AssetControls({ assetId }: AssetControlsProps) {
           <p className="text-base font-medium text-white">
             AI-Powered Asset Controls
           </p>
-          <p className="text-sm mt-2">Control this asset using B.L.A.Z.E AI</p>
+          <p className="text-sm mt-2">Control this asset using B.L.A.Z.E</p>
         </div>
         <div className="bg-purple-500/20 border border-purple-500/30 rounded-lg p-3 mt-4">
           <p className="text-xs text-purple-200">

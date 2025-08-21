@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class BlazeAgent:
     """Main B.L.A.Z.E agent for natural language scene control"""
 
-    def __init__(self, session_manager, handlers, model_name: str = "deepseek/deepseek-chat-v3-0324"):
+    def __init__(self, session_manager, handlers, model_name: str = "anthropic/claude-sonnet-4"):
         """Initialize B.L.A.Z.E agent with OpenRouter"""
         # Initialize logger first
         self.logger = logging.getLogger(__name__)
