@@ -3,19 +3,11 @@ import {
   useContext,
   ReactNode,
   useCallback,
-  useRef,
   useState,
   useEffect,
 } from "react";
 import { useWebSocket } from "@/hooks/useWebsocket";
-import {
-  WebSocketStatus,
-  WebSocketMessage,
-  AnimationResponseMessage,
-} from "@/lib/types/websocket";
-import { processWebSocketMessage } from "@/lib/handlers/websocketMessageHandler";
-import { createAnimationHandler } from "@/hooks/useAnimationWebSocket";
-import { useTemplateControlsStore } from "@/store/TemplateControlsStore";
+import { WebSocketStatus, WebSocketMessage } from "@/lib/types/websocket";
 import { toast } from "sonner";
 
 interface WebSocketContextType {
@@ -27,7 +19,6 @@ interface WebSocketContextType {
   reconnect: () => void;
   disconnect: () => void;
   sendMessage: (message: WebSocketMessage) => void;
-  requestTemplateControls: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
@@ -41,17 +32,12 @@ export function WebSocketProvider({
   children,
   onMessage,
 }: WebSocketProviderProps) {
-  const setControls = useTemplateControlsStore((state) => state.setControls);
-
   // Add state for tracking Blender connection
   const [blenderConnected, setBlenderConnected] = useState(false);
   // Add state to track if we've already reconnected to an existing Blender session
   const [alreadyReconnected, setAlreadyReconnected] = useState(false);
 
-  // Use a ref to solve the circular dependency
-  const animationHandlersRef = useRef<any>(null);
-
-  // Define message processing function
+  // Define simplified message processing function
   const processMessage = useCallback(
     (data: any) => {
       // Check for Blender connection/disconnection messages
@@ -93,63 +79,19 @@ export function WebSocketProvider({
         }, 1000);
       }
 
-      // Process the message using our handler
-      processWebSocketMessage(data, {
-        // Handle animation responses
-        onAnimationResponse: (data: AnimationResponseMessage) => {
-          if (animationHandlersRef.current) {
-            animationHandlersRef.current.handleAnimationResponse(data.data);
-          }
-        },
+      // Handle B.L.A.Z.E Agent responses
+      if (data.status === "success") {
+        toast.success("B.L.A.Z.E: " + (data.message || "Action completed"));
+      } else if (data.status === "error") {
+        toast.error("B.L.A.Z.E Error: " + (data.message || "Unknown error"));
+      }
 
-        // Handle template controls response
-        onTemplateControls: (data) => {
-          // Check for controls in the correct location (data.data.controls)
-          if (data.data?.controls) {
-            // Transform flat list into categorized structure
-            const categorized = {
-              cameras: data.data.controls.filter(
-                (c: any) => c.type === "camera"
-              ),
-              lights: data.data.controls.filter((c: any) => c.type === "light"),
-              materials: data.data.controls.filter(
-                (c: any) => c.type === "material"
-              ),
-              objects: data.data.controls.filter(
-                (c: any) => c.type === "object"
-              ),
-            };
-            setControls(categorized);
-
-            // Show success toast
-            toast.success("Template controls loaded");
-          } else {
-            console.error(
-              "No controls found in template_controls_result",
-              data
-            );
-          }
-        },
-
-        // Handle B.L.A.Z.E Agent responses
-        onAgentResponse: (data) => {
-          if (data.status === "success") {
-            toast.success("B.L.A.Z.E: " + data.message);
-          } else if (data.status === "error") {
-            toast.error("B.L.A.Z.E Error: " + data.message);
-          }
-        },
-
-        // Forward to custom handler if provided
-        onCustomMessage: onMessage,
-      });
-
-      // Also forward to the original onMessage handler if provided
+      // Forward to custom handler if provided
       if (onMessage) {
         onMessage(data);
       }
     },
-    [onMessage, setControls]
+    [onMessage]
   );
 
   // Use the WebSocket hook with our custom message handler
@@ -180,12 +122,6 @@ export function WebSocketProvider({
       }, 500); // Small delay to ensure everything is set up
     }
   });
-
-  // Create animation handlers with the sendMessage function and store in ref
-  const animationHandlers = createAnimationHandler(
-    wsHookWithHandler.sendMessage
-  );
-  animationHandlersRef.current = animationHandlers;
 
   // Listen for logout events to disconnect WebSocket
   useEffect(() => {

@@ -1,21 +1,11 @@
 """
 WebSocket handler implementation for cr8_engine with B.L.A.Z.E Agent integration.
-This module routes all user messages through the B.L.A.Z.E intelligent agent.
+This module routes all user messages through the B.L.A.Z.E intelligent agent with dynamic addon capabilities.
 """
 
 import logging
 from typing import Dict, Any
 from fastapi import WebSocket
-
-# Import specialized handlers for B.L.A.Z.E
-from .handlers.animation_handler import AnimationHandler
-from .handlers.asset_handler import AssetHandler
-from .handlers.template_handler import TemplateHandler
-from .handlers.preview_handler import PreviewHandler
-from .handlers.camera_handler import CameraHandler
-from .handlers.light_handler import LightHandler
-from .handlers.material_handler import MaterialHandler
-from .handlers.object_handler import ObjectHandler
 
 # Import B.L.A.Z.E Agent
 from app.blaze.agent import BlazeAgent
@@ -42,22 +32,11 @@ class WebSocketHandler:
         # Get or create session-specific B.L.A.Z.E Agent
         session = session_manager.get_session(username)
         if session and session.blaze_agent is None:
-            # Initialize specialized handlers (used by B.L.A.Z.E)
-            handlers = {
-                'animation': AnimationHandler(session_manager),
-                'asset': AssetHandler(session_manager),
-                'template': TemplateHandler(session_manager),
-                'preview': PreviewHandler(session_manager),
-                'camera': CameraHandler(session_manager),
-                'light': LightHandler(session_manager),
-                'material': MaterialHandler(session_manager),
-                'object': ObjectHandler(session_manager)
-            }
-
-            # Create B.L.A.Z.E Agent once per session
-            session.blaze_agent = BlazeAgent(session_manager, handlers)
+            # Create B.L.A.Z.E Agent with pure dynamic toolset (no legacy handlers)
+            # The agent will get its capabilities from dynamically discovered addons
+            session.blaze_agent = BlazeAgent(session_manager, handlers=None)
             self.logger.info(
-                f"Created new B.L.A.Z.E Agent for session {username}")
+                f"Created new B.L.A.Z.E Agent for session {username} with dynamic capabilities")
 
         # Use session's agent
         self.blaze_agent = session.blaze_agent if session else None

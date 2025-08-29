@@ -1,8 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
 import useUserStore from "@/store/userStore";
-import { useAnimationStore } from "@/store/animationStore";
-import { useAssetPlacerStore } from "@/store/assetPlacerStore";
-import { useTemplateControlsStore } from "@/store/TemplateControlsStore";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import { toast } from "sonner";
 
@@ -58,15 +55,6 @@ export class LogoutService {
     // Reset User Store
     useUserStore.getState().reset();
 
-    // Reset Animation Store
-    useAnimationStore.getState().reset();
-
-    // Reset Asset Placer Store
-    useAssetPlacerStore.getState().reset();
-
-    // Reset Template Controls Store
-    useTemplateControlsStore.getState().reset();
-
     // Reset Visibility Store
     useVisibilityStore.getState().reset();
   }
@@ -75,12 +63,7 @@ export class LogoutService {
    * Clear any additional localStorage entries that might not be handled by Zustand
    */
   private clearLocalStorage(): void {
-    const keysToRemove = [
-      "user-storage",
-      "animation-storage",
-      "asset-placer-storage",
-      "template-controls-storage",
-    ];
+    const keysToRemove = ["user-storage"];
 
     keysToRemove.forEach((key) => {
       try {
@@ -121,18 +104,10 @@ export const useLogout = () => {
     try {
       // Reset all Zustand stores
       useUserStore.getState().reset();
-      useAnimationStore.getState().reset();
-      useAssetPlacerStore.getState().reset();
-      useTemplateControlsStore.getState().reset();
       useVisibilityStore.getState().reset();
 
       // Clear localStorage entries
-      const keysToRemove = [
-        "user-storage",
-        "animation-storage",
-        "asset-placer-storage",
-        "template-controls-storage",
-      ];
+      const keysToRemove = ["user-storage"];
 
       keysToRemove.forEach((key) => {
         try {

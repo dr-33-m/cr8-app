@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StepIndicator } from "@/components/ui/step-indicator";
 import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { ConfirmationCard } from "@/components/ui/confirmation-card";
 import useUserStore from "@/store/userStore";
 import {
