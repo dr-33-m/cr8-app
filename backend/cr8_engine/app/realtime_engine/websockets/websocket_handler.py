@@ -39,20 +39,28 @@ class WebSocketHandler:
         self.username = username
         self.logger = logging.getLogger(__name__)
 
-        # Initialize specialized handlers (used by B.L.A.Z.E)
-        handlers = {
-            'animation': AnimationHandler(session_manager),
-            'asset': AssetHandler(session_manager),
-            'template': TemplateHandler(session_manager),
-            'preview': PreviewHandler(session_manager),
-            'camera': CameraHandler(session_manager),
-            'light': LightHandler(session_manager),
-            'material': MaterialHandler(session_manager),
-            'object': ObjectHandler(session_manager)
-        }
+        # Get or create session-specific B.L.A.Z.E Agent
+        session = session_manager.get_session(username)
+        if session and session.blaze_agent is None:
+            # Initialize specialized handlers (used by B.L.A.Z.E)
+            handlers = {
+                'animation': AnimationHandler(session_manager),
+                'asset': AssetHandler(session_manager),
+                'template': TemplateHandler(session_manager),
+                'preview': PreviewHandler(session_manager),
+                'camera': CameraHandler(session_manager),
+                'light': LightHandler(session_manager),
+                'material': MaterialHandler(session_manager),
+                'object': ObjectHandler(session_manager)
+            }
 
-        # Initialize B.L.A.Z.E Agent
-        self.blaze_agent = BlazeAgent(session_manager, handlers)
+            # Create B.L.A.Z.E Agent once per session
+            session.blaze_agent = BlazeAgent(session_manager, handlers)
+            self.logger.info(
+                f"Created new B.L.A.Z.E Agent for session {username}")
+
+        # Use session's agent
+        self.blaze_agent = session.blaze_agent if session else None
 
         # Initialize logger
         logger.info(
@@ -83,7 +91,7 @@ class WebSocketHandler:
                 return
 
             # Handle Blender responses that need to be processed
-            if client_type == "blender" and (command and '_result' in command):
+            if client_type == "blender" and ((command and '_result' in command) or data.get("type") == "registry_updated"):
                 await self._handle_blender_response(username, data)
                 return
 
@@ -189,8 +197,49 @@ class WebSocketHandler:
 
     async def _handle_blender_response(self, username: str, data: Dict[str, Any]):
         """Handle responses from Blender and forward to browser"""
+
+        # Check for registry update events
+        if data.get("type") == "registry_updated":
+            self.logger.info(
+                f"Detected registry update message from Blender for {username}")
+            await self._handle_registry_update(username, data)
+            # Don't forward registry updates to browser - these are internal
+            return
+
         # Forward most Blender responses to browser
         await self.session_manager.forward_message(username, data, "browser")
+
+    async def _handle_registry_update(self, username: str, data: Dict[str, Any]):
+        """Handle registry update events from Blender AI Router"""
+        try:
+            self.logger.info(
+                f"Received registry update from Blender for user {username}")
+
+            # Update B.L.A.Z.E agent with new capabilities
+            self.blaze_agent.handle_registry_update(data)
+
+            # Send acknowledgment back to Blender (optional)
+            session = self.session_manager.get_session(username)
+            if session and session.blender_socket:
+                ack_message = {
+                    "type": "registry_update_ack",
+                    "status": "processed",
+                    "message": "Registry update processed successfully"
+                }
+                await session.blender_socket.send_json(ack_message)
+
+        except Exception as e:
+            self.logger.error(f"Error handling registry update: {str(e)}")
+
+            # Send error acknowledgment
+            session = self.session_manager.get_session(username)
+            if session and session.blender_socket:
+                error_message = {
+                    "type": "registry_update_ack",
+                    "status": "error",
+                    "message": f"Failed to process registry update: {str(e)}"
+                }
+                await session.blender_socket.send_json(error_message)
 
     async def _route_to_blaze(self, username: str, data: Dict[str, Any], client_type: str):
         """Route user messages to B.L.A.Z.E Agent"""

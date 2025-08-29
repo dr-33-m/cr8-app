@@ -33,6 +33,8 @@ class Session:
         # Track socket states
         self.browser_socket_closed = False
         self.blender_socket_closed = False
+        # Single B.L.A.Z.E agent instance per session
+        self.blaze_agent = None
 
 
 class SessionManager:

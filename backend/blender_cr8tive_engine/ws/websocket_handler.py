@@ -1,6 +1,6 @@
 """
-WebSocket handler implementation for blender_cr8tive_engine.
-This module provides the main WebSocket handler class with direct command routing.
+WebSocket handler implementation for Blender AI Router.
+This module provides the main WebSocket handler class with command routing to AI addons.
 """
 
 import os
@@ -12,22 +12,8 @@ import websocket
 import time
 import bpy
 from pathlib import Path
-from ..templates.template_wizard import TemplateWizard
-from ..core.blender_controllers import BlenderControllers
-from ..assets.asset_placer import AssetPlacer
 from .utils.session_manager import SessionManager
 from .utils.response_manager import ResponseManager
-
-# Import handler classes
-from .handlers.animation import AnimationHandlers
-from .handlers.asset import AssetHandlers
-from .handlers.render import RenderHandlers
-from .handlers.scene import SceneHandlers
-from .handlers.template import TemplateHandlers
-from .handlers.camera import CameraHandlers
-from .handlers.light import LightHandlers
-from .handlers.material import MaterialHandlers
-from .handlers.object import ObjectHandlers
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -59,11 +45,10 @@ class WebSocketHandler:
 
     def __init__(self):
         # Only initialize once
-        if hasattr(self, 'command_handlers'):
+        if hasattr(self, 'processing_complete'):
             return
 
         # Initialize components
-        self.command_handlers = {}
         self.processing_complete = threading.Event()
         self.processed_commands = set()
         self.reconnect_attempts = 0
@@ -71,60 +56,7 @@ class WebSocketHandler:
         self.stop_retries = False
         self.ws_thread = None
 
-        # Register command handlers directly
-        self._register_command_handlers()
-
-        logging.info(
-            f"WebSocketHandler initialized with {len(self.command_handlers)} command handlers")
-
-    def _register_command_handlers(self):
-        """Register all command handlers directly."""
-        # Utility commands
-        self.command_handlers.update({
-            'ping': self._handle_ping,
-            'connection_confirmation': self._handle_connection_confirmation,
-        })
-
-        # Animation commands
-        self.command_handlers.update({
-            'load_camera_animation': AnimationHandlers.handle_load_camera_animation,
-            'load_light_animation': AnimationHandlers.handle_load_light_animation,
-            'load_product_animation': AnimationHandlers.handle_load_product_animation,
-        })
-
-        # Asset commands
-        self.command_handlers.update({
-            'append_asset': AssetHandlers.handle_append_asset,
-            'remove_assets': AssetHandlers.handle_remove_assets,
-            'swap_assets': AssetHandlers.handle_swap_assets,
-            'rotate_assets': AssetHandlers.handle_rotate_assets,
-            'scale_assets': AssetHandlers.handle_scale_assets,
-            'get_asset_info': AssetHandlers.handle_get_asset_info,
-        })
-
-        # Scene commands - using dedicated handlers instead of SceneHandlers
-        self.command_handlers.update({
-            'update_camera': CameraHandlers.handle_update_camera,
-            'update_light': LightHandlers.handle_update_light,
-            'update_material': MaterialHandlers.handle_update_material,
-            'update_object': ObjectHandlers.handle_update_object,
-
-            # Keep legacy handlers for backward compatibility
-            'change_camera': SceneHandlers.handle_camera_change,
-        })
-
-        # Rendering commands
-        self.command_handlers.update({
-            'start_preview_rendering': RenderHandlers.handle_preview_rendering,
-            'generate_video': RenderHandlers.handle_generate_video,
-        })
-
-        # Template commands
-        self.command_handlers.update({
-            'get_template_controls': TemplateHandlers.handle_get_template_controls,
-            'update_template_control': TemplateHandlers.handle_update_template_control,
-            'get_template_info': TemplateHandlers.handle_get_template_info,
-        })
+        logging.info("AI Router WebSocketHandler initialized")
 
     def initialize_connection(self, url=None):
         """Call this explicitly when ready to connect"""
@@ -167,9 +99,6 @@ class WebSocketHandler:
 
         # Initialize components only when needed
         self.ws = None
-        self.wizard = TemplateWizard()
-        self.controllers = BlenderControllers()
-        self.asset_placer = AssetPlacer()  # Initialize the asset placer
 
     def connect(self, retries=5, delay=2):
         """Establish WebSocket connection with retries and exponential backoff"""
@@ -254,6 +183,9 @@ class WebSocketHandler:
         logging.info(
             f"Received connection confirmation: status={status}, message={message}")
 
+        # Send registry update to FastAPI when connection is confirmed
+        self._send_registry_update()
+
         # No need to respond, just acknowledge receipt
         if message_id:
             response_manager = ResponseManager.get_instance()
@@ -261,6 +193,114 @@ class WebSocketHandler:
                 "connection_confirmation_result", True, {"acknowledged": True}, message_id)
             logging.info(
                 f"Acknowledged connection confirmation with message_id: {message_id}")
+
+    def _handle_addon_command(self, data):
+        """Handle structured addon commands from FastAPI"""
+        try:
+            addon_id = data.get('addon_id')
+            command = data.get('command')
+            params = data.get('params', {})
+            message_id = data.get('message_id')
+
+            logging.info(
+                f"Handling addon command: {addon_id}.{command} with params: {params}")
+
+            # Get router instance
+            from .. import get_router
+            router = get_router()
+
+            # Execute command through router
+            result = router.execute_command(addon_id, command, params)
+
+            # Send response
+            response_manager = ResponseManager.get_instance()
+            response_manager.send_response(
+                f"{command}_result",
+                result.get('status') == 'success',
+                result,
+                message_id
+            )
+
+        except Exception as e:
+            logging.error(f"Error handling addon command: {str(e)}")
+            response_manager = ResponseManager.get_instance()
+            response_manager.send_response(
+                f"{command}_result",
+                False,
+                {
+                    "status": "error",
+                    "message": f"Command handling failed: {str(e)}",
+                    "error_code": "COMMAND_HANDLING_ERROR"
+                },
+                data.get('message_id')
+            )
+
+    def _route_command_to_addon(self, command, data):
+        """Route legacy commands through the AI router"""
+        try:
+            # Extract parameters from data
+            params = {k: v for k, v in data.items() if k not in [
+                'command', 'message_id']}
+            message_id = data.get('message_id')
+
+            logging.info(
+                f"Routing legacy command: {command} with params: {params}")
+
+            # Get router instance
+            from .. import get_router
+            router = get_router()
+
+            # Route command to appropriate addon
+            result = router.route_command(command, params)
+
+            # Send response
+            response_manager = ResponseManager.get_instance()
+            response_manager.send_response(
+                f"{command}_result",
+                result.get('status') == 'success',
+                result,
+                message_id
+            )
+
+        except Exception as e:
+            logging.error(f"Error routing command to addon: {str(e)}")
+            response_manager = ResponseManager.get_instance()
+            response_manager.send_response(
+                f"{command}_result",
+                False,
+                {
+                    "status": "error",
+                    "message": f"Command routing failed: {str(e)}",
+                    "error_code": "ROUTING_ERROR"
+                },
+                data.get('message_id')
+            )
+
+    def _send_registry_update(self):
+        """Send registry update event to FastAPI"""
+        try:
+            from .. import get_registry
+            registry = get_registry()
+
+            available_tools = registry.get_available_tools()
+            total_addons = len(registry.get_registered_addons())
+
+            registry_event = {
+                "type": "registry_updated",
+                "total_addons": total_addons,
+                "available_tools": available_tools
+            }
+
+            if self.ws:
+                self.ws.send(json.dumps(registry_event))
+                logging.info(
+                    f"Sent registry update to FastAPI: {total_addons} addons, {len(available_tools)} tools")
+                logging.debug(f"Registry data: {registry_event}")
+
+        except Exception as e:
+            logging.error(f"Error sending registry update: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def _on_open(self, ws):
         self.reconnect_attempts = 0
@@ -306,22 +346,36 @@ class WebSocketHandler:
 
             logging.info(f"Looking for handler for command: {command}")
 
-            # Get handler from registered handlers
-            handler_method = self.command_handlers.get(command)
-
-            if handler_method:
-                logging.info(
-                    f"Found handler for command {command}: {handler_method.__name__ if hasattr(handler_method, '__name__') else 'anonymous'}")
-
-                def execute_handler():
-                    handler_method(data)
-                    # Mark this command as processed
+            # Handle utility commands directly
+            if command == 'ping':
+                def execute_ping():
+                    self._handle_ping(data)
                     self.processed_commands.add((command, message_id))
-                    logging.info(
-                        f"Marked command {command} with message_id {message_id} as processed")
-                execute_in_main_thread(execute_handler, ())
-            else:
-                logging.warning(f"No handler found for command: {command}")
+                execute_in_main_thread(execute_ping, ())
+                return
+
+            elif command == 'connection_confirmation':
+                def execute_confirmation():
+                    self._handle_connection_confirmation(data)
+                    self.processed_commands.add((command, message_id))
+                execute_in_main_thread(execute_confirmation, ())
+                return
+
+            # Handle addon commands through router
+            elif command.startswith('addon_command'):
+                def execute_addon_command():
+                    self._handle_addon_command(data)
+                    self.processed_commands.add((command, message_id))
+                execute_in_main_thread(execute_addon_command, ())
+                return
+
+            # Route all other commands through the AI router
+            def execute_router_command():
+                self._route_command_to_addon(command, data)
+                self.processed_commands.add((command, message_id))
+                logging.info(
+                    f"Marked command {command} with message_id {message_id} as processed")
+            execute_in_main_thread(execute_router_command, ())
 
         except json.JSONDecodeError as e:
             logging.error(f"Error decoding JSON message: {e}")

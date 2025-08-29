@@ -7,11 +7,12 @@ import logging
 import json
 import os
 from typing import Dict, Any, Optional
-from pydantic_ai import Agent
+from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
+from pydantic_ai.toolsets import FunctionToolset
 from .context_manager import ContextManager
-from .mcp_server import BlazeServer
+from .mcp_server import DynamicMCPServer
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,11 @@ class BlazeAgent:
         self.session_manager = session_manager
         self.handlers = handlers
         self.context_manager = ContextManager()
-        self.mcp_server = BlazeServer(session_manager, handlers)
+        self.mcp_server = DynamicMCPServer(session_manager, handlers)
+
+        # Store addon manifests for dynamic toolset
+        self.addon_manifests = []
+        self.current_username = None
 
         # Configure OpenRouter using OpenRouterProvider
         openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
@@ -37,63 +42,85 @@ class BlazeAgent:
             raise ValueError("OPENROUTER_API_KEY is required")
 
         # Create OpenAI model with OpenRouter provider
-        model = OpenAIModel(
+        self.model = OpenAIModel(
             model_name,
             provider=OpenRouterProvider(api_key=openrouter_api_key)
         )
 
-        # Initialize Pydantic AI agent with OpenRouter model
+        # Initialize Pydantic AI agent with dynamic toolsets
         self.agent = Agent(
-            model,
-            system_prompt=self._get_system_prompt(),
-            tools=self._create_scene_tools() + self._create_asset_tools()
+            self.model,
+            system_prompt=self._get_dynamic_system_prompt()
         )
+
+        # Register dynamic toolset
+        self.agent.toolset()(self._build_dynamic_toolset)
 
         self.logger.info(
             f"B.L.A.Z.E Agent initialized with OpenRouter model: {model_name}")
 
-    def _get_system_prompt(self) -> str:
-        """Get comprehensive system prompt for the agent"""
-        return """
+    def _get_dynamic_system_prompt(self) -> str:
+        """Get dynamic system prompt based on current addon capabilities"""
+        if not self.addon_manifests:
+            return """
 You are B.L.A.Z.E (Blender's Artistic Zen Engineer), an intelligent assistant that helps users control 3D scenes in Blender through natural language.
 
-Your primary role is to:
-1. Understand user requests for scene manipulation
-2. Use available MCP tools to execute changes
-3. Provide clear feedback about what was accomplished
+Your capabilities are dynamically determined by the AI-capable addons currently installed in Blender. 
 
-AVAILABLE TOOLS:
-Scene Control Tools:
-- switch_camera(camera_name): Switch to a specific camera
-- update_light_color(light_name, color): Change light color (use hex like #FF0000)
-- update_light_strength(light_name, strength): Adjust light intensity (0-1000)
-- update_light_properties(light_name, color, strength): Update both at once
-- update_material_color(material_name, color): Change material color
-- move_object(object_name, x, y, z): Move object to coordinates
-- rotate_object(object_name, x, y, z): Rotate object by degrees
-- scale_object(object_name, x, y, z): Scale object by factors
-
-Asset Control Tools:
-- add_asset(empty_name, filepath, asset_name): Add asset to position
-- remove_assets(empty_name): Remove assets from position
-- swap_assets(empty1_name, empty2_name): Swap assets between positions
-- rotate_assets(empty_name, degrees): Rotate assets
-- scale_assets(empty_name, scale_percent): Scale assets (100 = normal)
-- reset_asset_rotation(empty_name): Reset asset rotation
-- reset_asset_scale(empty_name): Reset asset scale
-- get_asset_info(empty_name): Get asset information
-
-GUIDELINES:
-- Be conversational and helpful
-- Always use the exact names provided in scene context
-- For colors, use hex format (#FF0000 for red, #00FF00 for green, etc.)
-- For light strength, use values between 100-1000 for typical lighting
-- Confirm what you've done after executing commands
-- If a request is unclear, ask for clarification
-- If scene elements aren't available, explain what's currently in the scene
-
-Remember: You have access to the current scene context, so you know what cameras, lights, materials, and objects are available.
+Currently no addons are available. Please ensure Blender is connected and AI-capable addons are installed.
 """
+
+        # Build dynamic system prompt
+        return self.mcp_server.build_agent_context(self.addon_manifests)
+
+    def _build_dynamic_toolset(self, ctx: RunContext) -> Optional[FunctionToolset]:
+        """Build dynamic toolset based on current addon manifests"""
+        try:
+            if not self.addon_manifests:
+                self.logger.debug("No addon manifests available for toolset")
+                return None
+
+            # Create list of tool functions
+            tools = []
+
+            for manifest in self.addon_manifests:
+                addon_id = manifest.get('addon_id')
+                addon_tools = manifest.get('tools', [])
+
+                for tool in addon_tools:
+                    tool_name = tool['name']
+                    tool_description = tool['description']
+
+                    # Create tool function that calls our MCP server
+                    def make_tool_function(aid, tname, desc):
+                        async def tool_function(**kwargs) -> str:
+                            """Dynamic tool function"""
+                            result = await self.mcp_server.execute_addon_command(aid, tname, kwargs)
+                            return result
+
+                        tool_function.__name__ = tname
+                        tool_function.__doc__ = desc
+                        return tool_function
+
+                    # Create the tool function
+                    tool_func = make_tool_function(
+                        addon_id, tool_name, tool_description)
+                    tools.append(tool_func)
+
+                    self.logger.debug(
+                        f"Added dynamic tool to toolset: {tool_name}")
+
+            self.logger.info(
+                f"Built dynamic toolset with {len(tools)} tools")
+
+            # Return FunctionToolset with all dynamic tools
+            return FunctionToolset(tools=tools)
+
+        except Exception as e:
+            self.logger.error(f"Error building dynamic toolset: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     async def process_message(self, username: str, message: str,
                               client_type: str = "browser") -> Dict[str, Any]:
@@ -106,6 +133,24 @@ Remember: You have access to the current scene context, so you know what cameras
             # Get current scene context
             scene_context = self.context_manager.get_scene_summary(username)
             self.logger.info(f"Scene context for {username}: {scene_context}")
+
+            # Debug logging for addon manifests
+            self.logger.info(f"DEBUG: Agent instance ID: {id(self)}")
+            self.logger.info(
+                f"DEBUG: addon_manifests length: {len(self.addon_manifests)}")
+            self.logger.info(
+                f"DEBUG: addon_manifests content: {self.addon_manifests}")
+
+            # Check if we have any capabilities
+            if not self.addon_manifests:
+                self.logger.warning(
+                    f"No addon manifests available for user {username}")
+                return {
+                    "type": "agent_response",
+                    "status": "error",
+                    "message": "No AI capabilities are currently available. Please ensure Blender is connected and AI-capable addons are installed.",
+                    "context": scene_context
+                }
 
             # Prepare context-aware prompt
             full_message = f"""
@@ -157,114 +202,57 @@ If the scene context shows no available elements, let the user know what's curre
         self.context_manager.clear_context(username)
         self.logger.info(f"Cleared context for {username}")
 
-    async def handle_tool_call(self, tool_name: str, username: str, **kwargs) -> str:
-        """Handle tool calls from the agent"""
-        return await self.mcp_server.call_tool(tool_name, username, **kwargs)
-
     def get_available_tools(self) -> Dict[str, str]:
         """Get available tools for debugging"""
-        return self.mcp_server.get_available_tools()
+        tools = {}
+        for manifest in self.addon_manifests:
+            for tool in manifest.get('tools', []):
+                tools[tool['name']] = tool.get('description', 'No description')
+        return tools
 
-    def _create_scene_tools(self):
-        """Create scene manipulation tools for Pydantic AI"""
-        async def switch_camera(camera_name: str) -> str:
-            """Switch to a specific camera in the scene"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.scene_tools.switch_camera(self.current_username, camera_name)
+    def handle_registry_update(self, registry_data: Dict[str, Any]) -> None:
+        """Handle registry update events from Blender"""
+        try:
+            available_tools = registry_data.get('available_tools', [])
+            total_addons = registry_data.get('total_addons', 0)
 
-        async def update_light_color(light_name: str, color: str) -> str:
-            """Update the color of a light (use hex colors like #FF0000 for red)"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.scene_tools.update_light_color(self.current_username, light_name, color)
+            # Debug logging for agent instance
+            self.logger.info(
+                f"DEBUG: Registry update - Agent instance ID: {id(self)}")
+            self.logger.info(
+                f"Received registry update: {total_addons} addons, {len(available_tools)} tools")
 
-        async def update_light_strength(light_name: str, strength: int) -> str:
-            """Update the strength/intensity of a light (0-1000)"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.scene_tools.update_light_strength(self.current_username, light_name, strength)
+            # Convert tools to manifests format expected by MCP server
+            manifests = []
+            addons_processed = set()
 
-        async def update_light_properties(light_name: str, color: str = None, strength: int = None) -> str:
-            """Update both color and strength of a light at once"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.scene_tools.update_light_properties(self.current_username, light_name, color, strength)
+            for tool in available_tools:
+                addon_id = tool.get('addon_id')
+                if addon_id and addon_id not in addons_processed:
+                    # Group tools by addon
+                    addon_tools = [t for t in available_tools if t.get(
+                        'addon_id') == addon_id]
 
-        async def update_material_color(material_name: str, color: str) -> str:
-            """Update the color of a material (use hex colors like #FF0000 for red)"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.scene_tools.update_material_color(self.current_username, material_name, color)
+                    manifest = {
+                        'addon_id': addon_id,
+                        'addon_name': tool.get('addon_name', addon_id),
+                        'agent_description': f"Addon {addon_id} provides {len(addon_tools)} tools for scene manipulation",
+                        'tools': addon_tools,
+                        'context_hints': []
+                    }
+                    manifests.append(manifest)
+                    addons_processed.add(addon_id)
 
-        async def move_object(object_name: str, x: float, y: float, z: float) -> str:
-            """Move an object to specific coordinates"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.scene_tools.transform_object(self.current_username, object_name, location={"x": x, "y": y, "z": z})
+            # Store manifests for dynamic toolset
+            self.addon_manifests = manifests
+            self.logger.info(
+                f"DEBUG: Stored {len(self.addon_manifests)} manifests in agent instance {id(self)}")
 
-        async def rotate_object(object_name: str, x: float, y: float, z: float) -> str:
-            """Rotate an object by specified degrees on each axis"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.scene_tools.transform_object(self.current_username, object_name, rotation={"x": x, "y": y, "z": z})
+            # Update MCP server capabilities
+            self.mcp_server.refresh_capabilities(manifests)
 
-        async def scale_object(object_name: str, x: float, y: float, z: float) -> str:
-            """Scale an object by specified factors on each axis"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.scene_tools.transform_object(self.current_username, object_name, scale={"x": x, "y": y, "z": z})
+            self.logger.info(
+                f"Updated system capabilities: {len(manifests)} addons with {len(available_tools)} total tools")
 
-        return [switch_camera, update_light_color, update_light_strength, update_light_properties, update_material_color, move_object, rotate_object, scale_object]
-
-    def _create_asset_tools(self):
-        """Create asset manipulation tools for Pydantic AI"""
-        async def add_asset(empty_name: str, filepath: str, asset_name: str) -> str:
-            """Add an asset to a specific empty position in the scene"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.asset_tools.append_asset(self.current_username, empty_name, filepath, asset_name)
-
-        async def remove_assets(empty_name: str) -> str:
-            """Remove all assets from a specific empty position"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.asset_tools.remove_assets(self.current_username, empty_name)
-
-        async def swap_assets(empty1_name: str, empty2_name: str) -> str:
-            """Swap assets between two empty positions"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.asset_tools.swap_assets(self.current_username, empty1_name, empty2_name)
-
-        async def rotate_assets(empty_name: str, degrees: float) -> str:
-            """Rotate assets in a specific empty by degrees"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.asset_tools.rotate_assets(self.current_username, empty_name, degrees)
-
-        async def reset_asset_rotation(empty_name: str) -> str:
-            """Reset rotation of assets in a specific empty"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.asset_tools.rotate_assets(self.current_username, empty_name, 0, reset=True)
-
-        async def scale_assets(empty_name: str, scale_percent: float) -> str:
-            """Scale assets in a specific empty by percentage (100 = normal size)"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.asset_tools.scale_assets(self.current_username, empty_name, scale_percent)
-
-        async def reset_asset_scale(empty_name: str) -> str:
-            """Reset scale of assets in a specific empty to normal size"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.asset_tools.scale_assets(self.current_username, empty_name, 100, reset=True)
-
-        async def get_asset_info(empty_name: str) -> str:
-            """Get information about assets in a specific empty"""
-            if not hasattr(self, 'current_username') or not self.current_username:
-                return "Error: No active user session"
-            return await self.mcp_server.asset_tools.get_asset_info(self.current_username, empty_name)
-
-        return [add_asset, remove_assets, swap_assets, rotate_assets, reset_asset_rotation, scale_assets, reset_asset_scale, get_asset_info]
+        except Exception as e:
+            self.logger.error(f"Error handling registry update: {str(e)}")
