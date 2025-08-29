@@ -41,8 +41,7 @@ function WorkspaceContent() {
     };
   }, [clearControls]);
 
-  const { websocket, isFullyConnected, requestTemplateControls } =
-    useWebSocketContext();
+  const { websocket, isFullyConnected } = useWebSocketContext();
 
   const { generateVideo } = usePreviewRenderer(websocket, {
     onMessage: useCallback((data: any) => {
@@ -91,12 +90,9 @@ function WorkspaceContent() {
   // Track if animations have been loaded
   const animationsLoaded = useRef(false);
 
-  // Request template controls and animations when connected
+  // Load animations when connected
   useEffect(() => {
     if (isFullyConnected) {
-      // Request template controls
-      requestTemplateControls();
-
       // Load animations if not already loaded
       if (!animationsLoaded.current) {
         animationsLoaded.current = true;
@@ -104,7 +100,7 @@ function WorkspaceContent() {
         fetchAnimations();
       }
     }
-  }, [isFullyConnected, requestTemplateControls]);
+  }, [isFullyConnected]);
 
   return (
     <div className="relative w-full h-screen bg-[#1C1C1C] text-white overflow-hidden">
