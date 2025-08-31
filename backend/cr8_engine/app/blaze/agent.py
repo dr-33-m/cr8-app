@@ -6,13 +6,13 @@ Processes natural language requests and executes scene manipulations.
 import logging
 import json
 import os
-from typing import Dict, Any, Optional
+import uuid
+from typing import Dict, Any, Optional, List
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.toolsets import FunctionToolset
 from .context_manager import ContextManager
-from .mcp_server import DynamicMCPServer
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,6 @@ class BlazeAgent:
         self.session_manager = session_manager
         self.handlers = handlers
         self.context_manager = ContextManager()
-        self.mcp_server = DynamicMCPServer(session_manager, handlers)
 
         # Store addon manifests for dynamic toolset
         self.addon_manifests = []
@@ -53,8 +52,11 @@ class BlazeAgent:
             system_prompt=self._get_dynamic_system_prompt()
         )
 
-        # Register dynamic toolset
-        self.agent.toolset()(self._build_dynamic_toolset)
+        # Register dynamic toolset using decorator
+        @self.agent.toolset
+        def dynamic_addon_toolset(ctx: RunContext) -> Optional[FunctionToolset]:
+            """Build toolset dynamically from current addon manifests"""
+            return self._build_dynamic_toolset(ctx)
 
         self.logger.info(
             f"B.L.A.Z.E Agent initialized with OpenRouter model: {model_name}")
@@ -70,51 +72,179 @@ Your capabilities are dynamically determined by the AI-capable addons currently 
 Currently no addons are available. Please ensure Blender is connected and AI-capable addons are installed.
 """
 
-        # Build dynamic system prompt
-        return self.mcp_server.build_agent_context(self.addon_manifests)
+        # Build dynamic system prompt from manifests
+        return self._build_agent_context(self.addon_manifests)
+
+    def _build_agent_context(self, manifests: List[Dict[str, Any]]) -> str:
+        """Generate dynamic system prompt from manifests"""
+        base_prompt = """You are B.L.A.Z.E (Blender's Artistic Zen Engineer), an intelligent assistant that helps users control 3D scenes in Blender through natural language.
+
+Your capabilities are dynamically determined by the AI-capable addons currently installed in Blender.
+
+CURRENT CAPABILITIES:
+
+"""
+
+        # Add addon descriptions using standardized ai_integration structure
+        for manifest in manifests:
+            ai_integration = manifest['ai_integration']
+            addon_info = manifest['addon_info']
+            
+            addon_name = addon_info.get('name', addon_info.get('id', 'Unknown'))
+            description = ai_integration.get('agent_description', 'No description available')
+            tools = ai_integration.get('tools', [])
+            context_hints = ai_integration.get('context_hints', [])
+
+            base_prompt += f"\n**{addon_name}:**\n"
+            base_prompt += f"{description}\n"
+
+            if tools:
+                base_prompt += f"Available tools:\n"
+                for tool in tools:
+                    tool_name = tool['name']
+                    tool_description = tool['description']
+                    tool_params = tool.get('parameters', [])
+                    
+                    # Include parameter information in the description
+                    param_info = ""
+                    if tool_params:
+                        required_params = [p['name'] for p in tool_params if p.get('required', True)]
+                        optional_params = [p['name'] for p in tool_params if not p.get('required', True)]
+                        
+                        param_parts = []
+                        if required_params:
+                            param_parts.append(f"required: {', '.join(required_params)}")
+                        if optional_params:
+                            param_parts.append(f"optional: {', '.join(optional_params)}")
+                        param_info = f" ({'; '.join(param_parts)})"
+                    
+                    base_prompt += f"- {tool_name}: {tool_description}{param_info}\n"
+
+            # Add context hints if available
+            if context_hints:
+                base_prompt += f"Usage hints:\n"
+                for hint in context_hints:
+                    base_prompt += f"- {hint}\n"
+
+            base_prompt += "\n"
+
+        base_prompt += """
+GUIDELINES:
+- Be conversational and helpful
+- Always use the exact names provided in scene context
+- If a request requires capabilities that aren't available, explain what addons might be needed
+- If scene elements aren't available, explain what's currently in the scene
+- Confirm what you've done after executing commands
+- Use the EXACT parameter names shown in tool descriptions - these are required and cannot be changed
+
+Remember: Your capabilities change based on installed addons. Use the available tools to accomplish user requests.
+"""
+
+        return base_prompt
+
+    async def execute_addon_command_direct(self, addon_id: str, command: str, params: Dict[str, Any]) -> str:
+        """Execute command on addon via WebSocket directly (no MCP server)"""
+        try:
+            if not self.current_username:
+                return "Error: No active user session"
+
+            self.logger.info(
+                f"Executing {addon_id}.{command} with params: {params}")
+
+            # Create command message with unique message ID
+            message = {
+                "type": "addon_command",
+                "addon_id": addon_id,
+                "command": command,
+                "params": params,
+                "username": self.current_username,
+                "message_id": str(uuid.uuid4())
+            }
+
+            # Get session and send message
+            session = self.session_manager.get_session(self.current_username)
+            if session and session.blender_socket:
+                await session.blender_socket.send_json(message)
+
+                # Trigger scene context refresh after command
+                await self._refresh_scene_context_universal(self.current_username)
+
+                # Return success message
+                return f"Successfully executed {command} on {addon_id}"
+            else:
+                return f"Error: No Blender connection for user {self.current_username}"
+
+        except Exception as e:
+            self.logger.error(f"Error executing addon command: {str(e)}")
+            return f"Error executing command: {str(e)}"
+
+    async def _refresh_scene_context_universal(self, username: str) -> None:
+        """Universal context refresh by calling list_scene_objects from any available addon"""
+        try:
+            # Find any addon that provides list_scene_objects using standardized ai_integration structure
+            list_objects_addon = None
+            for manifest in self.addon_manifests:
+                tools = manifest['ai_integration']['tools']
+                
+                if any(tool.get('name') == 'list_scene_objects' for tool in tools):
+                    list_objects_addon = manifest['addon_info']['id']
+                    break
+            
+            if not list_objects_addon:
+                self.logger.warning("No addon provides list_scene_objects - cannot refresh context")
+                return
+                
+            # Execute list_scene_objects to get current scene state
+            list_message = {
+                "type": "addon_command",
+                "addon_id": list_objects_addon,
+                "command": "list_scene_objects",
+                "params": {},
+                "username": username,
+                "message_id": str(uuid.uuid4())
+            }
+            
+            session = self.session_manager.get_session(username)
+            if session and session.blender_socket:
+                await session.blender_socket.send_json(list_message)
+                self.logger.info(f"Triggered scene context refresh for {username}")
+            
+        except Exception as e:
+            self.logger.error(f"Error refreshing scene context: {str(e)}")
 
     def _build_dynamic_toolset(self, ctx: RunContext) -> Optional[FunctionToolset]:
-        """Build dynamic toolset based on current addon manifests"""
+        """Build dynamic toolset with proper parameter schemas from addon manifests"""
         try:
             if not self.addon_manifests:
                 self.logger.debug("No addon manifests available for toolset")
                 return None
 
-            # Create list of tool functions
-            tools = []
+            toolset = FunctionToolset()
 
             for manifest in self.addon_manifests:
-                addon_id = manifest.get('addon_id')
-                addon_tools = manifest.get('tools', [])
+                addon_id = manifest['addon_info']['id']
+                tools = manifest['ai_integration']['tools']
 
-                for tool in addon_tools:
+                for tool in tools:
                     tool_name = tool['name']
                     tool_description = tool['description']
+                    tool_params = tool.get('parameters', [])
 
-                    # Create tool function that calls our MCP server
-                    def make_tool_function(aid, tname, desc):
-                        async def tool_function(**kwargs) -> str:
-                            """Dynamic tool function"""
-                            result = await self.mcp_server.execute_addon_command(aid, tname, kwargs)
-                            return result
+                    # Create dynamic function with proper parameter signature
+                    dynamic_tool = self._create_dynamic_tool_function(
+                        addon_id, tool_name, tool_description, tool_params
+                    )
 
-                        tool_function.__name__ = tname
-                        tool_function.__doc__ = desc
-                        return tool_function
-
-                    # Create the tool function
-                    tool_func = make_tool_function(
-                        addon_id, tool_name, tool_description)
-                    tools.append(tool_func)
+                    # Add function to toolset
+                    toolset.add_function(dynamic_tool, name=tool_name)
 
                     self.logger.debug(
-                        f"Added dynamic tool to toolset: {tool_name}")
+                        f"Added dynamic tool to toolset: {tool_name} with {len(tool_params)} parameters")
 
             self.logger.info(
-                f"Built dynamic toolset with {len(tools)} tools")
+                f"Built dynamic toolset with {len(toolset.tools)} tools")
 
-            # Return FunctionToolset with all dynamic tools
-            return FunctionToolset(tools=tools)
+            return toolset
 
         except Exception as e:
             self.logger.error(f"Error building dynamic toolset: {str(e)}")
@@ -122,13 +252,63 @@ Currently no addons are available. Please ensure Blender is connected and AI-cap
             traceback.print_exc()
             return None
 
+    def _create_dynamic_tool_function(self, addon_id: str, tool_name: str, tool_description: str, tool_params: List[Dict[str, Any]]):
+        """Create a dynamic function with proper parameter signatures"""
+        
+        # Build parameter collection code for the function body
+        param_collection_code = []
+        param_signature_parts = []
+        
+        for param in tool_params:
+            param_name = param['name']
+            is_required = param.get('required', True)
+            default_value = param.get('default')
+            
+            param_collection_code.append(f"'{param_name}': {param_name}")
+            
+            # Build function signature part
+            if is_required:
+                param_signature_parts.append(param_name)
+            else:
+                # Handle defaults for optional parameters
+                if default_value is not None:
+                    param_signature_parts.append(f"{param_name}={repr(default_value)}")
+                else:
+                    param_signature_parts.append(f"{param_name}=None")
+
+        # Create function code with proper parameter signature
+        signature_str = ', '.join(param_signature_parts) if param_signature_parts else ''
+        param_dict_code = '{' + ', '.join(param_collection_code) + '}' if param_collection_code else '{}'
+        
+        # Generate the complete function code
+        function_code = f'''
+async def {tool_name}({signature_str}):
+    """
+    {tool_description}
+    """
+    # Collect parameters into dict, filtering out None values
+    all_params = {param_dict_code}
+    filtered_params = {{k: v for k, v in all_params.items() if v is not None}}
+    
+    return await self.execute_addon_command_direct('{addon_id}', '{tool_name}', filtered_params)
+'''
+        
+        # Create namespace and execute function definition
+        namespace = {'self': self}
+        
+        exec(function_code, namespace)
+        dynamic_function = namespace[tool_name]
+        
+        self.logger.debug(f"Created function {tool_name} with signature: {signature_str}")
+        
+        return dynamic_function
+
     async def process_message(self, username: str, message: str,
                               client_type: str = "browser") -> Dict[str, Any]:
         """Process a natural language message from user"""
         try:
             # Store current username for tool access
             self.current_username = username
-            self.mcp_server.set_current_username(username)
 
             # Get current scene context
             scene_context = self.context_manager.get_scene_summary(username)
@@ -184,18 +364,7 @@ If the scene context shows no available elements, let the user know what's curre
         finally:
             # Clear username after processing
             self.current_username = None
-            self.mcp_server.current_username = None
 
-    def update_scene_context(self, username: str, template_controls: Dict[str, Any]) -> None:
-        """Update scene context when template controls change"""
-        self.context_manager.update_template_controls(
-            username, template_controls)
-        self.logger.info(f"Updated scene context for {username}")
-
-    def update_asset_context(self, username: str, assets: list) -> None:
-        """Update asset context when assets change"""
-        self.context_manager.update_placed_assets(username, assets)
-        self.logger.info(f"Updated asset context for {username}")
 
     def clear_user_context(self, username: str) -> None:
         """Clear context when user disconnects"""
@@ -206,7 +375,7 @@ If the scene context shows no available elements, let the user know what's curre
         """Get available tools for debugging"""
         tools = {}
         for manifest in self.addon_manifests:
-            for tool in manifest.get('tools', []):
+            for tool in manifest['ai_integration']['tools']:
                 tools[tool['name']] = tool.get('description', 'No description')
         return tools
 
@@ -222,7 +391,7 @@ If the scene context shows no available elements, let the user know what's curre
             self.logger.info(
                 f"Received registry update: {total_addons} addons, {len(available_tools)} tools")
 
-            # Convert tools to manifests format expected by MCP server
+            # Convert tools to standardized ai_integration manifests format
             manifests = []
             addons_processed = set()
 
@@ -233,12 +402,17 @@ If the scene context shows no available elements, let the user know what's curre
                     addon_tools = [t for t in available_tools if t.get(
                         'addon_id') == addon_id]
 
+                    # Create manifest in standardized ai_integration format
                     manifest = {
-                        'addon_id': addon_id,
-                        'addon_name': tool.get('addon_name', addon_id),
-                        'agent_description': f"Addon {addon_id} provides {len(addon_tools)} tools for scene manipulation",
-                        'tools': addon_tools,
-                        'context_hints': []
+                        'addon_info': {
+                            'id': addon_id,
+                            'name': tool.get('addon_name', addon_id)
+                        },
+                        'ai_integration': {
+                            'agent_description': f"Addon {addon_id} provides {len(addon_tools)} tools for scene manipulation",
+                            'tools': addon_tools,
+                            'context_hints': []
+                        }
                     }
                     manifests.append(manifest)
                     addons_processed.add(addon_id)
@@ -247,9 +421,6 @@ If the scene context shows no available elements, let the user know what's curre
             self.addon_manifests = manifests
             self.logger.info(
                 f"DEBUG: Stored {len(self.addon_manifests)} manifests in agent instance {id(self)}")
-
-            # Update MCP server capabilities
-            self.mcp_server.refresh_capabilities(manifests)
 
             self.logger.info(
                 f"Updated system capabilities: {len(manifests)} addons with {len(available_tools)} total tools")

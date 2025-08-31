@@ -14,46 +14,15 @@ logger = logging.getLogger(__name__)
 class SceneContext:
     """Current scene context information"""
     username: str
-    available_cameras: List[Dict[str, Any]]
-    available_lights: List[Dict[str, Any]]
-    available_materials: List[Dict[str, Any]]
-    available_objects: List[Dict[str, Any]]
-    placed_assets: List[Dict[str, Any]]
-    current_camera: Optional[str] = None
+    current_objects: List[str]
+    last_updated: Optional[str] = None
 
     def get_summary(self) -> str:
         """Get a human-readable summary of the scene"""
-        summary_parts = []
-
-        if self.available_cameras:
-            camera_names = [cam.get('name', '')
-                            for cam in self.available_cameras]
-            summary_parts.append(f"Cameras: {', '.join(camera_names)}")
-
-        if self.available_lights:
-            light_names = [light.get('name', '')
-                           for light in self.available_lights]
-            summary_parts.append(f"Lights: {', '.join(light_names)}")
-
-        if self.available_materials:
-            material_names = [mat.get('name', '')
-                              for mat in self.available_materials]
-            summary_parts.append(f"Materials: {', '.join(material_names)}")
-
-        if self.available_objects:
-            object_names = [obj.get('name', '')
-                            for obj in self.available_objects]
-            summary_parts.append(f"Objects: {', '.join(object_names)}")
-
-        if self.placed_assets:
-            asset_names = [asset.get('name', '')
-                           for asset in self.placed_assets]
-            summary_parts.append(f"Assets: {', '.join(asset_names)}")
-
-        if self.current_camera:
-            summary_parts.append(f"Current camera: {self.current_camera}")
-
-        return "; ".join(summary_parts) if summary_parts else "No scene elements available"
+        if self.current_objects:
+            return f"Scene objects: {', '.join(self.current_objects)}"
+        else:
+            return "Empty scene"
 
 
 class ContextManager:
@@ -82,59 +51,25 @@ class ContextManager:
         """Create initial context for a user"""
         context = SceneContext(
             username=username,
-            available_cameras=[],
-            available_lights=[],
-            available_materials=[],
-            available_objects=[],
-            placed_assets=[]
+            current_objects=[]
         )
         self._contexts[username] = context
         self.logger.info(f"Created scene context for user {username}")
         return context
 
-    def update_template_controls(self, username: str, template_controls: Dict[str, Any]) -> None:
-        """Update template controls in context"""
+    def update_scene_objects(self, username: str, objects_list: List[str]) -> None:
+        """Update scene objects from live scene query"""
+        import datetime
+        
         context = self._contexts.get(username)
         if not context:
             context = self.create_context(username)
 
-        context.available_cameras = template_controls.get('cameras', [])
-        context.available_lights = template_controls.get('lights', [])
-        context.available_materials = template_controls.get('materials', [])
-        context.available_objects = template_controls.get('objects', [])
-
-        # Debug logging
-        self.logger.info(f"Updated template controls for user {username}")
-        self.logger.info(f"Cameras: {len(context.available_cameras)}")
-        self.logger.info(f"Lights: {len(context.available_lights)}")
-        self.logger.info(f"Materials: {len(context.available_materials)}")
-        self.logger.info(f"Objects: {len(context.available_objects)}")
-        for cam in context.available_cameras:
-            self.logger.info(
-                f"Camera: {cam.get('displayName', cam.get('name', 'Unknown'))}")
-        for light in context.available_lights:
-            self.logger.info(
-                f"Light: {light.get('displayName', light.get('name', 'Unknown'))}")
-
-    def update_placed_assets(self, username: str, assets: List[Dict[str, Any]]) -> None:
-        """Update placed assets in context"""
-        context = self._contexts.get(username)
-        if not context:
-            context = self.create_context(username)
-
-        context.placed_assets = assets
-        self.logger.info(
-            f"Updated placed assets for user {username}: {len(assets)} assets")
-
-    def set_current_camera(self, username: str, camera_name: str) -> None:
-        """Set the current camera"""
-        context = self._contexts.get(username)
-        if not context:
-            context = self.create_context(username)
-
-        context.current_camera = camera_name
-        self.logger.info(
-            f"Set current camera for user {username}: {camera_name}")
+        context.current_objects = objects_list
+        context.last_updated = datetime.datetime.now().isoformat()
+        
+        self.logger.info(f"Updated scene objects for user {username}: {len(objects_list)} objects")
+        self.logger.debug(f"Scene objects: {', '.join(objects_list)}")
 
     def clear_context(self, username: str) -> None:
         """Clear context for a user"""

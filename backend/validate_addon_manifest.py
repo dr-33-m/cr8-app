@@ -6,6 +6,7 @@ This script checks the manifest format without requiring Blender.
 
 import json
 import sys
+import argparse
 from pathlib import Path
 
 
@@ -115,19 +116,32 @@ def validate_manifest(manifest_path):
 
 
 if __name__ == "__main__":
-    print("=== Random Mesh Generator Addon Validation ===\n")
+    parser = argparse.ArgumentParser(description="Validate CR8 addon manifest")
+    parser.add_argument("manifest_path", 
+                       help="Path to addon_ai.json file to validate")
+    parser.add_argument("--test-default", action="store_true",
+                       help="Test the default random_mesh_generator addon")
+    
+    args = parser.parse_args()
+    
+    print("=== CR8 Addon Manifest Validation ===\n")
 
-    # Validate the test addon manifest
-    manifest_path = Path(__file__).parent / "test_addons" / \
-        "random_mesh_generator" / "addon_ai.json"
+    if args.test_default:
+        # Test the default addon
+        manifest_path = Path(__file__).parent / "test_addons" / \
+            "random_mesh_generator" / "addon_ai.json"
+        print("Testing default addon...")
+    else:
+        # Use provided path
+        manifest_path = Path(args.manifest_path)
 
     if validate_manifest(manifest_path):
-        print("\n✅ Test addon is ready for installation!")
+        print("\n✅ Addon manifest is valid!")
         print("\nNext steps:")
         print("1. Copy the addon to your Blender addons directory")
         print("2. Enable it in Blender preferences")
         print("3. Install and enable the AI Router addon")
         print("4. Test the complete pipeline!")
     else:
-        print("\n❌ Test addon has validation issues.")
+        print("\n❌ Addon manifest has validation issues.")
         sys.exit(1)

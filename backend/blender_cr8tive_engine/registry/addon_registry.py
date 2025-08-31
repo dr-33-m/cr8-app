@@ -145,9 +145,10 @@ class AIAddonRegistry:
         return discovered_addons
 
     def _get_addon_paths(self) -> list:
-        """Get all possible addon paths in Blender"""
+        """Get all possible addon paths in Blender (both traditional addons and extensions)"""
         addon_paths = []
 
+        # Traditional addon directories
         # User addons directory
         if hasattr(bpy.utils, 'user_script_path'):
             user_scripts = bpy.utils.user_script_path()
@@ -157,6 +158,15 @@ class AIAddonRegistry:
         # System addons directories
         for path in bpy.utils.script_paths():
             addon_paths.append(Path(path) / "addons")
+
+        # Extensions directories (Blender 4.2+)
+        config_path = bpy.utils.user_resource('CONFIG')
+        if config_path:
+            # Go up one level from /config to get base Blender directory
+            blender_base = Path(config_path).parent
+            # Add extensions paths
+            addon_paths.append(blender_base / "extensions" / "user_default")
+            addon_paths.append(blender_base / "extensions" / "blender_org")
 
         return addon_paths
 
@@ -240,18 +250,27 @@ class AIAddonRegistry:
     def _load_addon_handlers(self, addon_id: str, manifest: AddonManifest) -> bool:
         """Load command handlers from the addon's Python module"""
         try:
-            # Try to import the addon module
-            addon_module_name = manifest.addon_path.name
+            # Get the base addon name from path
+            base_addon_name = manifest.addon_path.name
 
-            # Check if addon is enabled in Blender
-            if addon_module_name not in bpy.context.preferences.addons:
+            # Find the correct import name from enabled addons
+            # Extensions use bl_ext.* prefix, traditional addons use base name
+            enabled_addons = list(bpy.context.preferences.addons.keys())
+            correct_import_name = None
+
+            for addon_name in enabled_addons:
+                if addon_name.endswith(base_addon_name):
+                    correct_import_name = addon_name
+                    break
+
+            if not correct_import_name:
                 self.logger.warning(
-                    f"Addon {addon_id} is not enabled in Blender")
+                    f"Addon {addon_id} ({base_addon_name}) is not enabled in Blender")
                 return False
 
-            # Import the addon module
+            # Import the addon module using correct import name
             import importlib
-            addon_module = importlib.import_module(addon_module_name)
+            addon_module = importlib.import_module(correct_import_name)
 
             # Look for AI_COMMAND_HANDLERS export
             if hasattr(addon_module, 'AI_COMMAND_HANDLERS'):

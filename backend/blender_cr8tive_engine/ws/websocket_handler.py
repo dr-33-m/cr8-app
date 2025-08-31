@@ -236,22 +236,25 @@ class WebSocketHandler:
             )
 
     def _route_command_to_addon(self, command, data):
-        """Route legacy commands through the AI router"""
+        """Route commands through the AI router using structured format"""
         try:
-            # Extract parameters from data
-            params = {k: v for k, v in data.items() if k not in [
-                'command', 'message_id']}
+            # Extract parameters from structured format only
+            params = data.get('params', {})
+            addon_id = data.get('addon_id')
             message_id = data.get('message_id')
 
             logging.info(
-                f"Routing legacy command: {command} with params: {params}")
+                f"Routing command: {command} with params: {params}, addon_id: {addon_id}")
 
             # Get router instance
             from .. import get_router
             router = get_router()
 
-            # Route command to appropriate addon
-            result = router.route_command(command, params)
+            # Route command to appropriate addon (with addon_id if available)
+            if addon_id:
+                result = router.execute_command(addon_id, command, params)
+            else:
+                result = router.route_command(command, params)
 
             # Send response
             response_manager = ResponseManager.get_instance()
@@ -333,8 +336,13 @@ class WebSocketHandler:
             logging.info(
                 f"Parsed message - command: {command}, message_id: {message_id}")
 
-            # Prevent reprocessing of the same command
-            if (command, message_id) in self.processed_commands:
+            # Validation safety net: warn about missing message IDs for important commands
+            if not message_id and command not in ['ping', 'connection_confirmation']:
+                logging.warning(
+                    f"Command {command} received without message_id - this may cause deduplication issues")
+
+            # Prevent reprocessing of the same command (only if we have a proper message_id)
+            if message_id and (command, message_id) in self.processed_commands:
                 logging.warning(
                     f"Skipping already processed command: {command} with message_id: {message_id}")
                 return

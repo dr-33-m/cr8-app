@@ -64,11 +64,6 @@ class WebSocketHandler:
                 await self._handle_system_message(username, data, client_type)
                 return
 
-            # Handle template controls updates (needed for B.L.A.Z.E context)
-            if command == 'get_template_controls' or (command and 'template' in command and '_result' in command):
-                await self._handle_template_message(username, data, client_type)
-                return
-
             # Handle Blender responses that need to be processed
             if client_type == "blender" and ((command and '_result' in command) or data.get("type") == "registry_updated"):
                 await self._handle_blender_response(username, data)
@@ -141,39 +136,6 @@ class WebSocketHandler:
                     })
             return
 
-    async def _handle_template_message(self, username: str, data: Dict[str, Any], client_type: str):
-        """Handle template control messages and update B.L.A.Z.E context"""
-        command = data.get("command")
-
-        if command == 'get_template_controls':
-            # Forward to Blender
-            await self.session_manager.forward_message(username, data, "blender")
-        elif command and 'template' in command and '_result' in command:
-            # Update B.L.A.Z.E context with template controls
-            controls = data.get("data", {}).get("controls", [])
-            self.logger.info(
-                f"Received template controls for {username}: {len(controls)} controls")
-
-            if controls and isinstance(controls, list):
-                # Parse the list of controls and categorize by type
-                template_controls = {
-                    "cameras": [c for c in controls if c.get("type") == "camera"],
-                    "lights": [c for c in controls if c.get("type") == "light"],
-                    "materials": [c for c in controls if c.get("type") == "material"],
-                    "objects": [c for c in controls if c.get("type") == "object"]
-                }
-
-                self.logger.info(
-                    f"Categorized controls - Cameras: {len(template_controls['cameras'])}, Lights: {len(template_controls['lights'])}")
-
-                self.blaze_agent.update_scene_context(
-                    username, template_controls)
-            else:
-                self.logger.warning(f"No valid controls found for {username}")
-
-            # Forward response to browser
-            await self.session_manager.forward_message(username, data, "browser")
-
     async def _handle_blender_response(self, username: str, data: Dict[str, Any]):
         """Handle responses from Blender and forward to browser"""
 
@@ -184,6 +146,11 @@ class WebSocketHandler:
             await self._handle_registry_update(username, data)
             # Don't forward registry updates to browser - these are internal
             return
+
+        # Check for list_scene_objects responses for context updates
+        command = data.get("command", "")
+        if command == "list_scene_objects_result" and data.get("status") == "success":
+            await self._update_scene_context_from_response(username, data)
 
         # Forward most Blender responses to browser
         await self.session_manager.forward_message(username, data, "browser")
@@ -245,6 +212,51 @@ class WebSocketHandler:
         target = "blender" if client_type == "browser" else "browser"
         await self.session_manager.forward_message(username, data, target)
         self.logger.info(f"Forwarded message from {client_type} to {target}")
+
+    async def _update_scene_context_from_response(self, username: str, data: Dict[str, Any]):
+        """Update scene context from list_scene_objects response"""
+        try:
+            # Parse the nested JSON structure from multi_registry_assets
+            response_data = data.get("data", {})
+            
+            # The response has nested JSON: data.message contains a JSON string
+            message_json_str = response_data.get("message", "")
+            actual_message = ""
+            
+            if message_json_str:
+                # Parse the JSON string to get the actual message
+                import json
+                try:
+                    parsed_data = json.loads(message_json_str)
+                    actual_message = parsed_data.get("message", "")
+                    self.logger.debug(f"Parsed nested JSON, extracted message: {actual_message}")
+                except json.JSONDecodeError:
+                    # Fallback: treat as direct message
+                    actual_message = message_json_str
+                    self.logger.debug(f"Using direct message: {actual_message}")
+            
+            # Extract object names from "Scene objects: Rockingchair_01" format
+            objects_list = []
+            if actual_message.startswith('Scene objects: '):
+                objects_str = actual_message.replace('Scene objects: ', '')
+                if objects_str.strip():  # Check if not empty
+                    objects_list = [obj.strip() for obj in objects_str.split(',') if obj.strip()]
+                    self.logger.info(f"Extracted objects from message: {objects_list}")
+            else:
+                self.logger.warning(f"Message does not start with 'Scene objects: ': {actual_message}")
+            
+            # Update the context manager
+            session = self.session_manager.get_session(username)
+            if session and session.blaze_agent:
+                session.blaze_agent.context_manager.update_scene_objects(username, objects_list)
+                self.logger.info(f"Updated scene context for {username}: {len(objects_list)} objects - {objects_list}")
+            else:
+                self.logger.warning(f"No session or B.L.A.Z.E agent found for {username}")
+            
+        except Exception as e:
+            self.logger.error(f"Error updating scene context from response: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     async def _send_error(self, username: str, message: str):
         """Send error message to browser client"""
