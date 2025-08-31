@@ -47,6 +47,158 @@
         "parameters": [],
         "examples": ["refresh the addon list", "scan for new addons"],
         "category": "system"
+      },
+      {
+        "name": "frame_jump_start",
+        "description": "Jump to animation start frame",
+        "usage": "Use to quickly go to the beginning of the animation timeline",
+        "parameters": [],
+        "examples": ["go to start", "jump to beginning"],
+        "category": "animation"
+      },
+      {
+        "name": "frame_jump_end",
+        "description": "Jump to animation end frame",
+        "usage": "Use to quickly go to the end of the animation timeline",
+        "parameters": [],
+        "examples": ["go to end", "jump to last frame"],
+        "category": "animation"
+      },
+      {
+        "name": "keyframe_jump_prev",
+        "description": "Jump to previous keyframe",
+        "usage": "Use to navigate to the previous keyframe in the timeline",
+        "parameters": [],
+        "examples": ["previous keyframe", "go back to last keyframe"],
+        "category": "animation"
+      },
+      {
+        "name": "keyframe_jump_next",
+        "description": "Jump to next keyframe",
+        "usage": "Use to navigate to the next keyframe in the timeline",
+        "parameters": [],
+        "examples": ["next keyframe", "advance to next keyframe"],
+        "category": "animation"
+      },
+      {
+        "name": "animation_play",
+        "description": "Play animation forward",
+        "usage": "Use to start playing the animation from current frame",
+        "parameters": [],
+        "examples": ["play animation", "start playback"],
+        "category": "animation"
+      },
+      {
+        "name": "animation_pause",
+        "description": "Pause animation",
+        "usage": "Use to stop animation playback",
+        "parameters": [],
+        "examples": ["pause animation", "stop playback"],
+        "category": "animation"
+      },
+      {
+        "name": "animation_play_reverse",
+        "description": "Play animation in reverse",
+        "usage": "Use to play animation backwards from current frame",
+        "parameters": [],
+        "examples": ["play in reverse", "play backwards"],
+        "category": "animation"
+      },
+      {
+        "name": "viewport_set_solid",
+        "description": "Set viewport shading to solid",
+        "usage": "Use to change viewport display mode to solid shading",
+        "parameters": [],
+        "examples": ["solid view", "switch to solid shading"],
+        "category": "viewport"
+      },
+      {
+        "name": "viewport_set_rendered",
+        "description": "Set viewport shading to rendered",
+        "usage": "Use to change viewport display mode to rendered shading",
+        "parameters": [],
+        "examples": ["rendered view", "switch to rendered shading"],
+        "category": "viewport"
+      },
+      {
+        "name": "orbit_left",
+        "description": "Orbit the viewport view to the left",
+        "usage": "Use to rotate the 3D view around the scene to the left",
+        "parameters": [],
+        "examples": ["orbit left", "rotate view left"],
+        "category": "navigation"
+      },
+      {
+        "name": "orbit_right",
+        "description": "Orbit the viewport view to the right",
+        "usage": "Use to rotate the 3D view around the scene to the right",
+        "parameters": [],
+        "examples": ["orbit right", "rotate view right"],
+        "category": "navigation"
+      },
+      {
+        "name": "orbit_up",
+        "description": "Orbit the viewport view upward",
+        "usage": "Use to rotate the 3D view around the scene upward",
+        "parameters": [],
+        "examples": ["orbit up", "rotate view up"],
+        "category": "navigation"
+      },
+      {
+        "name": "orbit_down",
+        "description": "Orbit the viewport view downward",
+        "usage": "Use to rotate the 3D view around the scene downward",
+        "parameters": [],
+        "examples": ["orbit down", "rotate view down"],
+        "category": "navigation"
+      },
+      {
+        "name": "pan_left",
+        "description": "Pan the viewport view to the left",
+        "usage": "Use to move the 3D view left without rotating",
+        "parameters": [],
+        "examples": ["pan left", "move view left"],
+        "category": "navigation"
+      },
+      {
+        "name": "pan_right",
+        "description": "Pan the viewport view to the right",
+        "usage": "Use to move the 3D view right without rotating",
+        "parameters": [],
+        "examples": ["pan right", "move view right"],
+        "category": "navigation"
+      },
+      {
+        "name": "pan_up",
+        "description": "Pan the viewport view upward",
+        "usage": "Use to move the 3D view up without rotating",
+        "parameters": [],
+        "examples": ["pan up", "move view up"],
+        "category": "navigation"
+      },
+      {
+        "name": "pan_down",
+        "description": "Pan the viewport view downward",
+        "usage": "Use to move the 3D view down without rotating",
+        "parameters": [],
+        "examples": ["pan down", "move view down"],
+        "category": "navigation"
+      },
+      {
+        "name": "zoom_in",
+        "description": "Zoom into the viewport",
+        "usage": "Use to get a closer view of the scene",
+        "parameters": [],
+        "examples": ["zoom in", "get closer"],
+        "category": "navigation"
+      },
+      {
+        "name": "zoom_out",
+        "description": "Zoom out from the viewport",
+        "usage": "Use to get a wider view of the scene",
+        "parameters": [],
+        "examples": ["zoom out", "get wider view"],
+        "category": "navigation"
       }
     ],
     "context_hints": [

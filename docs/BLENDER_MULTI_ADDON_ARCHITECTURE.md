@@ -135,22 +135,6 @@ AI_COMMAND_HANDLERS = {
   - Type checking (string, integer, float, boolean, vector3, color, enum, etc.)
   - Standardized error handling
 
-### 5. Dynamic MCP Server (`backend/cr8_engine/app/blaze/mcp_server.py`)
-
-Replaced static `BlazeServer` with `DynamicMCPServer`:
-
-```python
-class DynamicMCPServer:
-    def refresh_capabilities(self, addon_manifests: List[dict]):
-        """Update available tools based on addon manifests"""
-
-    def register_addon_tools(self, manifest: dict):
-        """Register tools from a single addon manifest"""
-
-    def build_agent_context(self, manifests: List[dict]) -> str:
-        """Generate dynamic system prompt from manifests"""
-```
-
 **Key Features:**
 
 - **Dynamic Tool Registration**: Auto-generates MCP tools from addon manifests

@@ -7,6 +7,7 @@ export type WebSocketStatus =
 export interface WebSocketMessage {
   type?: string;
   command?: string;
+  addon_id?: string; // For addon command routing
   payload?: any;
   status?: string;
   message?: string;
