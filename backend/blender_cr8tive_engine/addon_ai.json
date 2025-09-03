@@ -199,6 +199,42 @@
         "parameters": [],
         "examples": ["zoom out", "get wider view"],
         "category": "navigation"
+      },
+      {
+        "name": "get_viewport_screenshot",
+        "description": "Capture a screenshot of the current 3D viewport and return the image for visual analysis",
+        "usage": "Use to capture and immediately see the current viewport state. Returns both file info and image data for B.L.A.Z.E to analyze visually.",
+        "parameters": [
+          {
+            "name": "max_size",
+            "type": "integer",
+            "description": "Maximum size in pixels for the largest dimension of the image",
+            "required": false,
+            "default": 800,
+            "min": 100,
+            "max": 2048
+          },
+          {
+            "name": "filepath",
+            "type": "string",
+            "description": "Path where to save the screenshot file (required)",
+            "required": true
+          },
+          {
+            "name": "format",
+            "type": "enum",
+            "description": "Image format for the screenshot",
+            "required": false,
+            "default": "png",
+            "options": ["png", "jpg"]
+          }
+        ],
+        "examples": [
+          "take a screenshot and show me what it looks like",
+          "capture viewport so I can see the current scene",
+          "let me see what the viewport looks like right now"
+        ],
+        "category": "viewport"
       }
     ],
     "context_hints": [

@@ -7,11 +7,16 @@ import logging
 import json
 import os
 import uuid
+import asyncio
+import time
+import tempfile
+from pathlib import Path
 from typing import Dict, Any, Optional, List
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent, RunContext, ModelRetry
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.toolsets import FunctionToolset
+from pydantic_ai import BinaryContent
 from .context_manager import ContextManager
 
 logger = logging.getLogger(__name__)
@@ -20,7 +25,7 @@ logger = logging.getLogger(__name__)
 class BlazeAgent:
     """Main B.L.A.Z.E agent for natural language scene control"""
 
-    def __init__(self, session_manager, handlers, model_name: str = "anthropic/claude-sonnet-4"):
+    def __init__(self, session_manager, handlers, model_name: str = "google/gemini-2.5-pro"):
         """Initialize B.L.A.Z.E agent with OpenRouter"""
         # Initialize logger first
         self.logger = logging.getLogger(__name__)
@@ -32,6 +37,12 @@ class BlazeAgent:
         # Store addon manifests for dynamic toolset
         self.addon_manifests = []
         self.current_username = None
+        
+        # Response waiting system for proper error handling
+        self.pending_responses = {}  # message_id -> Future
+        
+        # Screenshot data storage for image analysis
+        self.screenshot_data = {}  # username -> screenshot_data
 
         # Configure OpenRouter using OpenRouterProvider
         openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
@@ -137,46 +148,161 @@ GUIDELINES:
 - Confirm what you've done after executing commands
 - Use the EXACT parameter names shown in tool descriptions - these are required and cannot be changed
 
+VISUAL VERIFICATION:
+- Use the 'get_viewport_screenshot' tool when:
+  * User reports something looks wrong or asks you to check the scene
+  * User asks for verification ("does this look right?", "can you check?")
+  * You suspect there might be a visual issue with positioning or appearance
+  * Debugging spatial relationships or object placement
+  * User asks you to show them what the scene looks like
+- Screenshots help you see what the user sees and provide better assistance
+
 Remember: Your capabilities change based on installed addons. Use the available tools to accomplish user requests.
 """
 
         return base_prompt
 
-    async def execute_addon_command_direct(self, addon_id: str, command: str, params: Dict[str, Any]) -> str:
-        """Execute command on addon via WebSocket directly (no MCP server)"""
+    async def execute_addon_command_direct(self, addon_id: str, command: str, params: Dict[str, Any]):
+        """Execute command on addon via WebSocket with response waiting and error handling"""
         try:
             if not self.current_username:
-                return "Error: No active user session"
+                raise ModelRetry("No active user session available")
 
-            self.logger.info(
-                f"Executing {addon_id}.{command} with params: {params}")
+            self.logger.info(f"Executing {addon_id}.{command} with params: {params}")
 
-            # Create command message with unique message ID
+            # Send command and wait for response
+            response = await self._send_command_and_wait_response(addon_id, command, params)
+            
+            # Parse response status
+            if response.get('status') == 'error':
+                error_msg = response.get('message', 'Unknown error occurred')
+                self.logger.error(f"Command {command} failed: {error_msg}")
+                raise ModelRetry(f"Command {command} failed: {error_msg}")
+            elif response.get('status') == 'success':
+                success_msg = response.get('message', 'Command completed')
+                self.logger.info(f"Command {command} succeeded: {success_msg}")
+                
+                # Store screenshot data for later processing if present
+                response_data = response.get('data', {})
+                if 'image_data' in response_data and 'media_type' in response_data:
+                    # Store screenshot data in session for image analysis
+                    self._store_screenshot_data(response_data)
+                    width = response_data.get('width', 'unknown')
+                    height = response_data.get('height', 'unknown')
+                    self.logger.info(f"Stored screenshot data for analysis ({width}x{height})")
+                
+                # Trigger scene context refresh after successful command execution
+                await self._refresh_scene_context_universal(self.current_username)
+                
+                # Always return simple string response (never BinaryContent)
+                return f"Successfully executed {command}: {success_msg}"
+            else:
+                raise ModelRetry(f"Unexpected response from {command}: {response}")
+                
+        except ModelRetry:
+            raise  # Re-raise ModelRetry for Pydantic AI to handle
+        except Exception as e:
+            self.logger.error(f"Error executing addon command: {str(e)}")
+            raise ModelRetry(f"Error executing {command}: {str(e)}")
+
+
+    async def _send_command_and_wait_response(self, addon_id: str, command: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Send command via WebSocket and wait for response"""
+        # Create unique message ID
+        message_id = str(uuid.uuid4())
+        
+        # Set up response waiting
+        response_future = asyncio.Future()
+        self.pending_responses[message_id] = response_future
+        
+        try:
+            # Create command message
             message = {
                 "type": "addon_command",
                 "addon_id": addon_id,
                 "command": command,
                 "params": params,
                 "username": self.current_username,
-                "message_id": str(uuid.uuid4())
+                "message_id": message_id
             }
-
-            # Get session and send message
+            
+            # Send command
             session = self.session_manager.get_session(self.current_username)
-            if session and session.blender_socket:
-                await session.blender_socket.send_json(message)
+            if not session or not session.blender_socket:
+                raise Exception("No Blender connection available")
+                
+            await session.blender_socket.send_json(message)
+            self.logger.debug(f"Sent command {command} with message_id {message_id}")
+            
+            # Wait for response (no timeout - Blender will always respond)
+            response = await response_future
+            
+            return response
+            
+        finally:
+            # Cleanup pending response
+            self.pending_responses.pop(message_id, None)
 
-                # Trigger scene context refresh after command
-                await self._refresh_scene_context_universal(self.current_username)
 
-                # Return success message
-                return f"Successfully executed {command} on {addon_id}"
+    def handle_command_response(self, message_id: str, response_data: Dict[str, Any]):
+        """Handle incoming command responses from WebSocket"""
+        try:
+            if message_id in self.pending_responses:
+                future = self.pending_responses[message_id]
+                if not future.done():
+                    future.set_result(response_data)
+                    self.logger.debug(f"Resolved response for message_id {message_id}")
+                else:
+                    self.logger.warning(f"Response future for {message_id} already resolved")
             else:
-                return f"Error: No Blender connection for user {self.current_username}"
-
+                self.logger.warning(f"No pending response found for message_id {message_id}")
         except Exception as e:
-            self.logger.error(f"Error executing addon command: {str(e)}")
-            return f"Error executing command: {str(e)}"
+            self.logger.error(f"Error handling command response: {str(e)}")
+
+    def _store_screenshot_data(self, response_data: Dict[str, Any]) -> None:
+        """Store screenshot data for image analysis"""
+        try:
+            if not self.current_username:
+                self.logger.warning("No current username to store screenshot data")
+                return
+                
+            import base64
+            
+            image_data_b64 = response_data.get('image_data')
+            media_type = response_data.get('media_type', 'image/png')
+            width = response_data.get('width', 'unknown')
+            height = response_data.get('height', 'unknown')
+            
+            if image_data_b64:
+                # Convert base64 to binary data for BinaryContent
+                image_bytes = base64.b64decode(image_data_b64)
+                
+                # Store screenshot data for this user
+                self.screenshot_data[self.current_username] = {
+                    'image_bytes': image_bytes,
+                    'media_type': media_type,
+                    'width': width,
+                    'height': height,
+                    'timestamp': time.time()
+                }
+                
+                self.logger.debug(f"Stored screenshot data for {self.current_username}: {width}x{height}")
+            else:
+                self.logger.warning("No image data in response_data")
+                
+        except Exception as e:
+            self.logger.error(f"Error storing screenshot data: {str(e)}")
+
+    def _get_and_clear_screenshot_data(self, username: str) -> Optional[Dict[str, Any]]:
+        """Get screenshot data for user and clear it from storage"""
+        try:
+            screenshot_data = self.screenshot_data.pop(username, None)
+            if screenshot_data:
+                self.logger.debug(f"Retrieved screenshot data for {username}")
+            return screenshot_data
+        except Exception as e:
+            self.logger.error(f"Error retrieving screenshot data: {str(e)}")
+            return None
 
     async def _refresh_scene_context_universal(self, username: str) -> None:
         """Universal context refresh by calling list_scene_objects from any available addon"""
@@ -235,8 +361,8 @@ Remember: Your capabilities change based on installed addons. Use the available 
                         addon_id, tool_name, tool_description, tool_params
                     )
 
-                    # Add function to toolset
-                    toolset.add_function(dynamic_tool, name=tool_name)
+                    # Add function to toolset with retry configuration
+                    toolset.add_function(dynamic_tool, name=tool_name, retries=2)
 
                     self.logger.debug(
                         f"Added dynamic tool to toolset: {tool_name} with {len(tool_params)} parameters")
@@ -255,11 +381,16 @@ Remember: Your capabilities change based on installed addons. Use the available 
     def _create_dynamic_tool_function(self, addon_id: str, tool_name: str, tool_description: str, tool_params: List[Dict[str, Any]]):
         """Create a dynamic function with proper parameter signatures"""
         
+        # Sort parameters: required first, then optional (Python syntax requirement)
+        required_params = [p for p in tool_params if p.get('required', True)]
+        optional_params = [p for p in tool_params if not p.get('required', True)]
+        sorted_params = required_params + optional_params
+        
         # Build parameter collection code for the function body
         param_collection_code = []
         param_signature_parts = []
         
-        for param in tool_params:
+        for param in sorted_params:
             param_name = param['name']
             is_required = param.get('required', True)
             default_value = param.get('default')
@@ -342,10 +473,64 @@ Please analyze the request and use the appropriate tools to accomplish it.
 If the scene context shows no available elements, let the user know what's currently in the scene.
 """
 
-            # Process with Pydantic AI agent
+            # Process with Pydantic AI agent and store result for message history
             result = await self.agent.run(full_message)
 
-            # Return structured response
+            # Check if screenshot was captured during this conversation
+            screenshot_data = self._get_and_clear_screenshot_data(username)
+            
+            if screenshot_data:
+                # Perform image analysis with full conversation context
+                try:
+                    self.logger.info(f"Performing image analysis with conversation context")
+                    
+                    analysis_prompt = f"""ORIGINAL USER REQUEST: {message}
+
+CURRENT SCENE CONTEXT: {scene_context}
+
+SCREENSHOT ANALYSIS: I have captured a screenshot of the current 3D viewport. Please analyze this image and verify if the requested action was completed correctly. Look for:
+
+- Object positioning and placement relative to the user's request
+- Scene composition and layout
+- Visual correctness of any operations performed
+- Any issues or improvements that could be made
+
+Provide a brief analysis of what you see and whether it matches what the user requested. Be specific about what objects you can see and their arrangement."""
+
+                    # Use proper Pydantic AI pattern with BinaryContent as input and message history
+                    analysis_result = await self.agent.run(
+                        [analysis_prompt, BinaryContent(
+                            data=screenshot_data['image_bytes'], 
+                            media_type=screenshot_data['media_type']
+                        )],
+                        message_history=result.all_messages()
+                    )
+                    
+                    # Combine original response with image analysis
+                    combined_response = f"{result.output}\n\n📸 **Visual Verification:** {analysis_result.output}"
+                    
+                    self.logger.info(f"Successfully completed image analysis for {username}")
+                    
+                    return {
+                        "type": "agent_response",
+                        "status": "success",
+                        "message": combined_response,
+                        "context": scene_context
+                    }
+                    
+                except Exception as e:
+                    self.logger.error(f"Error during image analysis: {str(e)}")
+                    # Fall back to original response if image analysis fails
+                    fallback_response = f"{result.output}\n\n📸 **Visual Verification:** Screenshot captured but analysis failed: {str(e)}"
+                    
+                    return {
+                        "type": "agent_response",
+                        "status": "success",
+                        "message": fallback_response,
+                        "context": scene_context
+                    }
+
+            # Return original response if no screenshot was captured
             return {
                 "type": "agent_response",
                 "status": "success",

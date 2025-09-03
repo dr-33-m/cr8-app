@@ -147,6 +147,16 @@ class WebSocketHandler:
             # Don't forward registry updates to browser - these are internal
             return
 
+        # Handle command responses that B.L.A.Z.E is waiting for
+        message_id = data.get("message_id")
+        if message_id and self.blaze_agent:
+            try:
+                # Forward response to B.L.A.Z.E agent for processing
+                self.blaze_agent.handle_command_response(message_id, data)
+                self.logger.debug(f"Forwarded response with message_id {message_id} to B.L.A.Z.E agent")
+            except Exception as e:
+                self.logger.error(f"Error forwarding response to B.L.A.Z.E agent: {str(e)}")
+
         # Check for list_scene_objects responses for context updates
         command = data.get("command", "")
         if command == "list_scene_objects_result" and data.get("status") == "success":

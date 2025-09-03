@@ -55,15 +55,14 @@ class ResponseManager:
             'status': status
         }
 
+        # CRITICAL FIX: Include message_id at top level if provided
+        # This is required for FastAPI to correlate responses back to B.L.A.Z.E
+        if message_id is not None:
+            response['message_id'] = message_id
+            logger.info(f"Including message_id in response: {message_id}")
+
         # Include the data in the response if provided
         if data is not None:
-            # Extract message_id if present in data
-            if isinstance(data, dict) and 'message_id' in data:
-                response['message_id'] = data['message_id']
-            elif isinstance(data, dict) and 'data' in data and isinstance(data['data'], dict) and 'message_id' in data['data']:
-                response['message_id'] = data['data']['message_id']
-
-            # Always keep data in its own field to maintain structure
             response['data'] = data
 
         # Convert the response dictionary to a JSON string

@@ -636,6 +636,107 @@ def handle_zoom_out() -> dict:
         }
 
 
+def handle_get_viewport_screenshot(max_size=800, filepath=None, format="png") -> dict:
+    """
+    Capture a screenshot of the current 3D viewport, save it, and return image data for analysis.
+    
+    Parameters:
+    - max_size: Maximum size in pixels for the largest dimension of the image
+    - filepath: Path where to save the screenshot file
+    - format: Image format (png, jpg, etc.)
+    
+    Returns success/error status with image data
+    """
+    import base64
+    
+    try:
+        if not filepath:
+            return {
+                "status": "error",
+                "message": "No filepath provided",
+                "error_code": "INVALID_PARAMETERS"
+            }
+        
+        # Find the active 3D viewport
+        area = None
+        for a in bpy.context.screen.areas:
+            if a.type == 'VIEW_3D':
+                area = a
+                break
+        
+        if not area:
+            return {
+                "status": "error",
+                "message": "No 3D viewport found",
+                "error_code": "VIEWPORT_NOT_FOUND"
+            }
+        
+        # Take screenshot with proper context override
+        with bpy.context.temp_override(area=area):
+            bpy.ops.screen.screenshot_area(filepath=filepath)
+        
+        # Load and resize if needed
+        img = bpy.data.images.load(filepath)
+        width, height = img.size
+        
+        if max(width, height) > max_size:
+            scale = max_size / max(width, height)
+            new_width = int(width * scale)
+            new_height = int(height * scale)
+            img.scale(new_width, new_height)
+            
+            # Set format and save
+            img.file_format = format.upper()
+            img.save()
+            width, height = new_width, new_height
+        
+        # Cleanup Blender image data
+        bpy.data.images.remove(img)
+        
+        # Verify file exists and read image data
+        from pathlib import Path
+        file_path = Path(filepath)
+        if not file_path.exists():
+            return {
+                "status": "error",
+                "message": "Screenshot file was not created successfully",
+                "error_code": "FILE_NOT_CREATED"
+            }
+        
+        # Read image file and convert to base64 for transmission
+        try:
+            with open(filepath, 'rb') as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+        except Exception as e:
+            logger.error(f"Error reading screenshot file: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to read screenshot file: {str(e)}",
+                "error_code": "FILE_READ_ERROR"
+            }
+        
+        return {
+            "status": "success",
+            "message": f"Screenshot captured and loaded: {width}x{height}",
+            "data": {
+                "width": width,
+                "height": height,
+                "filepath": filepath,
+                "format": format,
+                "image_data": image_data,
+                "media_type": f"image/{format.lower()}"
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error capturing viewport screenshot: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Failed to capture screenshot: {str(e)}",
+            "error_code": "SCREENSHOT_ERROR"
+        }
+
+
 # Export command handlers for the router addon itself
 AI_COMMAND_HANDLERS = {
     'get_available_addons': handle_get_available_addons,
@@ -652,6 +753,7 @@ AI_COMMAND_HANDLERS = {
     # Viewport controls
     'viewport_set_solid': handle_viewport_set_solid,
     'viewport_set_rendered': handle_viewport_set_rendered,
+    'get_viewport_screenshot': handle_get_viewport_screenshot,
     # 3D Navigation controls
     'orbit_left': handle_orbit_left,
     'orbit_right': handle_orbit_right,
