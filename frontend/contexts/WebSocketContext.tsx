@@ -81,8 +81,19 @@ export function WebSocketProvider({
 
       // Handle B.L.A.Z.E Agent responses
       if (data.status === "success") {
-        toast.success("B.L.A.Z.E: " + (data.message || "Action completed"));
+        // Skip success toasts for navigation commands (they have visual feedback)
+        // but keep them for other commands like B.L.A.Z.E agent responses
+        const isNavigationCommand =
+          data.data?.data?.navigation_action ||
+          data.data?.data?.viewport_mode ||
+          data.data?.data?.animation_state ||
+          data.data?.data?.current_frame;
+
+        if (!isNavigationCommand) {
+          toast.success("B.L.A.Z.E: " + (data.message || "Action completed"));
+        }
       } else if (data.status === "error") {
+        // Always show error toasts (including navigation command failures)
         toast.error("B.L.A.Z.E Error: " + (data.message || "Unknown error"));
       }
 
