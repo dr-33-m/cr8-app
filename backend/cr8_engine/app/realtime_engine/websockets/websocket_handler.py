@@ -4,6 +4,7 @@ This module routes all user messages through the B.L.A.Z.E intelligent agent wit
 """
 
 import logging
+import time
 from typing import Dict, Any
 from fastapi import WebSocket
 
@@ -229,37 +230,66 @@ class WebSocketHandler:
             # Parse the nested JSON structure from multi_registry_assets
             response_data = data.get("data", {})
             
-            # The response has nested JSON: data.message contains a JSON string
+            # The response has nested JSON: data.message contains a JSON string with the actual data
             message_json_str = response_data.get("message", "")
-            actual_message = ""
+            objects_list = []
             
             if message_json_str:
-                # Parse the JSON string to get the actual message
+                # Parse the JSON string to get the actual message and data
                 import json
                 try:
                     parsed_data = json.loads(message_json_str)
-                    actual_message = parsed_data.get("message", "")
-                    self.logger.debug(f"Parsed nested JSON, extracted message: {actual_message}")
+                    # The actual objects list is in the 'message' field of the parsed data
+                    objects_data = parsed_data.get("message", [])
+                    
+                    # Check if objects_data is already a list (new format) or needs parsing (old format)
+                    if isinstance(objects_data, list):
+                        # New format: we already have the detailed objects list
+                        objects_list = objects_data
+                        self.logger.info(f"Extracted detailed objects list: {len(objects_list)} objects")
+                    elif isinstance(objects_data, str):
+                        # Old format: parse the "Scene objects: name1, name2" string
+                        if objects_data.startswith('Scene objects: '):
+                            objects_str = objects_data.replace('Scene objects: ', '')
+                            if objects_str.strip():
+                                object_names = [obj.strip() for obj in objects_str.split(',') if obj.strip()]
+                                # Convert to detailed format (minimal info)
+                                objects_list = [{'name': name, 'type': 'UNKNOWN'} for name in object_names]
+                                self.logger.info(f"Extracted objects from legacy message: {objects_list}")
+                        else:
+                            self.logger.warning(f"Legacy message does not start with 'Scene objects: ': {objects_data}")
+                    else:
+                        self.logger.warning(f"Unexpected message data type: {type(objects_data)}")
+                        
                 except json.JSONDecodeError:
                     # Fallback: treat as direct message
-                    actual_message = message_json_str
-                    self.logger.debug(f"Using direct message: {actual_message}")
+                    self.logger.debug(f"Could not parse JSON, using direct message: {message_json_str}")
             
-            # Extract object names from "Scene objects: Rockingchair_01" format
-            objects_list = []
-            if actual_message.startswith('Scene objects: '):
-                objects_str = actual_message.replace('Scene objects: ', '')
-                if objects_str.strip():  # Check if not empty
-                    objects_list = [obj.strip() for obj in objects_str.split(',') if obj.strip()]
-                    self.logger.info(f"Extracted objects from message: {objects_list}")
-            else:
-                self.logger.warning(f"Message does not start with 'Scene objects: ': {actual_message}")
-            
-            # Update the context manager
+            # Update the context manager with the detailed objects list
             session = self.session_manager.get_session(username)
             if session and session.blaze_agent:
                 session.blaze_agent.context_manager.update_scene_objects(username, objects_list)
-                self.logger.info(f"Updated scene context for {username}: {len(objects_list)} objects - {objects_list}")
+                self.logger.info(f"Updated scene context for {username}: {len(objects_list)} objects")
+                if objects_list:
+                    object_names = [obj.get('name', 'Unknown') for obj in objects_list]
+                    self.logger.debug(f"Scene objects: {', '.join(object_names)}")
+                
+                # Forward scene context update to connected browser session
+                if session.browser_socket and not session.browser_socket_closed:
+                    try:
+                        scene_update_message = {
+                            "type": "scene_context_update",
+                            "status": "success",
+                            "data": {
+                                "objects": objects_list,
+                                "timestamp": time.time()
+                            }
+                        }
+                        await session.browser_socket.send_json(scene_update_message)
+                        self.logger.info(f"Forwarded scene context update to browser for {username}")
+                    except Exception as e:
+                        session.browser_socket_closed = True
+                        self.logger.error(f"Error forwarding scene context to browser: {str(e)}")
             else:
                 self.logger.warning(f"No session or B.L.A.Z.E agent found for {username}")
             

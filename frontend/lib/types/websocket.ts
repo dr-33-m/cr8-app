@@ -4,6 +4,22 @@ export type WebSocketStatus =
   | "disconnected"
   | "failed";
 
+export interface SceneObject {
+  name: string;
+  type: string;
+  visible: boolean;
+  active: boolean;
+  selected: boolean;
+  location: [number, number, number];
+  rotation: [number, number, number];
+  scale: [number, number, number];
+}
+
+export interface SceneContextUpdateData {
+  objects: SceneObject[];
+  timestamp: number;
+}
+
 export interface WebSocketMessage {
   type?: string;
   command?: string;

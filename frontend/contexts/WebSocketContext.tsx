@@ -5,17 +5,19 @@ import {
   useCallback,
   useState,
   useEffect,
+  useRef,
 } from "react";
 import { useWebSocket } from "@/hooks/useWebsocket";
 import { WebSocketStatus, WebSocketMessage } from "@/lib/types/websocket";
+import useSceneContextStore from "@/store/sceneContextStore";
 import { toast } from "sonner";
 
 interface WebSocketContextType {
   status: WebSocketStatus;
   websocket: WebSocket | null;
-  isConnected: boolean; // Browser connection only
-  blenderConnected: boolean; // Blender connection only
-  isFullyConnected: boolean; // Both browser and Blender are connected
+  isConnected: boolean;
+  blenderConnected: boolean;
+  isFullyConnected: boolean;
   reconnect: () => void;
   disconnect: () => void;
   sendMessage: (message: WebSocketMessage) => void;
@@ -32,131 +34,174 @@ export function WebSocketProvider({
   children,
   onMessage,
 }: WebSocketProviderProps) {
-  // Add state for tracking Blender connection
   const [blenderConnected, setBlenderConnected] = useState(false);
-  // Add state to track if we've already reconnected to an existing Blender session
-  const [alreadyReconnected, setAlreadyReconnected] = useState(false);
+  const [contextUpdateSent, setContextUpdateSent] = useState(false);
+  const [sessionCreated, setSessionCreated] = useState(false);
 
-  // Define simplified message processing function
+  // Use refs for immediate state tracking to avoid race conditions
+  const isReconnectionRef = useRef(false);
+  const shouldSendBrowserReadyRef = useRef(false);
+
   const processMessage = useCallback(
     (data: any) => {
-      // Check for Blender connection/disconnection messages
-      if (data.type === "system" && data.status === "blender_connected") {
-        setBlenderConnected(true);
-        // Show reconnection message if it's a reconnection to existing instance
-        if (data.message?.includes("Reconnected to existing")) {
-          setAlreadyReconnected(true);
-          toast.success("Reconnected to existing Blender session");
+      // Handle system messages
+      if (data.type === "system") {
+        switch (data.status) {
+          case "blender_connected":
+            setBlenderConnected(true);
+            if (data.message?.includes("Reconnected to existing")) {
+              isReconnectionRef.current = true;
+              shouldSendBrowserReadyRef.current = false;
+              toast.success("Reconnected to existing Blender session");
+            }
+            break;
+          case "blender_disconnected":
+            setBlenderConnected(false);
+            break;
+          case "waiting_for_blender":
+            setBlenderConnected(false);
+            toast.info(data.message || "Waiting for Blender to connect...");
+            break;
+          case "error":
+            if (data.message?.includes("Failed to launch Blender")) {
+              setBlenderConnected(false);
+              toast.error(data.message);
+              // Auto-recovery attempt
+              setTimeout(() => {
+                if (wsHook.websocket?.readyState === WebSocket.OPEN) {
+                  console.log("Attempting to recover Blender connection");
+                  wsHook.sendMessage({
+                    command: "browser_ready",
+                    recovery: true,
+                  });
+                }
+              }, 1000);
+            }
+            break;
         }
-      } else if (
-        data.type === "system" &&
-        data.status === "blender_disconnected"
-      ) {
-        setBlenderConnected(false);
-      } else if (
-        data.type === "system" &&
-        data.status === "waiting_for_blender"
-      ) {
-        setBlenderConnected(false);
-        toast.info(data.message || "Waiting for Blender to connect...");
-      } else if (
-        data.type === "system" &&
-        data.status === "error" &&
-        data.message?.includes("Failed to launch Blender")
-      ) {
-        setBlenderConnected(false);
-        toast.error(data.message);
+      }
 
-        // Attempt auto-recovery after a short delay
-        setTimeout(() => {
-          if (wsHookWithHandler.websocket?.readyState === WebSocket.OPEN) {
-            console.log("Attempting to recover Blender connection");
-            wsHookWithHandler.sendMessage({
-              command: "browser_ready",
-              recovery: true,
-            });
-          }
-        }, 1000);
+      // Handle scene context updates
+      else if (
+        data.type === "scene_context_update" &&
+        data.status === "success"
+      ) {
+        const { objects, timestamp } = data.data;
+        useSceneContextStore.getState().setSceneObjects(objects, timestamp);
+        console.log("Scene context updated:", objects.length, "objects");
       }
 
       // Handle B.L.A.Z.E Agent responses
       if (data.status === "success") {
-        // Skip success toasts for navigation commands (they have visual feedback)
-        // but keep them for other commands like B.L.A.Z.E agent responses
         const isNavigationCommand =
           data.data?.data?.navigation_action ||
           data.data?.data?.viewport_mode ||
           data.data?.data?.animation_state ||
-          data.data?.data?.current_frame;
+          data.data?.data?.current_frame ||
+          data.command.includes("transform_");
 
         if (!isNavigationCommand) {
           toast.success("B.L.A.Z.E: " + (data.message || "Action completed"));
         }
       } else if (data.status === "error") {
-        // Always show error toasts (including navigation command failures)
         toast.error("B.L.A.Z.E Error: " + (data.message || "Unknown error"));
       }
 
-      // Forward to custom handler if provided
-      if (onMessage) {
-        onMessage(data);
-      }
+      // Forward to custom handler
+      onMessage?.(data);
     },
     [onMessage]
   );
 
-  // Use the WebSocket hook with our custom message handler
-  const wsHookWithHandler = useWebSocket((data: any) => {
-    // Process the message first to potentially set alreadyReconnected
+  const wsHook = useWebSocket((data: any) => {
+    // Process message first
     processMessage(data);
 
-    // Check for initial connection confirmation
+    // Handle session creation
     if (data.status === "connected" && data.message === "Session created") {
-      // Show connection toast
       toast.success("Connected to Cr8 Engine");
-
-      // Signal that browser is ready for Blender to connect, but only if we haven't already reconnected
-      setTimeout(() => {
-        if (
-          !alreadyReconnected &&
-          wsHookWithHandler.websocket?.readyState === WebSocket.OPEN
-        ) {
-          console.log("Sending browser_ready signal");
-          wsHookWithHandler.sendMessage({
-            command: "browser_ready",
-          });
-        } else if (alreadyReconnected) {
-          console.log(
-            "Skipping browser_ready signal - already reconnected to Blender"
-          );
-        }
-      }, 500); // Small delay to ensure everything is set up
+      setSessionCreated(true);
+      // Only prepare to send browser_ready for fresh connections
+      if (!isReconnectionRef.current) {
+        shouldSendBrowserReadyRef.current = true;
+      }
     }
   });
 
-  // Listen for logout events to disconnect WebSocket
+  // Send browser_ready for fresh connections only
+  useEffect(() => {
+    if (
+      sessionCreated &&
+      shouldSendBrowserReadyRef.current &&
+      wsHook.websocket?.readyState === WebSocket.OPEN &&
+      !isReconnectionRef.current
+    ) {
+      const timeoutId = setTimeout(() => {
+        console.log("Sending browser_ready signal for fresh connection");
+        wsHook.sendMessage({ command: "browser_ready" });
+        shouldSendBrowserReadyRef.current = false;
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [sessionCreated, wsHook.websocket, wsHook.sendMessage]);
+
+  // Handle context updates for both fresh and reconnected sessions
+  useEffect(() => {
+    if (
+      wsHook.isConnected &&
+      blenderConnected &&
+      !contextUpdateSent &&
+      wsHook.websocket?.readyState === WebSocket.OPEN
+    ) {
+      const messageId = isReconnectionRef.current
+        ? `reconnect_context_update_${Date.now()}`
+        : `context_update_${Date.now()}`;
+
+      console.log(
+        isReconnectionRef.current
+          ? "Browser reconnected, sending context update request"
+          : "Sending initial context update request"
+      );
+
+      wsHook.sendMessage({
+        command: "list_scene_objects",
+        message_id: messageId,
+      });
+
+      setContextUpdateSent(true);
+    }
+  }, [
+    wsHook.isConnected,
+    blenderConnected,
+    contextUpdateSent,
+    wsHook.websocket,
+    wsHook.sendMessage,
+  ]);
+
+  // Handle logout disconnection
   useEffect(() => {
     const handleLogoutDisconnect = () => {
       console.log("Logout event received, disconnecting WebSocket");
-      if (wsHookWithHandler.websocket) {
-        wsHookWithHandler.disconnect();
+      if (wsHook.websocket) {
+        wsHook.disconnect();
         setBlenderConnected(false);
-        setAlreadyReconnected(false);
+        setContextUpdateSent(false);
+        setSessionCreated(false);
+        isReconnectionRef.current = false;
+        shouldSendBrowserReadyRef.current = false;
       }
     };
 
     window.addEventListener("logout-disconnect", handleLogoutDisconnect);
-
-    return () => {
+    return () =>
       window.removeEventListener("logout-disconnect", handleLogoutDisconnect);
-    };
-  }, [wsHookWithHandler.websocket, wsHookWithHandler.disconnect]);
+  }, [wsHook.websocket, wsHook.disconnect]);
 
-  // Create the context value with the combined connection state
   const contextValue = {
-    ...wsHookWithHandler,
+    ...wsHook,
     blenderConnected,
-    isFullyConnected: wsHookWithHandler.isConnected && blenderConnected,
+    isFullyConnected: wsHook.isConnected && blenderConnected,
   };
 
   return (

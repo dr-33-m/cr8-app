@@ -13,8 +13,8 @@
     --popover: 220 10% 8%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 217 90% 60%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 49 100% 50%;
+    --primary-foreground: 220 10% 10%;
 
     --secondary: 220 15% 20%;
     --secondary-foreground: 0 0% 95%;
@@ -30,7 +30,7 @@
 
     --border: 220 15% 20%;
     --input: 220 15% 18%;
-    --ring: 217 90% 60%;
+    --ring: 50 100% 50%;
     --radius: 0.75rem;
   }
 }
@@ -53,17 +53,17 @@
   }
 
   .neon-text {
-    @apply text-cr8-blue;
+    @apply text-cr8-yellow;
     text-shadow:
-      0 0 5px theme("colors.cr8-blue"),
-      0 0 20px theme("colors.cr8-blue");
+      0 0 5px theme("colors.cr8-yellow"),
+      0 0 20px theme("colors.cr8-yellow");
   }
 
   .neon-border {
-    @apply border border-cr8-blue;
+    @apply border border-cr8-yellow;
     box-shadow:
-      0 0 5px theme("colors.cr8-blue"),
-      0 0 20px theme("colors.cr8-blue");
+      0 0 5px theme("colors.cr8-yellow"),
+      0 0 20px theme("colors.cr8-yellow");
   }
 }
 
@@ -72,7 +72,7 @@
 }
 
 .react-flow__handle {
-  @apply bg-cr8-blue;
+  @apply bg-cr8-yellow;
 }
 
 .react-flow__controls {

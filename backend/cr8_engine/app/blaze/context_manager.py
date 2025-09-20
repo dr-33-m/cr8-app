@@ -14,13 +14,14 @@ logger = logging.getLogger(__name__)
 class SceneContext:
     """Current scene context information"""
     username: str
-    current_objects: List[str]
+    current_objects: List[Dict[str, Any]]
     last_updated: Optional[str] = None
 
     def get_summary(self) -> str:
         """Get a human-readable summary of the scene"""
         if self.current_objects:
-            return f"Scene objects: {', '.join(self.current_objects)}"
+            object_names = [obj.get('name', 'Unknown') for obj in self.current_objects]
+            return f"Scene objects: {', '.join(object_names)}"
         else:
             return "Empty scene"
 
@@ -57,7 +58,7 @@ class ContextManager:
         self.logger.info(f"Created scene context for user {username}")
         return context
 
-    def update_scene_objects(self, username: str, objects_list: List[str]) -> None:
+    def update_scene_objects(self, username: str, objects_list: List[Dict[str, Any]]) -> None:
         """Update scene objects from live scene query"""
         import datetime
         
@@ -69,7 +70,8 @@ class ContextManager:
         context.last_updated = datetime.datetime.now().isoformat()
         
         self.logger.info(f"Updated scene objects for user {username}: {len(objects_list)} objects")
-        self.logger.debug(f"Scene objects: {', '.join(objects_list)}")
+        object_names = [obj.get('name', 'Unknown') for obj in objects_list]
+        self.logger.debug(f"Scene objects: {', '.join(object_names)}")
 
     def clear_context(self, username: str) -> None:
         """Clear context for a user"""

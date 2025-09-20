@@ -194,7 +194,7 @@ export function BottomControls({ children }: BottomControlsProps) {
                 onClick={handleViewportSolid}
                 className={`px-3 py-2 text-xs backdrop-blur-md border transition-all duration-200 ${
                   viewportMode === "solid"
-                    ? "bg-blue-500/20 border-blue-400/40 text-blue-300"
+                    ? "bg-primary/30 border-primary/80"
                     : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                 }`}
               >
@@ -207,7 +207,7 @@ export function BottomControls({ children }: BottomControlsProps) {
                 onClick={handleViewportRendered}
                 className={`px-3 py-2 text-xs backdrop-blur-md border transition-all duration-200 ${
                   viewportMode === "rendered"
-                    ? "bg-blue-500/20 border-blue-400/40 text-blue-300"
+                    ? "bg-primary/30 border-primary/80"
                     : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                 }`}
               >
