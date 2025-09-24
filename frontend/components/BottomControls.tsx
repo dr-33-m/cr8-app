@@ -240,7 +240,7 @@ export function BottomControls({ children }: BottomControlsProps) {
                 className={`absolute right-3 top-3 h-4 w-4 cursor-pointer transition-colors duration-200 ${
                   !message.trim() || isLoading
                     ? "text-gray-500 cursor-not-allowed"
-                    : "text-blue-400 hover:text-blue-300"
+                    : "text-primary hover:text-primary"
                 }`}
               />
             </div>

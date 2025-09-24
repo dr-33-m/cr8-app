@@ -50,9 +50,9 @@ const AppleScrollbar: React.FC<AppleScrollbarProps> = ({
   const getStep = () => {
     switch (mode) {
       case "move":
-        return 10;
+        return 0.1;
       case "rotate":
-        return 15;
+        return 0.1;
       case "scale":
         return 0.1;
     }
@@ -60,7 +60,7 @@ const AppleScrollbar: React.FC<AppleScrollbarProps> = ({
 
   const getThumbPosition = () => {
     const step = getStep();
-    const range = step * 20;
+    const range = step * 100;
     const normalizedValue = Math.max(-range, Math.min(range, value));
     return 50 + (normalizedValue / range) * 40;
   };
@@ -75,11 +75,16 @@ const AppleScrollbar: React.FC<AppleScrollbarProps> = ({
     if (!isDragging) return;
 
     const deltaX = e.movementX;
-    const sensitivity = getStep() / 8;
+    const sensitivity = getStep() / 2;
     const newValue = value + deltaX * sensitivity;
 
     const step = getStep();
-    onChange(Number.parseFloat(newValue.toFixed(step < 1 ? 1 : 0)));
+    const roundedValue = Number.parseFloat(newValue.toFixed(step < 1 ? 1 : 0));
+
+    // Only call onChange if value actually changed
+    if (roundedValue !== value) {
+      onChange(roundedValue);
+    }
   };
 
   const handleMouseUp = () => {
@@ -106,7 +111,7 @@ const AppleScrollbar: React.FC<AppleScrollbarProps> = ({
   const getTickOffset = () => {
     const step = getStep();
     // Create offset so ticks appear to scroll past the center
-    return -(value / step) * 12; // 12px spacing between ticks
+    return -(value / step) * 8; // 12px spacing between ticks
   };
 
   const generateMovingTicks = () => {
@@ -200,6 +205,17 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
   const [mode, setMode] = useState<TransformMode>("move");
   const { sendMessage, isFullyConnected } = useWebSocketContext();
 
+  // Keep track of last sent values to prevent duplicate commands
+  const lastSentValues = useRef<{
+    move: TransformValue;
+    rotate: TransformValue;
+    scale: TransformValue;
+  }>({
+    move: { x: 0, y: 0, z: 0 },
+    rotate: { x: 0, y: 0, z: 0 },
+    scale: { x: 1, y: 1, z: 1 },
+  });
+
   React.useEffect(() => {
     if (onTransformChange) {
       onTransformChange({ move, rotate, scale });
@@ -217,12 +233,25 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
     }
   };
 
+  // Helper function to check if values have actually changed
+  const hasValuesChanged = (
+    newValues: TransformValue,
+    oldValues: TransformValue
+  ): boolean => {
+    return (
+      Math.abs(newValues.x - oldValues.x) > 0.001 ||
+      Math.abs(newValues.y - oldValues.y) > 0.001 ||
+      Math.abs(newValues.z - oldValues.z) > 0.001
+    );
+  };
+
   const updateCurrentValues = (values: TransformValue) => {
     switch (mode) {
       case "move":
         setMove(values);
-        // Send real-time update
-        if (values.x !== 0 || values.y !== 0 || values.z !== 0) {
+        // Only send command if values actually changed
+        if (hasValuesChanged(values, lastSentValues.current.move)) {
+          lastSentValues.current.move = { ...values };
           sendTransformCommand("transform_translate", {
             value_x: values.x,
             value_y: values.y,
@@ -232,8 +261,9 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
         break;
       case "rotate":
         setRotate(values);
-        // Send real-time update
-        if (values.x !== 0 || values.y !== 0 || values.z !== 0) {
+        // Only send command if values actually changed
+        if (hasValuesChanged(values, lastSentValues.current.rotate)) {
+          lastSentValues.current.rotate = { ...values };
           sendTransformCommand("transform_rotate", {
             value_x: values.x,
             value_y: values.y,
@@ -243,8 +273,9 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
         break;
       case "scale":
         setScale(values);
-        // Send real-time update
-        if (values.x !== 1 || values.y !== 1 || values.z !== 1) {
+        // Only send command if values actually changed
+        if (hasValuesChanged(values, lastSentValues.current.scale)) {
+          lastSentValues.current.scale = { ...values };
           sendTransformCommand("transform_resize", {
             value_x: values.x,
             value_y: values.y,
@@ -258,13 +289,19 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
   const resetCurrentMode = () => {
     switch (mode) {
       case "move":
-        setMove({ x: 0, y: 0, z: 0 });
+        const resetMove = { x: 0, y: 0, z: 0 };
+        setMove(resetMove);
+        lastSentValues.current.move = resetMove;
         break;
       case "rotate":
-        setRotate({ x: 0, y: 0, z: 0 });
+        const resetRotate = { x: 0, y: 0, z: 0 };
+        setRotate(resetRotate);
+        lastSentValues.current.rotate = resetRotate;
         break;
       case "scale":
-        setScale({ x: 1, y: 1, z: 1 });
+        const resetScale = { x: 1, y: 1, z: 1 };
+        setScale(resetScale);
+        lastSentValues.current.scale = resetScale;
         break;
     }
   };
