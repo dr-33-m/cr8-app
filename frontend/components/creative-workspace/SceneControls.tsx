@@ -1,13 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Eye,
-  EyeOff,
   ScanEye,
-  Move3D,
   Lightbulb,
   Triangle,
   Video,
@@ -15,6 +11,9 @@ import {
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import useSceneContextStore from "@/store/sceneContextStore";
 import { TransformationPopover } from "@/components/creative-workspace/TransformationPopover";
+import { useWebSocketContext } from "@/contexts/WebSocketContext";
+import { v4 as uuidv4 } from "uuid";
+import { toast } from "sonner";
 
 export function SceneControls() {
   const isVisible = useVisibilityStore((state) => state.isSceneControlsVisible);
@@ -22,6 +21,32 @@ export function SceneControls() {
     (state) => state.toggleSceneControls
   );
   const { objects, timestamp } = useSceneContextStore();
+  const { sendMessage, isFullyConnected } = useWebSocketContext();
+
+  const sendSceneCommand = async (
+    command: string,
+    params: any,
+    refreshContext: boolean = true
+  ) => {
+    if (!isFullyConnected) {
+      toast.error("Not connected to Blender");
+      return;
+    }
+
+    try {
+      const messageId = uuidv4();
+      sendMessage({
+        type: "addon_command",
+        addon_id: "multi_registry_assets",
+        command: command,
+        params: params,
+        message_id: messageId,
+        refresh_context: refreshContext,
+      });
+    } catch (error) {
+      toast.error(`Failed to send scene command: ${error}`);
+    }
+  };
 
   return (
     <div
@@ -73,11 +98,20 @@ export function SceneControls() {
               {objects.map((obj, index) => (
                 <div
                   key={`${obj.name}-${index}`}
-                  className={`flex items-center justify-between p-3 rounded-md transition-colors ${
+                  className={`flex items-center justify-between p-3 rounded-md transition-colors cursor-pointer ${
                     obj.active
                       ? "bg-primary/30 border border-primary/80"
                       : "bg-white/5 hover:bg-white/10"
                   }`}
+                  onClick={() => {
+                    sendSceneCommand(
+                      "set_active_object",
+                      {
+                        object_name: obj.name,
+                      },
+                      true
+                    );
+                  }}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="flex-shrink-0">
@@ -103,17 +137,10 @@ export function SceneControls() {
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6 text-white/60 hover:text-white hover:bg-white/10"
-                    >
-                      {obj.visible ? (
-                        <Eye className="h-3 w-3" />
-                      ) : (
-                        <EyeOff className="h-3 w-3" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-white/60 hover:text-white hover:bg-white/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sendSceneCommand("focus_on_active_object", {}, true);
+                      }}
                     >
                       <ScanEye className="h-3 w-3" />
                     </Button>

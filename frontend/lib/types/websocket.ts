@@ -31,6 +31,7 @@ export interface WebSocketMessage {
   data?: any;
   params?: any;
   recovery?: boolean; // For browser_ready recovery mode
+  refresh_context?: boolean; // Flag to control scene context refresh
 }
 
 export interface WebSocketError {
