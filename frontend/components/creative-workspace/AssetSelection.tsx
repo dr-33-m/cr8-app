@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Package } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
+import { PolyHavenPanel } from "./PolyHavenPanel";
+import { PolyHavenAsset } from "@/lib/services/polyhavenService";
+import { toast } from "sonner";
 
 export function AssetSelection() {
   const isVisible = useVisibilityStore(
@@ -9,6 +12,13 @@ export function AssetSelection() {
   const onToggleVisibility = useVisibilityStore(
     (state) => state.toggleAssetSelection
   );
+
+  const handleAssetSelect = (asset: PolyHavenAsset & { id: string }) => {
+    toast.success(`Selected asset: ${asset.name}`);
+    // TODO: Integrate with Blender workflow
+    console.log("Selected asset:", asset);
+  };
+
   return (
     <div
       className={`absolute right-4 top-1/2 transform -translate-y-1/2 transition-all duration-300 
@@ -26,33 +36,9 @@ export function AssetSelection() {
           <ChevronLeft className="h-6 w-6" />
         )}
       </Button>
-      <div className="backdrop-blur-md bg-white/5 rounded-lg p-6 w-80">
-        <h2 className="text-xl font-semibold mb-4 text-white">
-          Asset Management
-        </h2>
-        <div className="text-center text-white/60 py-8 space-y-4">
-          <div className="text-6xl mb-4">
-            <Package className="h-16 w-16 mx-auto text-orange-400" />
-          </div>
-          <div>
-            <p className="text-lg font-medium text-white">Coming Soon</p>
-            <p className="text-sm mt-2">
-              Advanced asset management powered by B.L.A.Z.E
-            </p>
-          </div>
-          <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-3 mt-4">
-            <p className="text-xs text-orange-200">
-              💡 Use the chat interface below to manage assets with natural
-              language
-            </p>
-          </div>
-          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-2 mt-3">
-            <p className="text-xs text-orange-300">
-              🎯 Try: "Place the Jordan shoes on the table" or "Remove all
-              assets from the scene"
-            </p>
-          </div>
-        </div>
+      <div className="backdrop-blur-md bg-white/5 rounded-lg p-6 w-80 max-h-[80vh] overflow-y-auto">
+        <h2 className="text-xl font-semibold mb-4 text-white">Asset Browser</h2>
+        <PolyHavenPanel onAssetSelect={handleAssetSelect} />
       </div>
     </div>
   );

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.realtime_engine.websockets.session_manager import SessionManager
 from app.realtime_engine.websockets.websocket_handler import WebSocketHandler
-from app.api.v1.endpoints import blend_files
+from app.api.v1.endpoints import blend_files, polyhaven
 
 # Load environment variables from .env file
 load_dotenv()
@@ -48,6 +48,7 @@ async def health_check():
 
 # Include API routers
 app.include_router(blend_files.router, prefix="/api/v1", tags=["blend-files"])
+app.include_router(polyhaven.router, prefix="/api/v1/polyhaven", tags=["polyhaven"])
 
 # Websocket endpoint
 session_manager = SessionManager()

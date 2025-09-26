@@ -4,6 +4,7 @@ uvicorn
 websockets
 python-dotenv
 pillow
+httpx
 
 # B.L.A.Z.E Agent dependencies
 pydantic-ai
