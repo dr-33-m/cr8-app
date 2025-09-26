@@ -3,7 +3,7 @@ from typing import Dict, Optional
 import asyncio
 import logging
 import uuid
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 from app.services.blender_service import BlenderService
 
 
@@ -21,10 +21,7 @@ class Session:
         self.is_active = True
         self.state = SessionState.DISCONNECTED
         self.connection_timeout = 30  # seconds to wait for Blender to connect
-        self.should_broadcast = False
-        self.last_frame_index = -1
         self.pending_requests: Dict[str, str] = {}  # message_id -> username
-        self.pending_template_requests = []  # Queued template control requests
         self.last_connection_attempt = 0  # timestamp of last connection attempt
         self.connection_attempts = 0  # number of connection attempts
         # maximum number of connection attempts before giving up
@@ -235,23 +232,6 @@ class SessionManager:
                 self.logger.error(
                     f"Error notifying browser of Blender connection: {str(e)}")
 
-        # Process any queued template control requests
-        if session.pending_template_requests:
-            self.logger.info(
-                f"Processing {len(session.pending_template_requests)} queued template requests")
-            from app.realtime_engine.websockets.websocket_handler import WebSocketHandler
-            handler = WebSocketHandler(self, username)
-
-            for request in session.pending_template_requests:
-                try:
-                    await handler.handle_message(username, {"command": "get_template_controls"}, "browser")
-                except Exception as e:
-                    self.logger.error(
-                        f"Error processing queued template request: {str(e)}")
-
-            # Clear the queue
-            session.pending_template_requests = []
-
         self.logger.info(f"Blender client registered for session {username}")
 
     async def _monitor_blender_connection(self, username: str):
@@ -343,32 +323,6 @@ class SessionManager:
             raise ValueError(f"No session found for {from_username}")
 
         session = self.sessions[from_username]
-
-        # Special handling for template control requests when Blender is not connected
-        if message.get("command") == "get_template_controls" and (
-            session.state != SessionState.CONNECTED or
-            not session.blender_socket or
-            session.blender_socket_closed
-        ):
-            # Queue the request for later processing
-            self.logger.info(
-                f"Queuing template control request for {from_username}")
-            session.pending_template_requests.append(message)
-
-            # Notify browser that request is queued
-            if session.browser_socket and not session.browser_socket_closed:
-                try:
-                    await session.browser_socket.send_json({
-                        "type": "system",
-                        "status": "waiting_for_blender",
-                        "message": "Template controls request queued until Blender connects"
-                    })
-                except Exception as e:
-                    session.browser_socket_closed = True
-                    self.logger.error(
-                        f"Error sending queue notification: {str(e)}")
-
-            return
 
         # Check for refresh_context triggering when forwarding Blender responses to browser
         if target == "browser" and message.get("status") == "success":
