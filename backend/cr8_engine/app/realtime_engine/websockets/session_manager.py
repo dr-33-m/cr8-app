@@ -35,6 +35,8 @@ class Session:
         self.blender_socket_closed = False
         # Single B.L.A.Z.E agent instance per session
         self.blaze_agent = None
+        # Track commands that need scene context refresh
+        self.pending_refresh_commands = {}
 
 
 class SessionManager:
@@ -368,6 +370,18 @@ class SessionManager:
 
             return
 
+        # Check for refresh_context triggering when forwarding Blender responses to browser
+        if target == "browser" and message.get("status") == "success":
+            message_id = message.get("message_id")
+            if message_id and hasattr(session, 'pending_refresh_commands'):
+                # Check if this response needs scene context refresh
+                if message_id in session.pending_refresh_commands:
+                    command_info = session.pending_refresh_commands.pop(message_id)
+                    self.logger.info(f"Command {command_info.get('command')} succeeded, triggering scene context refresh")
+                    
+                    # Trigger scene context refresh by calling list_scene_objects
+                    await self._trigger_scene_context_refresh(from_username)
+
         if session.state != SessionState.CONNECTED:
             raise ValueError(
                 f"Session not fully connected for {from_username}")
@@ -494,3 +508,44 @@ class SessionManager:
                 del session.pending_requests[message_id]
                 self.logger.debug(f"Removed pending request {message_id}")
                 break
+
+    async def _trigger_scene_context_refresh(self, username: str):
+        """Trigger scene context refresh by calling list_scene_objects"""
+        try:
+            session = self.get_session(username)
+            if not session or not session.blaze_agent:
+                self.logger.warning(f"No session or B.L.A.Z.E agent available for scene refresh for {username}")
+                return
+
+            # Find an addon that provides list_scene_objects using standardized ai_integration structure
+            list_objects_addon = None
+            if session.blaze_agent.addon_manifests:
+                for manifest in session.blaze_agent.addon_manifests:
+                    tools = manifest['ai_integration']['tools']
+                    
+                    if any(tool.get('name') == 'list_scene_objects' for tool in tools):
+                        list_objects_addon = manifest['addon_info']['id']
+                        break
+            
+            if not list_objects_addon:
+                self.logger.warning("No addon provides list_scene_objects - cannot refresh context")
+                return
+                
+            # Execute list_scene_objects to get current scene state
+            list_message = {
+                "type": "addon_command",
+                "addon_id": list_objects_addon,
+                "command": "list_scene_objects",
+                "params": {},
+                "username": username,
+                "message_id": str(uuid.uuid4())
+            }
+            
+            if session.blender_socket and not session.blender_socket_closed:
+                await session.blender_socket.send_json(list_message)
+                self.logger.info(f"Triggered scene context refresh for {username} using addon {list_objects_addon}")
+            else:
+                self.logger.warning(f"No active Blender session for {username} to trigger scene refresh")
+            
+        except Exception as e:
+            self.logger.error(f"Error triggering scene context refresh: {str(e)}")

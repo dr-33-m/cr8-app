@@ -20,6 +20,14 @@ The Cr8-xyz system follows a distributed, event-driven architecture with clear s
 - **Components**: Session managers in Cr8 Engine with Blender instance lifecycle management
 - **Error Handling**: Graceful degradation, reconnection strategies, and timeout monitoring
 
+### Session-Based Message Tracking
+
+- **Pattern**: Request-response correlation using session-stored message tracking
+- **Implementation**: Session.pending_refresh_commands dictionary for tracking commands that need scene refresh
+- **Problem Solved**: Prevents response bypass where Blender → SessionManager → Browser skips WebSocketHandler
+- **Triggers**: Automatic scene context refresh when tracked commands succeed
+- **Location**: SessionManager.forward_message() checks for successful responses to tracked message_ids
+
 ### AI Agent Integration
 
 - **Pattern**: Dynamic toolset generation from addon manifests
@@ -88,3 +96,16 @@ The Cr8-xyz system follows a distributed, event-driven architecture with clear s
 - **Pattern**: Session-based context with real-time scene state updates
 - **Scope**: Scene objects, addon capabilities, and user interaction history
 - **Storage**: In-memory context managers with user isolation
+
+### Refresh Context Tracking Pattern
+
+- **Pattern**: Session-based tracking of commands that require scene context updates
+- **Problem**: Direct UI commands with refresh_context=true weren't triggering scene updates
+- **Root Cause**: Response flow bypassed WebSocketHandler: Blender → SessionManager → Browser
+- **Solution**: Track refresh_context commands in session, trigger refresh in SessionManager.forward_message()
+- **Implementation**:
+  - WebSocketHandler.\_forward_message() stores message_id in session.pending_refresh_commands
+  - SessionManager.forward_message() checks successful responses against tracked message_ids
+  - SessionManager.\_trigger_scene_context_refresh() automatically calls list_scene_objects
+  - Scene context updates propagate to browser via established WebSocket patterns
+- **Benefits**: Automatic scene synchronization, no manual refresh buttons, consistent UI state

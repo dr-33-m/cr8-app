@@ -5,6 +5,7 @@ This module routes all user messages through the B.L.A.Z.E intelligent agent wit
 
 import logging
 import time
+import uuid
 from typing import Dict, Any
 from fastapi import WebSocket
 
@@ -158,6 +159,9 @@ class WebSocketHandler:
             except Exception as e:
                 self.logger.error(f"Error forwarding response to B.L.A.Z.E agent: {str(e)}")
 
+        # Note: refresh_context tracking is now handled in session_manager.forward_message()
+        # This avoids the bypass issue where responses go directly through session_manager
+
         # Check for list_scene_objects responses for context updates
         command = data.get("command", "")
         if command == "list_scene_objects_result" and data.get("status") == "success":
@@ -221,6 +225,21 @@ class WebSocketHandler:
     async def _forward_message(self, username: str, data: Dict[str, Any], client_type: str):
         """Forward message to the other client type"""
         target = "blender" if client_type == "browser" else "browser"
+        
+        # Track refresh_context flag for addon commands in session
+        if client_type == "browser" and data.get("type") == "addon_command":
+            message_id = data.get("message_id")
+            refresh_context = data.get("refresh_context", False)
+            if message_id and refresh_context:
+                session = self.session_manager.get_session(username)
+                if session:
+                    session.pending_refresh_commands[message_id] = {
+                        "addon_id": data.get("addon_id"),
+                        "command": data.get("command"),
+                        "timestamp": time.time()
+                    }
+                    self.logger.debug(f"Tracking refresh_context for message_id {message_id}")
+        
         await self.session_manager.forward_message(username, data, target)
         self.logger.info(f"Forwarded message from {client_type} to {target}")
 

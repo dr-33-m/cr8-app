@@ -2,46 +2,57 @@
 
 ## Current Focus
 
-Memory bank documentation completion and system architecture analysis for the Cr8-xyz CGI content creation platform. The system enables AI-assisted 3D content creation through natural language interfaces and real-time viewport streaming.
+Successfully completed critical WebSocket refresh_context tracking fix for direct UI commands. The system now properly triggers automatic scene context updates when users interact with scene objects through the SceneControls interface.
 
 ## Recent Changes
 
-- System patterns documentation updated with current architecture
-- Technical context documentation aligned with implementation
-- Comprehensive analysis of B.L.A.Z.E agent and addon registry systems
-- WebSocket communication patterns clarified
+- **MAJOR FIX**: Resolved refresh_context bypass issue in WebSocket message flow
+- Implemented session-based tracking for direct UI commands with refresh_context flag
+- Added automatic scene context refresh trigger in SessionManager.forward_message()
+- Fixed dual execution path coordination between direct commands and B.L.A.Z.E agent
+- Updated WebSocket handler to use session's pending_refresh_commands tracking
+- Enhanced scene object interaction flow for real-time UI updates
 
 ## Next Steps
 
-1. Update progress tracking with completed documentation
-2. Document detailed WebSocket message flow patterns
-3. Finalize Blender addon registry and command router analysis
-4. Establish comprehensive testing strategies for AI integration
+1. Monitor and test the complete refresh_context flow in production
+2. Document additional WebSocket message flow patterns and edge cases
+3. Optimize scene context update performance for larger scenes
+4. Enhance error handling for failed scene refresh attempts
 
 ## Active Decisions
 
-- Focusing on accurate documentation of implemented systems
-- Emphasizing AI agent dynamic capabilities and addon discovery
-- Prioritizing real-time communication and session management patterns
-- Maintaining alignment with multi-addon architecture implementation
+- Chose session-based tracking over handler-based to avoid response bypass issues
+- Maintained separate execution paths for direct UI commands vs natural language
+- Implemented automatic scene refresh triggers rather than manual refresh buttons
+- Prioritized immediate UI feedback over background processing delays
 
 ## Key Considerations
 
-- B.L.A.Z.E agent dynamic toolset generation from addon manifests
-- Real-time viewport streaming with WebRTC integration
-- Session-based singleton pattern for AI agent consistency
-- Manifest-based addon discovery and validation
+- **Critical Fix**: Direct UI responses were bypassing WebSocket handler refresh logic
+- Session-based message tracking prevents response routing bypass issues
+- Automatic list_scene_objects calls ensure UI stays synchronized with Blender state
+- Dual path architecture supports both direct commands and AI agent interactions
 
 ## Current Priorities
 
-1. Complete memory bank documentation with current system state
-2. Document AI agent integration and dynamic capability patterns
-3. Analyze addon registry system and command routing
-4. Understand WebRTC streaming and viewport synchronization
+1. **COMPLETED**: Fix refresh_context tracking for direct UI commands
+2. Validate the complete flow from frontend button click to scene context update
+3. Document the session-based tracking pattern for future reference
+4. Monitor system performance with automatic scene refresh triggers
 
 ## Project Insights
 
-- Strong emphasis on AI-assisted natural language interfaces
-- Modular multi-addon architecture with standardized manifests
-- Real-time collaboration features with WebRTC viewport streaming
-- Dynamic capability discovery and toolset generation
+- WebSocket response routing can bypass handler logic - use session tracking instead
+- Direct UI commands need different handling patterns than AI agent commands
+- Scene context synchronization is critical for user experience
+- Session-based state management provides more reliable message correlation
+- Automatic refresh triggers reduce user friction compared to manual refresh buttons
+
+## Technical Achievements
+
+- **Solved**: refresh_context flag tracking for direct addon commands
+- **Implemented**: Session.pending_refresh_commands dictionary for message correlation
+- **Added**: SessionManager.\_trigger_scene_context_refresh() method
+- **Fixed**: Response bypass issue where Blender → SessionManager → Browser skipped handler logic
+- **Enhanced**: WebSocketHandler.\_forward_message() to track refresh_context in session
