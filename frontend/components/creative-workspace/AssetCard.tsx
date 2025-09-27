@@ -1,9 +1,17 @@
 import { useState } from "react";
-import { PolyHavenAsset } from "@/lib/services/polyhavenService";
-import { Download, ExternalLink, User } from "lucide-react";
+import {
+  PolyHavenAsset,
+  polyhavenService,
+} from "@/lib/services/polyhavenService";
+import { Download, ExternalLink, User, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 interface AssetCardProps {
   asset: PolyHavenAsset & { id: string };
@@ -61,131 +69,107 @@ export function AssetCard({
   };
 
   return (
-    <Card
-      className={`
-        group relative overflow-hidden cursor-pointer transition-all duration-200
-        ${
-          isSelected
-            ? "border-orange-500/50 bg-orange-500/10 shadow-lg shadow-orange-500/20"
-            : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"
-        }
-        ${compact ? "h-32" : "h-48"}
-      `}
-      onClick={handleCardClick}
-    >
-      {/* Image */}
-      <div
-        className={`relative overflow-hidden ${compact ? "h-full" : "h-32"}`}
+    <HoverCard>
+      <Card
+        className={`
+          group relative overflow-hidden cursor-pointer transition-all duration-200
+          ${
+            isSelected
+              ? "border-primary/50 bg-primary/10 shadow-lg shadow-primary/20"
+              : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"
+          }
+          ${compact ? "h-32" : "h-48"}
+        `}
+        onClick={handleCardClick}
       >
-        {!imageLoaded && !imageError && (
-          <div className="absolute inset-0 bg-gray-700 animate-pulse flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-          </div>
-        )}
+        {/* Full Image */}
+        <div className="relative overflow-hidden h-full">
+          {!imageLoaded && !imageError && (
+            <div className="absolute inset-0 bg-gray-700 animate-pulse flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+            </div>
+          )}
 
-        {imageError ? (
-          <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
-            <div className="text-white/40 text-sm">No preview</div>
-          </div>
-        ) : (
-          <img
-            src={asset.thumbnail_url}
-            alt={asset.name}
-            className={`
-              w-full h-full object-cover transition-all duration-200
-              group-hover:scale-110
-              ${imageLoaded ? "opacity-100" : "opacity-0"}
-            `}
-            onLoad={() => setImageLoaded(true)}
-            onError={() => setImageError(true)}
-          />
-        )}
+          {imageError ? (
+            <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
+              <div className="text-white/40 text-sm">No preview</div>
+            </div>
+          ) : (
+            <img
+              src={asset.thumbnail_url}
+              alt={asset.name}
+              className={`
+                w-full h-full object-contain transition-all duration-200
+                group-hover:scale-105
+                ${imageLoaded ? "opacity-100" : "opacity-0"}
+              `}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+            />
+          )}
 
-        {/* Type badge - only show in non-compact mode */}
-        {!compact && (
-          <Badge
-            className={`
-              absolute top-2 left-2 text-xs px-2 py-1 border
-              ${getAssetTypeColor(asset.type)}
-            `}
-          >
-            {getAssetTypeName(asset.type)}
-          </Badge>
-        )}
+          {/* Info Icon Trigger */}
+          <HoverCardTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute top-2 right-2 h-6 w-6 border-white/20 bg-black/60 backdrop-blur-sm text-white hover:bg-black/80"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Info className="w-3 h-3" />
+            </Button>
+          </HoverCardTrigger>
+        </div>
+      </Card>
 
-        {/* Download count - only show in non-compact mode */}
-        {!compact && (
-          <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded px-2 py-1">
-            <Download className="w-3 h-3 text-white/70" />
-            <span className="text-xs text-white/70">
-              {formatDownloads(asset.download_count)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Content - only show in non-compact mode */}
-      {!compact && (
-        <div className="p-3">
-          <h3 className="font-medium text-white line-clamp-1">{asset.name}</h3>
-
-          {/* Authors */}
-          <div className="flex items-center gap-1 mt-1 text-xs text-white/60">
-            <User className="w-3 h-3" />
-            <span className="line-clamp-1">
-              {Object.keys(asset.authors).join(", ")}
-            </span>
-          </div>
-
-          {/* Categories */}
-          <div className="flex flex-wrap gap-1 mt-2">
-            {asset.categories.slice(0, 2).map((category) => (
-              <Badge
-                key={category}
-                variant="outline"
-                className="text-xs px-1 py-0 border-white/20 text-white/60"
-              >
-                {category}
+      {/* HoverCard Content outside the card */}
+      <HoverCardContent
+        className="w-80 bg-cr8-charcoal border-white/10 text-white"
+        side="top"
+      >
+        <div className="space-y-3">
+          <div>
+            <h4 className="font-medium text-lg">{asset.name}</h4>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge className={`text-xs ${getAssetTypeColor(asset.type)}`}>
+                {getAssetTypeName(asset.type)}
               </Badge>
-            ))}
-            {asset.categories.length > 2 && (
-              <Badge
-                variant="outline"
-                className="text-xs px-1 py-0 border-white/20 text-white/60"
-              >
-                +{asset.categories.length - 2}
-              </Badge>
-            )}
+              <div className="flex items-center gap-1 text-xs text-white/60">
+                <Download className="w-3 h-3" />
+                <span>{formatDownloads(asset.download_count)} downloads</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm text-white/60 mb-1">Authors:</div>
+            <div className="flex items-center gap-1 text-sm">
+              <User className="w-3 h-3 text-white/60" />
+              <span>{Object.keys(asset.authors).join(", ")}</span>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm text-white/60 mb-1">Resolution:</div>
+            <div className="text-sm">{asset.max_resolution.join(" × ")}</div>
+          </div>
+
+          <div>
+            <div className="text-sm text-white/60 mb-2">Categories:</div>
+            <div className="flex flex-wrap gap-1">
+              {asset.categories.map((category) => (
+                <Badge
+                  key={category}
+                  variant="outline"
+                  className="text-xs border-white/20 text-white/60"
+                >
+                  {category}
+                </Badge>
+              ))}
+            </div>
           </div>
         </div>
-      )}
-
-      {/* Hover overlay with actions */}
-      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-white/20 bg-white/10 text-white hover:bg-white/20"
-          onClick={(e) => {
-            e.stopPropagation();
-            window.open(`https://polyhaven.com/a/${asset.id}`, "_blank");
-          }}
-        >
-          <ExternalLink className="w-4 h-4 mr-1" />
-          View
-        </Button>
-
-        <Button
-          size="sm"
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect?.(asset);
-          }}
-        >
-          Select
-        </Button>
-      </div>
-    </Card>
+      </HoverCardContent>
+    </HoverCard>
   );
 }

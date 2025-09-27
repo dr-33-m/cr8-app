@@ -1,5 +1,7 @@
 import httpx
 import logging
+import hashlib
+import math
 from typing import Dict, List, Optional, Union, Any
 from fastapi import HTTPException
 from app.models.polyhaven import (
@@ -7,6 +9,7 @@ from app.models.polyhaven import (
     HDRIFiles, TextureFiles, ModelFiles,
     File, OptionalFile, FileWithIncludes
 )
+from app.services.data_cache import PolyHavenDataCache
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +26,7 @@ class PolyHavenService:
                 "User-Agent": "CR8-PolyHaven-Integration/1.0"
             }
         )
+        self.cache = PolyHavenDataCache(ttl_minutes=30)
     
     async def close(self):
         """Close the HTTP client"""
@@ -77,21 +81,113 @@ class PolyHavenService:
                 detail="Internal server error while accessing Poly Haven API"
             )
     
-    async def get_asset_types(self) -> List[str]:
-        """Get list of available asset types"""
-        data = await self._make_request("/types")
-        return data
-    
-    async def get_assets(self, asset_type: Optional[str] = None, categories: Optional[str] = None) -> Dict[str, Any]:
-        """Get list of assets with optional filtering"""
-        params = {}
+    def _generate_cache_key(self, asset_type: Optional[str] = None, categories: Optional[str] = None) -> str:
+        """Generate a cache key for asset requests"""
+        key_parts = []
         if asset_type:
-            params["type"] = asset_type
+            key_parts.append(f"type_{asset_type}")
         if categories:
-            params["categories"] = categories
+            key_parts.append(f"cats_{categories}")
+        return "_".join(key_parts) if key_parts else "all"
+    
+    def _filter_assets_by_search(self, assets: Dict[str, Any], search_query: Optional[str]) -> Dict[str, Any]:
+        """Filter assets by search query"""
+        if not search_query:
+            return assets
         
-        data = await self._make_request("/assets", params)
-        return data
+        query = search_query.lower().strip()
+        filtered = {}
+        
+        for asset_id, asset_data in assets.items():
+            # Search in name, categories, tags, and authors
+            if (query in asset_data.get("name", "").lower() or
+                any(query in cat.lower() for cat in asset_data.get("categories", [])) or
+                any(query in tag.lower() for tag in asset_data.get("tags", [])) or
+                any(query in author.lower() for author in asset_data.get("authors", {}).keys())):
+                filtered[asset_id] = asset_data
+        
+        return filtered
+    
+    def _paginate_assets(self, assets: Dict[str, Any], page: int = 1, limit: int = 20) -> Dict[str, Any]:
+        """Paginate assets and return metadata"""
+        asset_list = list(assets.items())
+        total_count = len(asset_list)
+        total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+        
+        # Ensure page is within bounds
+        page = max(1, min(page, total_pages))
+        
+        # Calculate pagination
+        offset = (page - 1) * limit
+        paginated_items = asset_list[offset:offset + limit]
+        paginated_assets = dict(paginated_items)
+        
+        return {
+            "assets": paginated_assets,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
+        }
+    
+    async def get_asset_types(self) -> List[str]:
+        """Get list of available asset types with caching"""
+        async def fetch_types():
+            return await self._make_request("/types")
+        
+        return await self.cache.types_cache.get_data(fetch_types)
+    
+    async def get_assets(
+        self, 
+        asset_type: Optional[str] = None, 
+        categories: Optional[str] = None,
+        page: int = 1,
+        limit: int = 20,
+        search: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get list of assets with caching, filtering, search, and pagination"""
+        # Generate cache key for the base request (without search/pagination)
+        cache_key = self._generate_cache_key(asset_type, categories)
+        cache = self.cache.get_assets_cache(cache_key)
+        
+        async def fetch_assets():
+            params = {}
+            if asset_type:
+                params["type"] = asset_type
+            if categories:
+                params["categories"] = categories
+            
+            return await self._make_request("/assets", params)
+        
+        # Get cached or fresh data
+        all_assets = await cache.get_data(fetch_assets)
+        
+        # Apply search filter
+        if search:
+            all_assets = self._filter_assets_by_search(all_assets, search)
+        
+        # Apply pagination
+        return self._paginate_assets(all_assets, page, limit)
+    
+    async def get_assets_legacy(self, asset_type: Optional[str] = None, categories: Optional[str] = None) -> Dict[str, Any]:
+        """Legacy method for backward compatibility - returns all assets without pagination"""
+        cache_key = self._generate_cache_key(asset_type, categories)
+        cache = self.cache.get_assets_cache(cache_key)
+        
+        async def fetch_assets():
+            params = {}
+            if asset_type:
+                params["type"] = asset_type
+            if categories:
+                params["categories"] = categories
+            
+            return await self._make_request("/assets", params)
+        
+        return await cache.get_data(fetch_assets)
     
     async def get_asset_info(self, asset_id: str) -> Union[HDRI, Texture, Model]:
         """Get detailed information about a specific asset"""
@@ -248,13 +344,26 @@ class PolyHavenService:
         return Author(**data)
     
     async def get_categories(self, asset_type: str, in_categories: Optional[str] = None) -> Dict[str, int]:
-        """Get categories for a specific asset type"""
-        params = {}
-        if in_categories:
-            params["in"] = in_categories
+        """Get categories for a specific asset type with caching"""
+        cache = self.cache.get_categories_cache(asset_type)
         
-        data = await self._make_request(f"/categories/{asset_type}", params)
-        return data
+        async def fetch_categories():
+            params = {}
+            if in_categories:
+                params["in"] = in_categories
+            
+            return await self._make_request(f"/categories/{asset_type}", params)
+        
+        return await cache.get_data(fetch_categories)
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics"""
+        return self.cache.get_cache_stats()
+    
+    def clear_cache(self) -> None:
+        """Clear all caches"""
+        self.cache.invalidate_all()
+        logger.info("All PolyHaven caches cleared")
 
 
 # Global service instance

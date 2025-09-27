@@ -44,6 +44,18 @@ export interface AssetsResponse {
   [assetId: string]: PolyHavenAsset;
 }
 
+export interface PaginatedAssetsResponse {
+  assets: AssetsResponse;
+  pagination: {
+    page: number;
+    limit: number;
+    total_count: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
+}
+
 export interface CategoriesResponse {
   [category: string]: number;
 }
@@ -98,7 +110,7 @@ class PolyHavenService {
   async getAssets(
     assetType?: AssetType,
     categories?: string[]
-  ): Promise<AssetsResponse> {
+  ): Promise<PaginatedAssetsResponse> {
     try {
       const params = new URLSearchParams();
 
@@ -110,18 +122,70 @@ class PolyHavenService {
         params.append("categories", categories.join(","));
       }
 
-      const url = `${this.baseUrl}/api/v1/polyhaven/assets${params.toString() ? `?${params.toString()}` : ""}`;
+      // Use default pagination (page 1, limit 20)
+      params.append("page", "1");
+      params.append("limit", "20");
+
+      const url = `${this.baseUrl}/api/v1/polyhaven/assets?${params.toString()}`;
       const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const data: AssetsResponse = await response.json();
+      const data: PaginatedAssetsResponse = await response.json();
       return data;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to fetch assets";
+      toast.error(`Error loading assets: ${errorMessage}`);
+      throw error;
+    }
+  }
+
+  async getAssetsPaginated(
+    options: {
+      assetType?: AssetType;
+      categories?: string[];
+      page?: number;
+      limit?: number;
+      search?: string;
+    } = {}
+  ): Promise<PaginatedAssetsResponse> {
+    try {
+      const { assetType, categories, page = 1, limit = 20, search } = options;
+
+      const params = new URLSearchParams();
+
+      if (assetType) {
+        params.append("type", assetType);
+      }
+
+      if (categories && categories.length > 0) {
+        params.append("categories", categories.join(","));
+      }
+
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+
+      if (search) {
+        params.append("search", search);
+      }
+
+      const url = `${this.baseUrl}/api/v1/polyhaven/assets?${params.toString()}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data: PaginatedAssetsResponse = await response.json();
+      return data;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch paginated assets";
       toast.error(`Error loading assets: ${errorMessage}`);
       throw error;
     }

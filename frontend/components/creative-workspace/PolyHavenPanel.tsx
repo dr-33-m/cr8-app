@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RefreshCw, Search, X } from "lucide-react";
 import {
   AssetType,
   PolyHavenAsset,
   polyhavenService,
 } from "@/lib/services/polyhavenService";
 import { AssetGrid } from "./AssetGrid";
-import { AssetFilters } from "./AssetFilters";
 import { PolyHavenDialog } from "./PolyHavenDialog";
 
 interface PolyHavenPanelProps {
@@ -18,7 +19,11 @@ interface PolyHavenPanelProps {
 export function PolyHavenPanel({ onAssetSelect }: PolyHavenPanelProps) {
   const [selectedType, setSelectedType] = useState<AssetType>("textures");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [assets, setAssets] = useState<Record<string, PolyHavenAsset>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [assets, setAssets] = useState<Array<PolyHavenAsset & { id: string }>>(
+    []
+  );
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedAsset, setSelectedAsset] = useState<
     (PolyHavenAsset & { id: string }) | undefined
   >(undefined);
@@ -26,24 +31,45 @@ export function PolyHavenPanel({ onAssetSelect }: PolyHavenPanelProps) {
   const [error, setError] = useState<string | undefined>(undefined);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Load initial assets
+  // Load assets based on type and search query
   useEffect(() => {
     const loadAssets = async () => {
       setLoading(true);
       setError(undefined);
       try {
-        const assetsData = await polyhavenService.getAssets(selectedType);
-        setAssets(assetsData);
+        if (searchQuery.trim()) {
+          // Use server-side search when there's a query
+          const response = await polyhavenService.getAssetsPaginated({
+            assetType: selectedType,
+            search: searchQuery.trim(),
+            page: 1,
+            limit: 6,
+          });
+          const assetArray = polyhavenService.convertAssetsToArray(
+            response.assets
+          );
+          setAssets(assetArray);
+          setTotalCount(response.pagination.total_count);
+        } else {
+          // Load first 20 assets when no search query
+          const response = await polyhavenService.getAssets(selectedType);
+          const assetArray = polyhavenService.convertAssetsToArray(
+            response.assets
+          );
+          setAssets(assetArray);
+          setTotalCount(response.pagination.total_count);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load assets");
-        setAssets({});
+        setAssets([]);
+        setTotalCount(0);
       } finally {
         setLoading(false);
       }
     };
 
     loadAssets();
-  }, [selectedType]);
+  }, [selectedType, searchQuery]);
 
   const handleAssetSelect = (asset: PolyHavenAsset & { id: string }) => {
     setSelectedAsset(asset);
@@ -54,8 +80,10 @@ export function PolyHavenPanel({ onAssetSelect }: PolyHavenPanelProps) {
     setLoading(true);
     setError(undefined);
     try {
-      const assetsData = await polyhavenService.getAssets(selectedType);
-      setAssets(assetsData);
+      const response = await polyhavenService.getAssets(selectedType);
+      const assetArray = polyhavenService.convertAssetsToArray(response.assets);
+      setAssets(assetArray);
+      setTotalCount(response.pagination.total_count);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load assets");
     } finally {
@@ -63,13 +91,11 @@ export function PolyHavenPanel({ onAssetSelect }: PolyHavenPanelProps) {
     }
   };
 
-  // Get limited assets for compact view (first 6)
-  const limitedAssets = polyhavenService
-    .convertAssetsToArray(assets)
-    .slice(0, 6);
+  // Get limited assets for compact view (first 6) - no client filtering needed since server already filtered
+  const limitedAssets = assets.slice(0, 6);
 
   const getAssetCount = () => {
-    return Object.keys(assets).length;
+    return totalCount;
   };
 
   return (
@@ -85,7 +111,7 @@ export function PolyHavenPanel({ onAssetSelect }: PolyHavenPanelProps) {
             />
             <h3 className="text-lg font-medium text-white">Poly Haven</h3>
             {!loading && (
-              <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/30 text-xs">
+              <Badge className="bg-primary/20 text-white border-primary/30 text-xs">
                 {getAssetCount()}
               </Badge>
             )}
@@ -106,16 +132,53 @@ export function PolyHavenPanel({ onAssetSelect }: PolyHavenPanelProps) {
           </div>
         </div>
 
-        {/* Compact Filters */}
-        <AssetFilters
-          selectedType={selectedType}
-          onTypeChange={setSelectedType}
-          selectedCategories={selectedCategories}
-          onCategoriesChange={setSelectedCategories}
-          searchQuery=""
-          onSearchChange={() => {}} // No search in compact mode
-          compact
-        />
+        {/* Asset Type Tabs */}
+        <Tabs
+          value={selectedType}
+          onValueChange={(value) => setSelectedType(value as AssetType)}
+        >
+          <TabsList className="grid w-full grid-cols-3 bg-white/5 border border-white/10">
+            <TabsTrigger
+              value="hdris"
+              className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-300"
+            >
+              HDRIs
+            </TabsTrigger>
+            <TabsTrigger
+              value="textures"
+              className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-300"
+            >
+              Textures
+            </TabsTrigger>
+            <TabsTrigger
+              value="models"
+              className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-300"
+            >
+              Models
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Compact Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+          <Input
+            placeholder="Search preview assets..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 text-white/40 hover:text-white"
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
 
         {/* Asset Grid */}
         <AssetGrid

@@ -36,17 +36,58 @@ async def get_assets(
         description="A comma-separated list of categories to filter by. Only assets that match all categories specified will be included.",
         example="brick"
     ),
+    page: int = Query(
+        1,
+        description="Page number for pagination (starts from 1)",
+        ge=1,
+        example=1
+    ),
+    limit: int = Query(
+        20,
+        description="Number of assets per page",
+        ge=1,
+        le=100,
+        example=20
+    ),
+    search: Optional[str] = Query(
+        None,
+        description="Search query to filter assets by name, categories, tags, or authors",
+        example="wood"
+    ),
     service: PolyHavenService = Depends(get_polyhaven_service)
 ):
     """
-    Get a list of assets from Poly Haven, including their individual metadata.
+    Get a list of assets from Poly Haven with pagination, search, and filtering.
     
-    To filter the returned data, optional query parameters can be provided:
-    - type: Filter to assets of a particular type
-    - categories: Comma-separated list of categories to filter by
+    **Pagination Support:**
+    - page: Page number (starts from 1)
+    - limit: Assets per page (1-100, default 20)
+    - search: Filter by name, categories, tags, or authors
+    
+    **Response Format:**
+    ```json
+    {
+        "assets": {
+            "asset_id": { ... asset data ... }
+        },
+        "pagination": {
+            "page": 1,
+            "limit": 20,
+            "total_count": 150,
+            "total_pages": 8,
+            "has_next": true,
+            "has_prev": false
+        }
+    }
+    ```
     """
-    assets = await service.get_assets(asset_type=asset_type, categories=categories)
-    return assets
+    return await service.get_assets(
+        asset_type=asset_type, 
+        categories=categories,
+        page=page,
+        limit=limit,
+        search=search
+    )
 
 
 @router.get("/assets/{asset_id}/info", response_model=Union[HDRI, Texture, Model], tags=["polyhaven"])
@@ -146,3 +187,33 @@ async def polyhaven_health_check(
             "status": "unhealthy",
             "message": f"Poly Haven API is not accessible: {str(e)}"
         }
+
+
+# Cache management endpoints
+@router.get("/cache/stats", tags=["polyhaven", "cache"])
+async def get_cache_stats(
+    service: PolyHavenService = Depends(get_polyhaven_service)
+):
+    """
+    Get cache statistics for the Poly Haven service.
+    
+    Returns information about cache usage, including which data is cached
+    and how old the cached data is.
+    """
+    return service.get_cache_stats()
+
+
+@router.post("/cache/clear", tags=["polyhaven", "cache"])
+async def clear_cache(
+    service: PolyHavenService = Depends(get_polyhaven_service)
+):
+    """
+    Clear all Poly Haven caches.
+    
+    This will force fresh data to be fetched on the next request.
+    """
+    service.clear_cache()
+    return {
+        "status": "success",
+        "message": "All Poly Haven caches have been cleared"
+    }
