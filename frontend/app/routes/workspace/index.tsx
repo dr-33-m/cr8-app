@@ -4,7 +4,7 @@ import { PreviewWindow } from "@/components/PreviewWindow";
 import { ControlsOverlay } from "@/components/creative-workspace/FullScreenToggle";
 import { SceneControls } from "@/components/creative-workspace/SceneControls";
 import { AssetSelection } from "@/components/creative-workspace/AssetSelection";
-import { BottomControls } from "@/components/BottomControls";
+import { BottomControls } from "@/components/bottom-controls";
 import { SceneViewPort } from "@/components/creative-workspace/SceneViewPort";
 import { useWebRTCStream } from "@/hooks/useWebRTCStream";
 

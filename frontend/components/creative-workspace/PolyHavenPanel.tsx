@@ -24,9 +24,6 @@ export function PolyHavenPanel({ onAssetSelect }: PolyHavenPanelProps) {
     []
   );
   const [totalCount, setTotalCount] = useState(0);
-  const [selectedAsset, setSelectedAsset] = useState<
-    (PolyHavenAsset & { id: string }) | undefined
-  >(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -72,7 +69,6 @@ export function PolyHavenPanel({ onAssetSelect }: PolyHavenPanelProps) {
   }, [selectedType, searchQuery]);
 
   const handleAssetSelect = (asset: PolyHavenAsset & { id: string }) => {
-    setSelectedAsset(asset);
     onAssetSelect?.(asset);
   };
 
@@ -184,7 +180,6 @@ export function PolyHavenPanel({ onAssetSelect }: PolyHavenPanelProps) {
         <AssetGrid
           assets={limitedAssets}
           onAssetSelect={handleAssetSelect}
-          selectedAsset={selectedAsset}
           loading={loading}
           error={error}
           compact

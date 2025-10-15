@@ -23,7 +23,7 @@ class PolyHavenService:
         self.client = httpx.AsyncClient(
             timeout=30.0,
             headers={
-                "User-Agent": "CR8-PolyHaven-Integration/1.0"
+                "User-Agent": "Cr8-xyz-PolyHaven-Integration/1.0"
             }
         )
         self.cache = PolyHavenDataCache(ttl_minutes=30)

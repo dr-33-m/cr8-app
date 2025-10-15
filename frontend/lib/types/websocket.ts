@@ -32,6 +32,21 @@ export interface WebSocketMessage {
   params?: any;
   recovery?: boolean; // For browser_ready recovery mode
   refresh_context?: boolean; // Flag to control scene context refresh
+  context?: {
+    inbox_items?: Array<{
+      id: string;
+      name: string;
+      type: string;
+      registry: string;
+    }>;
+    scene_objects?: Array<{
+      name: string;
+      type: string;
+      selected: boolean;
+      active: boolean;
+      visible: boolean;
+    }>;
+  };
 }
 
 export interface WebSocketError {

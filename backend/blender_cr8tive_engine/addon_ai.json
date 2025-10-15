@@ -235,6 +235,34 @@
           "let me see what the viewport looks like right now"
         ],
         "category": "viewport"
+      },
+      {
+        "name": "process_inbox_assets",
+        "description": "Process and download assets from the user's inbox context",
+        "usage": "Automatically download all assets from the user's inbox that are ready for download",
+        "category": "asset_download",
+        "parameters": [
+          {
+            "name": "resolution",
+            "type": "enum",
+            "description": "Asset resolution quality for all downloads",
+            "required": false,
+            "default": "1k",
+            "options": ["1k", "2k", "4k", "8k"]
+          },
+          {
+            "name": "import_to_scene",
+            "type": "boolean",
+            "description": "Whether to automatically import downloaded assets to the scene",
+            "required": false,
+            "default": true
+          }
+        ],
+        "examples": [
+          "download all my inbox assets in 2k resolution",
+          "process my inbox and import everything to the scene",
+          "download inbox assets without importing to scene"
+        ]
       }
     ],
     "context_hints": [

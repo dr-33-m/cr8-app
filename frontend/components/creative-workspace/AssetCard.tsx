@@ -12,6 +12,8 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import useInboxStore from "@/store/inboxStore";
+import { toast } from "sonner";
 
 interface AssetCardProps {
   asset: PolyHavenAsset & { id: string };
@@ -64,7 +66,20 @@ export function AssetCard({
     }
   };
 
+  const inboxStore = useInboxStore();
+  const isInInbox = inboxStore.hasItem(asset.id);
+
   const handleCardClick = () => {
+    const wasInInbox = inboxStore.hasItem(asset.id);
+    inboxStore.toggleItem(asset);
+
+    if (wasInInbox) {
+      toast.info(`Removed ${asset.name} from inbox`);
+    } else {
+      toast.success(`Added ${asset.name} to inbox`);
+    }
+
+    // Call the optional onSelect prop if provided
     onSelect?.(asset);
   };
 
@@ -74,9 +89,9 @@ export function AssetCard({
         className={`
           group relative overflow-hidden cursor-pointer transition-all duration-200
           ${
-            isSelected
+            isInInbox
               ? "border-primary/50 bg-primary/10 shadow-lg shadow-primary/20"
-              : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"
+              : "border-white/10 bg-cr8-charcoal/10 backdrop-blur-md hover:border-white/20"
           }
           ${compact ? "h-32" : "h-48"}
         `}
@@ -109,22 +124,20 @@ export function AssetCard({
           )}
 
           {/* Info Icon Trigger */}
-          <HoverCardTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute top-2 right-2 h-6 w-6 border-white/20 bg-black/60 backdrop-blur-sm text-white hover:bg-black/80"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Info className="w-3 h-3" />
-            </Button>
-          </HoverCardTrigger>
+          {!compact && (
+            <HoverCardTrigger asChild>
+              <Info
+                className="w-4 h-4 top-2 right-2 absolute text-white/60 hover:text-primary"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </HoverCardTrigger>
+          )}
         </div>
       </Card>
 
       {/* HoverCard Content outside the card */}
       <HoverCardContent
-        className="w-80 bg-cr8-charcoal border-white/10 text-white"
+        className="w-80 bg-cr8-charcoal/40 backdrop-blur-md border-white/10 text-white"
         side="top"
       >
         <div className="space-y-3">

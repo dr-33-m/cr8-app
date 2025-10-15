@@ -10,6 +10,7 @@ import {
 import { useWebSocket } from "@/hooks/useWebsocket";
 import { WebSocketStatus, WebSocketMessage } from "@/lib/types/websocket";
 import useSceneContextStore from "@/store/sceneContextStore";
+import useInboxStore from "@/store/inboxStore";
 import { toast } from "sonner";
 
 interface WebSocketContextType {
@@ -89,6 +90,44 @@ export function WebSocketProvider({
         const { objects, timestamp } = data.data;
         useSceneContextStore.getState().setSceneObjects(objects, timestamp);
         console.log("Scene context updated:", objects.length, "objects");
+      }
+
+      // Handle clear inbox command from process_inbox_assets response
+      if (
+        data.command === "process_inbox_assets_result" &&
+        data.status === "success"
+      ) {
+        try {
+          // Parse the JSON string in data.data.message to check for commands
+          const messageData =
+            typeof data.data?.message === "string"
+              ? JSON.parse(data.data.message)
+              : data.data?.message;
+
+          if (
+            messageData?.commands &&
+            messageData.commands.includes("clear_inbox")
+          ) {
+            // Clear the inbox store
+            useInboxStore.getState().clearAll();
+            toast.success("Inbox cleared after successful processing");
+            return; // Don't process further
+          }
+        } catch (parseError) {
+          // If parsing fails, continue with normal processing
+          console.warn(
+            "Failed to parse message data for clear_inbox command:",
+            parseError
+          );
+        }
+      }
+
+      // Handle direct clear inbox command (for backward compatibility)
+      if (data.type === "clear_inbox" && data.status === "success") {
+        // Clear the inbox store
+        useInboxStore.getState().clearAll();
+        toast.success(data.message || "Inbox cleared successfully");
+        return; // Don't process further
       }
 
       // Handle B.L.A.Z.E Agent responses

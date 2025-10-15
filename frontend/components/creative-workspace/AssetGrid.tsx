@@ -4,7 +4,6 @@ import { AssetCard } from "./AssetCard";
 interface AssetGridProps {
   assets: Array<PolyHavenAsset & { id: string }>;
   onAssetSelect?: (asset: PolyHavenAsset & { id: string }) => void;
-  selectedAsset?: PolyHavenAsset & { id: string };
   compact?: boolean;
   loading?: boolean;
   error?: string;
@@ -13,7 +12,6 @@ interface AssetGridProps {
 export function AssetGrid({
   assets,
   onAssetSelect,
-  selectedAsset,
   compact = false,
   loading = false,
   error,
@@ -29,7 +27,7 @@ export function AssetGrid({
           <div
             key={i}
             className={`
-              bg-white/5 border border-white/10 rounded-lg overflow-hidden
+              bg-cr8-charcoal/10 backdrop-blur-md border border-white/10 rounded-lg overflow-hidden
               ${compact ? "h-32" : "h-48"}
             `}
           >
@@ -90,7 +88,6 @@ export function AssetGrid({
           key={asset.id}
           asset={asset}
           onSelect={onAssetSelect}
-          isSelected={selectedAsset?.id === asset.id}
           compact={compact}
         />
       ))}

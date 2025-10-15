@@ -14,10 +14,10 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 from pydantic_ai import Agent, RunContext, ModelRetry
 from pydantic_ai.models.openai import OpenAIModel
-from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai import BinaryContent
 from .context_manager import ContextManager
+from .providers import create_provider_from_env, ProviderConfig
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class BlazeAgent:
     """Main B.L.A.Z.E agent for natural language scene control"""
 
-    def __init__(self, session_manager, handlers, model_name: str = "qwen/qwen3-coder"):
+    def __init__(self, session_manager, handlers):
         """Initialize B.L.A.Z.E agent with OpenRouter"""
         # Initialize logger first
         self.logger = logging.getLogger(__name__)
@@ -44,18 +44,12 @@ class BlazeAgent:
         # Screenshot data storage for image analysis
         self.screenshot_data = {}  # username -> screenshot_data
 
-        # Configure OpenRouter using OpenRouterProvider
-        openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-        if not openrouter_api_key:
-            self.logger.error(
-                "OPENROUTER_API_KEY not found in environment variables")
-            raise ValueError("OPENROUTER_API_KEY is required")
-
-        # Create OpenAI model with OpenRouter provider
-        self.model = OpenAIModel(
-            model_name,
-            provider=OpenRouterProvider(api_key=openrouter_api_key)
-        )
+        # Create AI model using the new provider system
+        try:
+            self.model = create_provider_from_env()
+        except Exception as e:
+            self.logger.error(f"Failed to create AI provider: {e}")
+            raise
 
         # Initialize Pydantic AI agent with dynamic toolsets
         self.agent = Agent(
@@ -69,8 +63,11 @@ class BlazeAgent:
             """Build toolset dynamically from current addon manifests"""
             return self._build_dynamic_toolset(ctx)
 
+        # Get provider info for logging
+        provider_type = os.getenv("AI_PROVIDER", "openrouter")
+        model_name = os.getenv("AI_MODEL_NAME")
         self.logger.info(
-            f"B.L.A.Z.E Agent initialized with OpenRouter model: {model_name}")
+            f"B.L.A.Z.E Agent initialized with {provider_type} provider and model: {model_name}")
 
     def _get_dynamic_system_prompt(self) -> str:
         """Get dynamic system prompt based on current addon capabilities"""
@@ -338,6 +335,75 @@ Remember: Your capabilities change based on installed addons. Use the available 
         except Exception as e:
             self.logger.error(f"Error refreshing scene context: {str(e)}")
 
+    async def _process_inbox_assets_direct(self, inbox_items: List[Dict[str, Any]], resolution: str = "1k") -> str:
+        """Process inbox assets directly using the addon tool"""
+        try:
+            # Find the multi_registry_assets addon
+            addon_id = None
+            for manifest in self.addon_manifests:
+                if manifest['addon_info']['id'] == 'multi_registry_assets':
+                    addon_id = manifest['addon_info']['id']
+                    break
+            
+            if not addon_id:
+                raise ModelRetry("Multi-registry asset addon not available")
+            
+            # Call the process_inbox_assets tool directly
+            params = {
+                "inbox_items": inbox_items,
+                "resolution": resolution,
+                "import_to_scene": True,
+                "clear_inbox_after_processing": True
+            }
+            
+            result = await self.execute_addon_command_direct(
+                addon_id, 
+                "process_inbox_assets", 
+                params
+            )
+            
+            # Parse the result to check for clear_inbox command
+            try:
+                # The result is a JSON string from the tool
+                result_data = json.loads(result)
+                
+                # Check if clear_inbox command is present
+                if result_data.get('commands') and 'clear_inbox' in result_data['commands']:
+                    # Send clear inbox command to frontend
+                    await self._send_clear_inbox_command()
+                    self.logger.info("Sent clear_inbox command to frontend after successful processing")
+            except (json.JSONDecodeError, Exception) as parse_error:
+                self.logger.warning(f"Could not parse result for clear_inbox command: {parse_error}")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error in _process_inbox_assets_direct: {str(e)}")
+            raise ModelRetry(f"Failed to process inbox assets: {str(e)}")
+
+    async def _send_clear_inbox_command(self):
+        """Send clear inbox command to frontend via WebSocket"""
+        try:
+            if not self.current_username:
+                self.logger.warning("No current username to send clear_inbox command")
+                return
+                
+            clear_inbox_message = {
+                "type": "clear_inbox",
+                "status": "success",
+                "message": "Inbox cleared after successful processing"
+            }
+            
+            session = self.session_manager.get_session(self.current_username)
+            if session and session.browser_socket:
+                await session.browser_socket.send_json(clear_inbox_message)
+                self.logger.info(f"Sent clear_inbox command to {self.current_username}")
+            else:
+                self.logger.warning(f"No browser socket available for {self.current_username}")
+                
+        except Exception as e:
+            self.logger.error(f"Error sending clear_inbox command: {str(e)}")
+
     def _build_dynamic_toolset(self, ctx: RunContext) -> Optional[FunctionToolset]:
         """Build dynamic toolset with proper parameter schemas from addon manifests"""
         try:
@@ -435,7 +501,8 @@ async def {tool_name}({signature_str}):
         return dynamic_function
 
     async def process_message(self, username: str, message: str,
-                              client_type: str = "browser") -> Dict[str, Any]:
+                              client_type: str = "browser", 
+                              inbox_context: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """Process a natural language message from user"""
         try:
             # Store current username for tool access
@@ -462,6 +529,44 @@ async def {tool_name}({signature_str}):
                     "message": "No AI capabilities are currently available. Please ensure Blender is connected and AI-capable addons are installed.",
                     "context": scene_context
                 }
+
+            # Check for inbox context and process automatically if requested
+            if inbox_context and isinstance(inbox_context, list) and len(inbox_context) > 0:
+                # Check if user wants to process inbox items
+                if "inbox" in message.lower() or "download" in message.lower() or "process" in message.lower():
+                    self.logger.info(f"Processing {len(inbox_context)} inbox items for user {username}")
+                    
+                    # Find the process_inbox_assets tool
+                    process_tool_available = False
+                    for manifest in self.addon_manifests:
+                        tools = manifest['ai_integration']['tools']
+                        if any(tool.get('name') == 'process_inbox_assets' for tool in tools):
+                            process_tool_available = True
+                            break
+                    
+                    if process_tool_available:
+                        # Process inbox items using the new tool
+                        try:
+                            # Extract resolution preference from message or use default
+                            resolution = "1k"
+                            if "2k" in message.lower():
+                                resolution = "2k"
+                            elif "4k" in message.lower():
+                                resolution = "4k"
+                            elif "8k" in message.lower():
+                                resolution = "8k"
+                            
+                            # Call the process_inbox_assets tool
+                            process_result = await self._process_inbox_assets_direct(inbox_context, resolution)
+                            
+                            # Add inbox processing result to the message
+                            inbox_summary = f"\n\n📥 **Inbox Processing Results:**\n{process_result}"
+                            message += inbox_summary
+                            
+                        except Exception as e:
+                            self.logger.error(f"Error processing inbox: {str(e)}")
+                            inbox_summary = f"\n\n⚠️ **Inbox Processing Failed:** {str(e)}"
+                            message += inbox_summary
 
             # Prepare context-aware prompt
             full_message = f"""

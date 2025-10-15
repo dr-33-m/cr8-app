@@ -210,8 +210,14 @@ class WebSocketHandler:
                 await self._send_error(username, "No message provided")
                 return
 
-            # Process message with B.L.A.Z.E Agent
-            response = await self.blaze_agent.process_message(username, message, client_type)
+            # Extract inbox context if available (from frontend context structure)
+            inbox_context = None
+            context = data.get("context", {})
+            if context and "inbox_items" in context:
+                inbox_context = context["inbox_items"]
+            
+            # Process message with B.L.A.Z.E Agent, passing inbox context
+            response = await self.blaze_agent.process_message(username, message, client_type, inbox_context)
 
             # Send response back to browser
             session = self.session_manager.get_session(username)

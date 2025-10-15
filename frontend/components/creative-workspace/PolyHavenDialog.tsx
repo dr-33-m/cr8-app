@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,20 +26,11 @@ import {
 import {
   AssetType,
   PolyHavenAsset,
-  PaginatedAssetsResponse,
   polyhavenService,
   CategoriesResponse,
 } from "@/lib/services/polyhavenService";
 import { AssetGrid } from "./AssetGrid";
-import {
-  Search,
-  X,
-  Filter,
-  Download,
-  ExternalLink,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Search, X, Filter } from "lucide-react";
 
 interface PolyHavenDialogProps {
   open: boolean;
@@ -68,9 +59,6 @@ export function PolyHavenDialog({
     has_next: false,
     has_prev: false,
   });
-  const [selectedAsset, setSelectedAsset] = useState<
-    (PolyHavenAsset & { id: string }) | undefined
-  >(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [categories, setCategories] = useState<CategoriesResponse>({});
@@ -169,13 +157,7 @@ export function PolyHavenDialog({
   const filteredAssets = assets;
 
   const handleAssetSelect = (asset: PolyHavenAsset & { id: string }) => {
-    setSelectedAsset(asset);
     onAssetSelect?.(asset);
-  };
-
-  const handleClose = () => {
-    setSelectedAsset(undefined);
-    onOpenChange(false);
   };
 
   const getAssetCount = () => {
@@ -190,7 +172,7 @@ export function PolyHavenDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl h-[90vh] bg-cr8-charcoal border-white/10">
+      <DialogContent className="max-w-7xl h-[90vh] bg-cr8-charcoal/10 backdrop-blur-md border-white/10">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center gap-2">
             <img
@@ -276,7 +258,7 @@ export function PolyHavenDialog({
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 bg-cr8-charcoal border-white/10">
+                <PopoverContent className="w-80 bg-cr8-charcoal/10 backdrop-blur-md border-white/10">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium text-white">
@@ -382,7 +364,6 @@ export function PolyHavenDialog({
               <AssetGrid
                 assets={filteredAssets}
                 onAssetSelect={handleAssetSelect}
-                selectedAsset={selectedAsset}
                 loading={loading}
                 error={error}
               />
