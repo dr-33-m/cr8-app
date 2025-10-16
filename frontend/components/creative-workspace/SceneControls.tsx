@@ -7,6 +7,7 @@ import {
   Lightbulb,
   Triangle,
   Video,
+  Trash2,
 } from "lucide-react";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import useSceneContextStore from "@/store/sceneContextStore";
@@ -145,6 +146,23 @@ export function SceneControls() {
                       <ScanEye className="h-3 w-3" />
                     </Button>
                     <TransformationPopover objectName={obj.name} />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-white/60 hover:text-red-400 hover:bg-red-500/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sendSceneCommand(
+                          "delete_object",
+                          {
+                            object_name: obj.name,
+                          },
+                          true
+                        );
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
               ))}

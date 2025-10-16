@@ -1,27 +1,82 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import useInboxStore from "@/store/inboxStore";
 import useSceneContextStore from "@/store/sceneContextStore";
 
+interface MentionData {
+  id: string;
+  name: string;
+  type: "inbox" | "scene";
+  itemType: string;
+  source: "inbox" | "scene";
+}
+
 export function useChatMessage() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { sendMessage: wsSendMessage, isFullyConnected } =
     useWebSocketContext();
   const inboxStore = useInboxStore();
   const sceneObjects = useSceneContextStore((state) => state.objects);
 
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + "px";
-    }
-  }, [message]);
+  // Parse mentions from react-mentions markup format
+  const parseMentions = useCallback(
+    (text: string) => {
+      const mentions: MentionData[] = [];
+
+      // Match inbox mentions: @[display](inbox:id)
+      const inboxRegex = /@\[([^\]]+)\]\(inbox:([^)]+)\)/g;
+      let match;
+
+      while ((match = inboxRegex.exec(text)) !== null) {
+        const display = match[1];
+        const id = match[2];
+
+        const inboxItem = inboxStore.items.find((item) => item.id === id);
+        if (inboxItem) {
+          mentions.push({
+            id: inboxItem.id,
+            name: inboxItem.name,
+            type: "inbox",
+            itemType: inboxItem.type,
+            source: "inbox",
+          });
+        }
+      }
+
+      // Match scene mentions: #[display](scene:name)
+      const sceneRegex = /#\[([^\]]+)\]\(scene:([^)]+)\)/g;
+      while ((match = sceneRegex.exec(text)) !== null) {
+        const display = match[1];
+        const name = match[2];
+
+        const sceneObject = sceneObjects.find((obj) => obj.name === name);
+        if (sceneObject) {
+          mentions.push({
+            id: sceneObject.name,
+            name: sceneObject.name,
+            type: "scene",
+            itemType: sceneObject.type,
+            source: "scene",
+          });
+        }
+      }
+
+      return mentions;
+    },
+    [inboxStore.items, sceneObjects]
+  );
+
+  // Convert markup to plain text for display
+  const getPlainText = useCallback((text: string) => {
+    // Convert @[Display](inbox:id) to @Display
+    let plainText = text.replace(/@\[([^\]]+)\]\(inbox:[^)]+\)/g, "@$1");
+    // Convert #[Display](scene:name) to #Display
+    plainText = plainText.replace(/#\[([^\]]+)\]\(scene:[^)]+\)/g, "#$1");
+    return plainText;
+  }, []);
 
   const handleSendMessage = useCallback(async () => {
     if (!message.trim() || !isFullyConnected || isLoading) return;
@@ -45,37 +100,72 @@ export function useChatMessage() {
         visible: obj.visible,
       }));
 
+      // Parse mentions from message markup
+      const mentions = parseMentions(message);
+
+      // Separate mentions by type
+      const assetMentions = mentions.filter((m) => m.type === "inbox");
+      const objectMentions = mentions.filter((m) => m.type === "scene");
+
+      // Convert to plain text for the agent
+      const plainTextMessage = getPlainText(message);
+
       // Send message to B.L.A.Z.E Agent with context
       wsSendMessage({
         type: "agent_message",
-        message: message.trim(),
+        message: plainTextMessage.trim(),
         context: {
           inbox_items: inboxItems,
           scene_objects: sceneContext,
+          mentions: {
+            assets: assetMentions,
+            objects: objectMentions,
+          },
         },
       });
 
       // Clear input
       setMessage("");
 
-      // Show context summary in toast
+      // Build context summary for toast
       const contextParts: string[] = [];
-      if (inboxItems.length > 0) {
+
+      if (assetMentions.length > 0) {
+        contextParts.push(
+          `${assetMentions.length} asset${
+            assetMentions.length !== 1 ? "s" : ""
+          }`
+        );
+      }
+
+      if (objectMentions.length > 0) {
+        contextParts.push(
+          `${objectMentions.length} object${
+            objectMentions.length !== 1 ? "s" : ""
+          }`
+        );
+      }
+
+      if (inboxItems.length > 0 && assetMentions.length === 0) {
         contextParts.push(
           `${inboxItems.length} inbox item${inboxItems.length !== 1 ? "s" : ""}`
         );
       }
-      if (sceneContext.length > 0) {
+
+      if (sceneContext.length > 0 && objectMentions.length === 0) {
         contextParts.push(
-          `${sceneContext.length} scene object${sceneContext.length !== 1 ? "s" : ""}`
+          `${sceneContext.length} scene object${
+            sceneContext.length !== 1 ? "s" : ""
+          }`
         );
       }
 
       const contextSummary =
-        contextParts.length > 0 ? ` (with ${contextParts.join(" and ")})` : "";
+        contextParts.length > 0 ? ` (${contextParts.join(", ")})` : "";
 
       toast.success(`Message sent to B.L.A.Z.E${contextSummary}`);
     } catch (error) {
+      console.error("Failed to send message:", error);
       toast.error("Failed to send message");
     } finally {
       setIsLoading(false);
@@ -87,24 +177,14 @@ export function useChatMessage() {
     wsSendMessage,
     inboxStore.items,
     sceneObjects,
+    parseMentions,
+    getPlainText,
   ]);
-
-  const handleKeyPress = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSendMessage();
-      }
-    },
-    [handleSendMessage]
-  );
 
   return {
     message,
     setMessage,
     isLoading,
-    textareaRef,
     handleSendMessage,
-    handleKeyPress,
   };
 }

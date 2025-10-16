@@ -46,6 +46,22 @@ export interface WebSocketMessage {
       active: boolean;
       visible: boolean;
     }>;
+    mentions?: {
+      assets?: Array<{
+        id: string;
+        name: string;
+        type: string;
+        source: string;
+        itemType: string;
+      }>;
+      objects?: Array<{
+        id: string;
+        name: string;
+        type: string;
+        source: string;
+        itemType: string;
+      }>;
+    };
   };
 }
 
