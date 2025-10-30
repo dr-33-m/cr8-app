@@ -6,5 +6,5 @@ __pycache__/
 *.log
 *.zip
 .vscode
-backend/cr8_engine/.env*
+backend/cr8_engine/.env
 test_addons
