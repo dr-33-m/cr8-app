@@ -186,7 +186,7 @@ const AppleScrollbar: React.FC<AppleScrollbarProps> = ({
             "absolute top-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-200",
             isActive
               ? isMajor
-                ? "h-5 w-[1.5px] bg-primary/90 shadow-sm scale-110"
+                ? "h-5 w-[1.5px] bg-primary/90 shadow-xs scale-110"
                 : "h-3 w-0.5 bg-primary/80 scale-110"
               : isMajor
                 ? "h-4 w-0.5 bg-muted-foreground/50"
@@ -209,8 +209,8 @@ const AppleScrollbar: React.FC<AppleScrollbarProps> = ({
         <div
           ref={trackRef}
           className={cn(
-            "relative flex-1 h-7 bg-white/5 rounded-sm overflow-hidden transition-all duration-200 cursor-ew-resize select-none backdrop-blur-sm border border-white/10",
-            (isHovered || isDragging) && "bg-white/10 border-white/20"
+            "relative flex-1 h-7 bg-muted rounded-sm overflow-hidden transition-all duration-200 cursor-ew-resize select-none border border-border",
+            (isHovered || isDragging) && "bg-muted/80 border-border/80"
           )}
           onMouseEnter={() => !isDragging && setIsHovered(true)}
           onMouseLeave={() => !isDragging && setIsHovered(false)}
@@ -370,14 +370,14 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 text-white/60 hover:text-white hover:bg-white/20"
+          className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-accent"
           onClick={(e) => e.stopPropagation()}
         >
           <Move3D className="h-3 w-3" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-72 p-4 backdrop-blur-md bg-white/5 shadow-xl border-none"
+        className="w-72 p-4 bg-popover shadow-xl border"
         align="start"
         sideOffset={8}
         onClick={(e) => e.stopPropagation()}
@@ -400,9 +400,9 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
             </Button>
           </div>
 
-          <div className="flex gap-1 p-1 bg-muted/20 rounded-lg backdrop-blur-sm">
+          <div className="flex gap-1 p-1 bg-muted/20 rounded-lg">
             <Button
-              variant={mode === "move" ? "default" : "glass"}
+              variant={mode === "move" ? "default" : "outline"}
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
@@ -411,14 +411,14 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
               className={cn(
                 "flex-1 h-8 px-2 transition-all duration-200",
                 mode === "move"
-                  ? "bg-primary/30 shadow-sm text-foreground border border-primary/80"
+                  ? "bg-primary/30 shadow-xs text-foreground border border-primary/80"
                   : "text-muted-foreground"
               )}
             >
               <Move3d className="w-3.5 h-3.5" />
             </Button>
             <Button
-              variant={mode === "rotate" ? "default" : "glass"}
+              variant={mode === "rotate" ? "default" : "outline"}
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
@@ -427,14 +427,14 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
               className={cn(
                 "flex-1 h-8 px-2 transition-all duration-200",
                 mode === "rotate"
-                  ? "bg-primary/30 shadow-sm text-foreground border border-primary/80"
+                  ? "bg-primary/30 shadow-xs text-foreground border border-primary/80"
                   : "text-muted-foreground"
               )}
             >
               <Rotate3d className="w-3.5 h-3.5" />
             </Button>
             <Button
-              variant={mode === "scale" ? "default" : "glass"}
+              variant={mode === "scale" ? "default" : "outline"}
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
@@ -443,7 +443,7 @@ export const TransformationPopover: React.FC<TransformationPopoverProps> = ({
               className={cn(
                 "flex-1 h-8 px-2 transition-all duration-200",
                 mode === "scale"
-                  ? "bg-primary/30 shadow-sm text-foreground border border-primary/80"
+                  ? "bg-primary/30 shadow-xs text-foreground border border-primary/80"
                   : "text-muted-foreground"
               )}
             >

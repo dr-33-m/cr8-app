@@ -178,7 +178,7 @@ export function AssetFilters({
                       variant={
                         selectedCategories.includes(category)
                           ? "default"
-                          : "outline"
+                          : "outline-solid"
                       }
                       size="sm"
                       className={`justify-between text-left ${

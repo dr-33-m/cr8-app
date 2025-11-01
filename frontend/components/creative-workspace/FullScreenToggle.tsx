@@ -19,7 +19,7 @@ export function ControlsOverlay({ children }: ControlsOverlayProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/10 backdrop-blur-sm cursor-pointer"
+          className="text-white hover:bg-white/10 backdrop-blur-xs cursor-pointer"
           onClick={toggleFullscreen}
         >
           {isFullscreen ? (

@@ -40,11 +40,11 @@ export function ChatInterface() {
       <div
         className={`px-3 py-2 flex items-center gap-3 rounded-lg mx-1 ${
           focused
-            ? "bg-cr8-blue/20 text-white backdrop-blur-sm"
+            ? "bg-cr8-blue/20 text-white backdrop-blur-xs"
             : "text-white/80"
         }`}
       >
-        <div className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-base bg-cr8-blue/10 backdrop-blur-sm border border-cr8-blue/20">
+        <div className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-base bg-cr8-blue/10 backdrop-blur-xs border border-cr8-blue/20">
           <Inbox className="h-4 w-4 text-cr8-blue" />
         </div>
         <div className="flex-1 min-w-0">
@@ -71,11 +71,11 @@ export function ChatInterface() {
       <div
         className={`px-3 py-2 flex items-center gap-3 rounded-lg mx-1 ${
           focused
-            ? "bg-green-500/20 text-white backdrop-blur-sm"
+            ? "bg-green-500/20 text-white backdrop-blur-xs"
             : "text-white/80"
         }`}
       >
-        <div className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-base bg-green-500/10 backdrop-blur-sm border border-green-500/20">
+        <div className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-base bg-green-500/10 backdrop-blur-xs border border-green-500/20">
           <Image className="h-4 w-4 text-green-500" />
         </div>
         <div className="flex-1 min-w-0">

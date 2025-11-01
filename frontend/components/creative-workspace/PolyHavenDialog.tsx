@@ -172,15 +172,15 @@ export function PolyHavenDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl h-[90vh] bg-cr8-charcoal/10 backdrop-blur-md border-white/10">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-7xl h-[90vh] bg-popover border">
+        <DialogHeader className="shrink-0">
           <div className="flex items-center gap-2">
             <img
               src="/assets/polyhaven_256.png"
               alt="Poly Haven"
               className="w-8 h-8"
             />
-            <DialogTitle className="text-2xl font-bold text-white">
+            <DialogTitle className="text-2xl font-bold text-foreground">
               Poly Haven Assets
             </DialogTitle>
           </div>
@@ -188,28 +188,28 @@ export function PolyHavenDialog({
 
         <div className="relative min-h-0">
           {/* Horizontal Filters Row */}
-          <div className="flex-shrink-0 flex items-center justify-between gap-4 mb-6">
+          <div className="shrink-0 flex items-center justify-between gap-4 mb-6">
             {/* Asset Type Tabs */}
             <Tabs
               value={selectedType}
               onValueChange={(value) => setSelectedType(value as AssetType)}
             >
-              <TabsList className="bg-white/5 border border-white/10">
+              <TabsList className="bg-muted border border-border">
                 <TabsTrigger
                   value="hdris"
-                  className="data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-300"
+                  className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
                 >
                   HDRIs
                 </TabsTrigger>
                 <TabsTrigger
                   value="textures"
-                  className="data-[state=active]:bg-green-500/20 data-[state=active]:text-green-300"
+                  className="data-[state=active]:bg-secondary/20 data-[state=active]:text-secondary"
                 >
                   Textures
                 </TabsTrigger>
                 <TabsTrigger
                   value="models"
-                  className="data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-300"
+                  className="data-[state=active]:bg-accent/20 data-[state=active]:text-accent-foreground"
                 >
                   Models
                 </TabsTrigger>
@@ -220,18 +220,18 @@ export function PolyHavenDialog({
             <div className="flex items-center gap-3">
               {/* Search Input */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search assets..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64 bg-white/5 border-white/10 text-white placeholder:text-white/40"
+                  className="pl-10 w-64 bg-background border-border text-foreground placeholder:text-muted-foreground"
                 />
                 {searchQuery && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 text-white/40 hover:text-white"
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
                     onClick={() => setSearchQuery("")}
                   >
                     <X className="w-4 h-4" />
@@ -334,7 +334,7 @@ export function PolyHavenDialog({
 
           {/* Selected Categories */}
           {selectedCategories.length > 0 && (
-            <div className="flex-shrink-0 flex flex-wrap gap-1 mb-6">
+            <div className="shrink-0 flex flex-wrap gap-1 mb-6">
               {selectedCategories.map((category) => (
                 <Badge
                   key={category}
@@ -372,7 +372,7 @@ export function PolyHavenDialog({
 
           {/* Centered Pagination - Always at bottom */}
           {pagination.total_pages > 1 && (
-            <div className="absolute bottom-0 left-0 right-0 flex-shrink-0 flex justify-center mt-6">
+            <div className="absolute bottom-0 left-0 right-0 shrink-0 flex justify-center mt-6">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>

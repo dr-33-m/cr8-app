@@ -3,7 +3,7 @@ import cr8 from "@/assets/cr8.png";
 
 export function MobileMessage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#2C2C2C] to-[#1C1C1C] text-white p-6 text-center">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-br from-[#2C2C2C] to-[#1C1C1C] text-white p-6 text-center">
       <img src={cr8} alt="Cr8-xyz Logo" className="w-20 h-20 mb-6" />
       <h1 className="text-2xl font-semibold mb-6">We currently support:</h1>
       <div className="space-y-4">

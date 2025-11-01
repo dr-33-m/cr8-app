@@ -115,7 +115,7 @@ export function SceneControls() {
                   }}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       {obj.type.toLowerCase() === "light" ? (
                         <Lightbulb className="h-4 w-4 text-yellow-400" />
                       ) : obj.type.toLowerCase() === "mesh" ? (

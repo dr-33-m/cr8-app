@@ -6,7 +6,7 @@ export function PreviewWindow({ children }) {
   return (
     <div
       className={cn(
-        "absolute bg-gradient-to-br from-[#2C2C2C] to-[#1C1C1C]",
+        "absolute bg-linear-to-br from-[#2C2C2C] to-[#1C1C1C]",
         "transition-all duration-500 ease-in-out",
         isFullscreen
           ? "fixed inset-0 w-screen h-screen"

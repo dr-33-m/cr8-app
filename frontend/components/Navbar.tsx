@@ -65,7 +65,7 @@ const Navbar = () => {
       className={`fixed top-4 left-4 right-4 z-50 transition-all transform -translate-y-1/2 duration-300  ${isVisible ? "translate-y-0" : "-translate-y-full"} `}
     >
       <div className="container mx-auto">
-        <div className="bg-cr8-charcoal/10 backdrop-blur-md rounded-lg border border-white/10 shadow-lg">
+        <div className="bg-card border rounded-lg shadow-lg">
           <div className="flex justify-between items-center px-6 py-3">
             <div className="flex items-center">
               <Link to="/" className="flex items-center">
@@ -119,13 +119,13 @@ const Navbar = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {false && (
-                    <DropdownMenuItem className="text-white hover:bg-white/10">
+                    <DropdownMenuItem className="text-foreground hover:bg-accent">
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Settings</span>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
-                    className="text-white hover:bg-white/10"
+                    className="text-foreground hover:bg-accent"
                     onClick={handleSignOut}
                   >
                     <LogOut className="mr-2 h-4 w-4" />

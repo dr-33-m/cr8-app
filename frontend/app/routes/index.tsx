@@ -128,7 +128,7 @@ function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#2C2C2C] to-[#1C1C1C] text-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-[#2C2C2C] to-[#1C1C1C] text-white flex items-center justify-center p-4">
       <div className="w-full max-w-lg p-8 space-y-6 bg-cr8-charcoal/20 rounded-lg shadow-lg border border-white/10">
         <div className="text-center">
           <h1 className="text-3xl font-bold">Welcome to Cr8</h1>

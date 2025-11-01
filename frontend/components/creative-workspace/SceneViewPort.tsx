@@ -21,9 +21,9 @@ export function SceneViewPort({ videoRef, isConnected }: SceneViewPortProps) {
       {!isConnected ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
-            <ImageIcon className="w-10 h-10 text-[#FFD100]" />
+            <ImageIcon className="w-10 h-10 text-cr8-yellow" />
           </div>
-          <div className="text-[#FFD100] text-lg font-medium">
+          <div className="text-cr8-yellow text-lg font-medium">
             Connecting to Preview...
           </div>
           <p className="text-white/60 mt-2 text-sm">
