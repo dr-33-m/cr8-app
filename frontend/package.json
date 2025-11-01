@@ -19,6 +19,7 @@
     "url": "https://code.streetcrisis.online/Cr8-xyz/cr8-app.git"
   },
   "dependencies": {
+    "@dr33m/gstwebrtc-api": "^3.0.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.2",
     "@radix-ui/react-dialog": "^1.1.4",
@@ -35,7 +36,6 @@
     "@tanstack/start": "^1.95.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "gstwebrtc-api": "file:/home/thamsanqaj/Garage/gst-plugins-rs/net/webrtc/gstwebrtc-api/gstwebrtc-api-3.0.0.tgz",
     "lodash": "^4.17.21",
     "lucide-react": "^0.462.0",
     "motion": "^12.23.24",

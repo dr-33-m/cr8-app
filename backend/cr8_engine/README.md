@@ -50,9 +50,24 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ### Environment Variables
 
-- `WS_URL`: WebSocket connection URL
-- `API_KEY`: Authentication key
-- `LOG_LEVEL`: Debug/Info/Warning/Error
+Create a `.env` file by copying `.env.example` and updating the values:
+
+#### B.L.A.Z.E AI Agent Configuration
+
+```
+OPENROUTER_API_KEY=your_openrouter_api_key
+AI_PROVIDER=openrouter
+OLLAMA_BASE_URL=http://localhost:11434/v1
+AI_MODEL_NAME=qwen/qwen3-coder
+```
+
+#### Blender Configuration
+
+```
+BLENDER_EXECUTABLE_PATH=/path/to/blender/executable
+```
+
+For detailed configuration options, see `.env.example`.
 
 ### Main Configuration
 

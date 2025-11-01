@@ -60,12 +60,24 @@ frontend/
 
 ## Environment Variables
 
-Create a `.env` file with:
+Create a `.env` file by copying `.env.example` and updating the values:
 
 ```
-VITE_WS_URL=ws://localhost:8000/ws
-VITE_API_URL=http://localhost:8000/api
+# WebSocket Configuration
+VITE_WEBSOCKET_URL=ws://localhost:8000/ws
+
+# API Configuration
+VITE_API_URL=http://localhost:8000
+
+# Discord Integration (Optional)
+VITE_DISCORD_WEBHOOK_URL=
+
+# WebRTC Configuration
+VITE_WEBRTC_PRODUCER_ID=blender-viewport
+VITE_WEBRTC_SIGNALING_SERVER_URL=ws://127.0.0.1:8443
 ```
+
+For detailed configuration options, see `.env.example`.
 
 ## Deployment
 

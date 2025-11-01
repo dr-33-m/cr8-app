@@ -17,19 +17,19 @@ class BlenderService:
             return True
 
         try:
-            # Handle default blend file if no path provided
-            if not blend_file_path:
-                blend_file_path = "/home/thamsanqaj/cr8-xyz/templates/default.blend"
-
             # Validate that the blend file exists
-            if not os.path.exists(blend_file_path):
+            if not os.path.exists(blend_file_path or ""):
                 cls.logger.error(f"Blend file not found: {blend_file_path}")
                 return False
 
-            # This command assumes 'blender' is in the system's PATH
-            # You might need to specify the full path to the Blender executable
+            # Get Blender executable path from environment variable
+            blender_path = os.getenv('BLENDER_EXECUTABLE_PATH')
+            if not blender_path:
+                raise ValueError(
+                    "BLENDER_EXECUTABLE_PATH environment variable is not set")
+
             command = [
-                "/home/thamsanqaj/Garage/blender-git/build_linux_debug/bin/blender",
+                blender_path,
                 blend_file_path,
                 "--python-expr",
                 "import bpy; bpy.ops.ws_handler.connect_websocket()",

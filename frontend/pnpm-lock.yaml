@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@dr33m/gstwebrtc-api':
+        specifier: ^3.0.0
+        version: 3.0.0
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.54.2(react@18.3.1))
@@ -56,9 +59,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      gstwebrtc-api:
-        specifier: file:/home/thamsanqaj/Garage/gst-plugins-rs/net/webrtc/gstwebrtc-api/gstwebrtc-api-3.0.0.tgz
-        version: file:../../gst-plugins-rs/net/webrtc/gstwebrtc-api/gstwebrtc-api-3.0.0.tgz
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
@@ -253,6 +253,9 @@ packages:
 
   '@deno/shim-deno@0.19.2':
     resolution: {integrity: sha512-q3VTHl44ad8T2Tw2SpeAvghdGOjlnLPDNO2cpOxwMrBE/PVas6geWpbpIgrM+czOCH0yejp0yi8OaTuB+NU40Q==}
+
+  '@dr33m/gstwebrtc-api@3.0.0':
+    resolution: {integrity: sha512-0isC69ySqg6SDHkefUBS/bezpmzN+zhD8PkuH/UDHYlQFZWLlKxtb2tAD9fTqjSLfPxVFCxCjqykKdNZlyzl4g==}
 
   '@esbuild/aix-ppc64@0.20.2':
     resolution: {integrity: sha512-D+EBOJHXdNZcLJRBkhENNG8Wji2kgc9AZ9KiPr1JuZjsNtyHzrsfLRrY0tk2H2aoFu6RANO1y1iPPUCDYWkb5g==}
@@ -2561,10 +2564,6 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  gstwebrtc-api@file:../../gst-plugins-rs/net/webrtc/gstwebrtc-api/gstwebrtc-api-3.0.0.tgz:
-    resolution: {integrity: sha512-IGlhFiJsEXjafNBgzjUDBJqP1g3hrvTja413Sh6sJ2aUVclFgmq6OaGtPqrhktqTbzYnKhMHL+dqyvSINFG3eA==, tarball: file:../../gst-plugins-rs/net/webrtc/gstwebrtc-api/gstwebrtc-api-3.0.0.tgz}
-    version: 3.0.0
-
   gzip-size@7.0.0:
     resolution: {integrity: sha512-O1Ld7Dr+nqPnmGpdhzLmMTQ4vAsD+rHwMm1NLUmoUFFymBOMKxCCrtDxqdBRYXdeEPEi3SyoR4TizJLQrnKBNA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -4050,6 +4049,10 @@ snapshots:
     dependencies:
       '@deno/shim-deno-test': 0.5.0
       which: 4.0.0
+
+  '@dr33m/gstwebrtc-api@3.0.0':
+    dependencies:
+      webrtc-adapter: 8.2.3
 
   '@esbuild/aix-ppc64@0.20.2':
     optional: true
@@ -6169,10 +6172,6 @@ snapshots:
   globrex@0.1.2: {}
 
   graceful-fs@4.2.11: {}
-
-  gstwebrtc-api@file:../../gst-plugins-rs/net/webrtc/gstwebrtc-api/gstwebrtc-api-3.0.0.tgz:
-    dependencies:
-      webrtc-adapter: 8.2.3
 
   gzip-size@7.0.0:
     dependencies:

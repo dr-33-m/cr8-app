@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
-const PRODUCER_ID = "blender-viewport";
-const SIGNALLING_SERVER_URL = "ws://127.0.0.1:8443";
+const PRODUCER_ID = import.meta.env.VITE_WEBRTC_PRODUCER_ID;
+const SIGNALLING_SERVER_URL = import.meta.env.VITE_WEBRTC_SIGNALING_SERVER_URL;
 
 // Define types locally since they're not exported
 interface ConnectionListener {
@@ -134,7 +134,7 @@ export function useWebRTCStream() {
     const initializeWebRTC = async () => {
       try {
         // Dynamic import to avoid SSR issues
-        const { default: GstWebRTCAPI } = await import("gstwebrtc-api");
+        const { default: GstWebRTCAPI } = await import("@dr33m/gstwebrtc-api");
         GstWebRTCAPIRef.current = GstWebRTCAPI;
 
         setupWebRTC();
