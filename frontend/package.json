@@ -16,7 +16,7 @@
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://code.streetcrisis.online/Cr8-xyz/cr8-app.git"
+    "url": "https://code.cr8-xyz.art/Cr8-xyz/cr8-app.git"
   },
   "dependencies": {
     "@dr33m/gstwebrtc-api": "^3.0.0",
@@ -28,10 +28,13 @@
     "@radix-ui/react-label": "^2.1.1",
     "@radix-ui/react-popover": "^1.1.4",
     "@radix-ui/react-select": "^2.1.4",
+    "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slider": "^1.2.2",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tabs": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.7",
+    "@stepperize/react": "^5.1.9",
+    "@tailwindcss/postcss": "^4.1.16",
     "@tanstack/react-router": "^1.95.1",
     "@tanstack/start": "^1.95.1",
     "class-variance-authority": "^0.7.1",
@@ -41,28 +44,26 @@
     "motion": "^12.23.24",
     "nanoid": "^5.0.9",
     "next-themes": "^0.4.4",
+    "postcss": "^8.5.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.54.2",
     "react-mentions": "^4.4.10",
     "react-responsive": "^10.0.0",
     "sonner": "^1.7.1",
-    "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^4.1.16",
     "uuid": "^11.1.0",
     "vinxi": "^0.4.3",
     "zod": "^3.24.1",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.16",
-    "@tailwindcss/vite": "^4.1.16",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^4.1.16",
+    "tw-animate-css": "^1.4.0",
     "typescript": "^5.7.2",
     "vite-tsconfig-paths": "^5.1.4"
   }

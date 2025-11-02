@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import CSS from "@/styles/globals.css?url";
 import Navbar from "@/components/Navbar";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "next-themes";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -43,16 +44,23 @@ function RootComponent() {
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html>
+    <html suppressHydrationWarning>
       <head>
         <Meta />
       </head>
       <body>
-        <Navbar />
-        {children}
-        <Toaster richColors closeButton position="top-right" />
-        <ScrollRestoration />
-        <Scripts />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Navbar />
+          {children}
+          <Toaster richColors closeButton position="top-right" />
+          <ScrollRestoration />
+          <Scripts />
+        </ThemeProvider>
       </body>
     </html>
   );

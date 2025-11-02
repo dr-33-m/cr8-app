@@ -24,7 +24,7 @@ function WorkspaceContent() {
   const { videoRef, isConnected } = useWebRTCStream();
 
   return (
-    <div className="relative w-full h-screen bg-[#1C1C1C] text-white overflow-hidden">
+    <div className="relative w-full h-screen overflow-hidden">
       <PreviewWindow>
         <SceneViewPort videoRef={videoRef} isConnected={isConnected} />
       </PreviewWindow>
