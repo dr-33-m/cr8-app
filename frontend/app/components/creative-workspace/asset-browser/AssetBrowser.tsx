@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
-import { PolyHavenPanel } from "./panels/PolyHavenPanel";
+import { AssetPanel } from "./panels";
 
 export function AssetBrowser() {
   const isVisible = useVisibilityStore(
@@ -33,7 +33,7 @@ export function AssetBrowser() {
           <CardTitle>Asset Browser</CardTitle>
         </CardHeader>
         <CardContent>
-          <PolyHavenPanel />
+          <AssetPanel />
         </CardContent>
       </Card>
     </div>
