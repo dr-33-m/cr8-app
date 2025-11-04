@@ -3,10 +3,10 @@ import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { PreviewWindow } from "@/components/PreviewWindow";
 import { ControlsOverlay } from "@/components/creative-workspace/FullScreenToggle";
 import { SceneControls } from "@/components/creative-workspace/SceneControls";
-import { AssetSelection } from "@/components/creative-workspace/AssetSelection";
 import { BottomControls } from "@/components/bottom-controls";
 import { SceneViewPort } from "@/components/creative-workspace/SceneViewPort";
 import { useWebRTCStream } from "@/hooks/useWebRTCStream";
+import { AssetBrowser } from "@/components/creative-workspace/asset-browser/AssetBrowser";
 
 export const Route = createFileRoute("/workspace/")({
   component: RouteComponent,
@@ -32,7 +32,7 @@ function WorkspaceContent() {
       <ControlsOverlay>
         <SceneControls />
 
-        <AssetSelection />
+        <AssetBrowser />
 
         <BottomControls />
       </ControlsOverlay>

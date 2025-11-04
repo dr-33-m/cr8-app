@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/hover-card";
 import useInboxStore from "@/store/inboxStore";
 import { toast } from "sonner";
+import { formatDownloads, getAssetTypeName } from "@/lib/utils";
 
 interface AssetCardProps {
   asset: PolyHavenAsset & { id: string };
@@ -25,28 +26,6 @@ export function AssetCard({
 }: AssetCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-
-  const formatDownloads = (count: number): string => {
-    if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(1)}M`;
-    } else if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K`;
-    }
-    return count.toString();
-  };
-
-  const getAssetTypeName = (type: number) => {
-    switch (type) {
-      case 0:
-        return "HDRI";
-      case 1:
-        return "Texture";
-      case 2:
-        return "Model";
-      default:
-        return "Asset";
-    }
-  };
 
   const inboxStore = useInboxStore();
   const isInInbox = inboxStore.hasItem(asset.id);

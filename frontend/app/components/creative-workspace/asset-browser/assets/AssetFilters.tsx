@@ -1,9 +1,6 @@
-import { useState, useEffect } from "react";
-import {
-  AssetType,
-  polyhavenService,
-  CategoriesResponse,
-} from "@/lib/services/polyhavenService";
+import { useState } from "react";
+import { AssetType } from "@/lib/services/polyhavenService";
+import { useAssetCategories } from "@/hooks/useAssetBrowser";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -34,43 +31,27 @@ export function AssetFilters({
   onSearchChange,
   compact = false,
 }: AssetFiltersProps) {
-  const [categories, setCategories] = useState<CategoriesResponse>({});
-  const [loadingCategories, setLoadingCategories] = useState(false);
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
 
-  // Load categories when asset type changes
-  useEffect(() => {
-    const loadCategories = async () => {
-      setLoadingCategories(true);
-      try {
-        const categoriesData =
-          await polyhavenService.getCategories(selectedType);
-        setCategories(categoriesData);
-      } catch (error) {
-        console.error("Failed to load categories:", error);
-        setCategories({});
-      } finally {
-        setLoadingCategories(false);
-      }
-    };
-
-    loadCategories();
-  }, [selectedType]);
+  // Use the established hook for category management
+  const categories = useAssetCategories({
+    assetType: selectedType,
+    initialCategories: selectedCategories,
+  });
 
   const handleCategoryToggle = (category: string) => {
-    const newCategories = selectedCategories.includes(category)
-      ? selectedCategories.filter((c) => c !== category)
-      : [...selectedCategories, category];
-    onCategoriesChange(newCategories);
+    categories.toggleCategory(category);
+    onCategoriesChange(categories.selectedCategories);
   };
 
   const clearAllFilters = () => {
+    categories.clearCategories();
     onCategoriesChange([]);
     onSearchChange("");
   };
 
   // Get sorted categories (excluding 'all' and sorting by count)
-  const sortedCategories = Object.entries(categories)
+  const sortedCategories = Object.entries(categories.categories)
     .filter(([category]) => category !== "all")
     .sort(([, countA], [, countB]) => countB - countA)
     .slice(0, 20); // Limit to top 20 categories
@@ -141,7 +122,7 @@ export function AssetFilters({
                 )}
               </div>
 
-              {loadingCategories ? (
+              {categories.loading ? (
                 <div className="grid grid-cols-2 gap-2">
                   {Array.from({ length: 8 }).map((_, i) => (
                     <div

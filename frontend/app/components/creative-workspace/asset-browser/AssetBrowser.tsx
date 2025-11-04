@@ -2,9 +2,9 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
-import { PolyHavenPanel } from "./PolyHavenPanel";
+import { PolyHavenPanel } from "./panels/PolyHavenPanel";
 
-export function AssetSelection() {
+export function AssetBrowser() {
   const isVisible = useVisibilityStore(
     (state) => state.isAssetSelectionVisible
   );
