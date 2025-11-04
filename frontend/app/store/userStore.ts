@@ -1,17 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-interface UserStoreState {
-  username: string;
-  blendFolderPath: string;
-  selectedBlendFile: string;
-  fullBlendFilePath: string;
-  setUsername: (username: string) => void;
-  setBlendFolder: (path: string) => void;
-  setSelectedBlendFile: (filename: string, fullPath: string) => void;
-  clearBlendSelection: () => void;
-  reset: () => void;
-}
+import { UserStoreState } from "@/lib/types/stores";
 
 const useUserStore = create<UserStoreState>()(
   persist(

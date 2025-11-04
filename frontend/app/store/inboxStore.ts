@@ -1,24 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { PolyHavenAsset } from "@/lib/services/polyhavenService";
-
-export interface InboxItem {
-  id: string;
-  name: string;
-  type: "hdris" | "textures" | "models";
-  registry: "polyhaven";
-  asset: PolyHavenAsset & { id: string };
-  addedAt: number;
-}
-
-interface InboxStore {
-  items: InboxItem[];
-  toggleItem: (asset: PolyHavenAsset & { id: string }) => void;
-  hasItem: (id: string) => boolean;
-  removeItem: (id: string) => void;
-  clearAll: () => void;
-  getItemCount: () => number;
-}
+import { InboxItem, InboxStore } from "@/lib/types/stores";
 
 const useInboxStore = create<InboxStore>()(
   persist(
