@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AssetType } from "@/lib/services/polyhavenService";
+import { AssetType, AssetFiltersProps } from "@/lib/types/assetBrowser";
 import { useAssetCategories } from "@/hooks/useAssetBrowser";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { AssetFiltersProps } from "@/lib/types/assetBrowser";
 
 export function AssetFilters({
   selectedType,
@@ -44,7 +43,7 @@ export function AssetFilters({
   // Get sorted categories (excluding 'all' and sorting by count)
   const sortedCategories = Object.entries(categories.categories)
     .filter(([category]) => category !== "all")
-    .sort(([, countA], [, countB]) => countB - countA)
+    .sort(([, countA], [, countB]) => (countB as number) - (countA as number))
     .slice(0, 20); // Limit to top 20 categories
 
   return (

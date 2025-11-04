@@ -1,14 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 
-export interface SearchState {
-  query: string;
-  debouncedQuery: string;
-}
-
-export interface SearchOptions {
-  initialQuery?: string;
-  debounceMs?: number;
-}
+import { SearchState, SearchOptions } from "@/lib/types/assetBrowser";
 
 export function useAssetSearch(options: SearchOptions = {}) {
   const { initialQuery = "", debounceMs = 300 } = options;

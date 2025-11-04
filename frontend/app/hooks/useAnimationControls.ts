@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 
-type AnimationState = "playing" | "paused" | "playing_reverse";
+import { AnimationState } from "@/lib/types/bottomControls";
 
 export function useAnimationControls() {
   const [animationState, setAnimationState] =

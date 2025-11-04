@@ -10,10 +10,8 @@ import {
 } from "@/components/ui/card";
 import { defineStepper } from "@/components/stepper";
 import useUserStore from "@/store/userStore";
-import {
-  blendFileService,
-  BlendFileInfo,
-} from "@/lib/services/blendFileService";
+import { blendFileService } from "@/lib/services/blendFileService";
+import { BlendFileInfo } from "@/lib/types/onboarding";
 import { toast } from "sonner";
 import { UsernameStep } from "./UsernameStep";
 import { FolderStep } from "./FolderStep";

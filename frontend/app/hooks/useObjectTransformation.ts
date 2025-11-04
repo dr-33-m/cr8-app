@@ -5,14 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import { TransformValue, TransformMode } from "@/lib/types/transformation";
 import { hasValuesChanged } from "@/lib/utils";
 
-interface UseObjectTransformationProps {
-  objectName: string;
-  onTransformChange?: (transforms: {
-    move: TransformValue;
-    rotate: TransformValue;
-    scale: TransformValue;
-  }) => void;
-}
+import { UseObjectTransformationProps } from "@/lib/types/transformation";
 
 export function useObjectTransformation({
   objectName,

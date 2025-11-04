@@ -1,25 +1,11 @@
 import { useState, useCallback, useEffect } from "react";
+import { polyhavenService } from "@/lib/services/polyhavenService";
 import {
   AssetType,
   PolyHavenAsset,
-  polyhavenService,
-} from "@/lib/services/polyhavenService";
-
-export interface AssetDataState {
-  assets: Array<PolyHavenAsset & { id: string }>;
-  totalCount: number;
-  loading: boolean;
-  error: string | undefined;
-}
-
-export interface AssetDataOptions {
-  assetType?: AssetType;
-  categories?: string[];
-  page?: number;
-  limit?: number;
-  search?: string;
-  enabled?: boolean;
-}
+  AssetDataState,
+  AssetDataOptions,
+} from "@/lib/types/assetBrowser";
 
 export function useAssetData(options: AssetDataOptions = {}) {
   const {

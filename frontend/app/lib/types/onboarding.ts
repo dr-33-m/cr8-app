@@ -1,6 +1,19 @@
-import { BlendFileInfo } from "@/lib/services/blendFileService";
-
 // Onboarding interfaces
+
+// Blend file service interfaces
+export interface BlendFileInfo {
+  filename: string;
+  full_path: string;
+}
+
+export interface ScanBlendFolderResponse {
+  blend_files: BlendFileInfo[];
+  total_count: number;
+}
+
+export interface ScanBlendFolderRequest {
+  folder_path: string;
+}
 export interface FileStepProps {
   blendFiles: BlendFileInfo[];
   onFileSelect: (file: BlendFileInfo) => void;

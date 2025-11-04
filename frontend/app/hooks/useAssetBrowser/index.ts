@@ -1,18 +1,14 @@
 import { useState, useEffect } from "react";
-import { AssetType, PolyHavenAsset } from "@/lib/services/polyhavenService";
 import { useAssetData } from "./useAssetData";
 import { useAssetSearch } from "./useAssetSearch";
 import { useAssetPagination } from "./useAssetPagination";
 import { useAssetCategories } from "./useAssetCategories";
 import { useAssetSelection } from "./useAssetSelection";
-
-export interface UseAssetBrowserOptions {
-  initialType?: AssetType;
-  initialSearch?: string;
-  initialLimit?: number;
-  onAssetSelect?: (asset: PolyHavenAsset & { id: string }) => void;
-  enabled?: boolean;
-}
+import {
+  AssetType,
+  PolyHavenAsset,
+  UseAssetBrowserOptions,
+} from "@/lib/types/assetBrowser";
 
 export function useAssetBrowser(options: UseAssetBrowserOptions = {}) {
   const {
@@ -171,8 +167,15 @@ export { useAssetCategories } from "./useAssetCategories";
 export { useAssetSelection } from "./useAssetSelection";
 
 // Re-export types
-export type { AssetDataState, AssetDataOptions } from "./useAssetData";
-export type { SearchState, SearchOptions } from "./useAssetSearch";
-export type { PaginationState, PaginationOptions } from "./useAssetPagination";
-export type { CategoriesState, CategoriesOptions } from "./useAssetCategories";
-export type { SelectionState, SelectionOptions } from "./useAssetSelection";
+export type {
+  AssetDataState,
+  AssetDataOptions,
+  SearchState,
+  SearchOptions,
+  PaginationState,
+  PaginationOptions,
+  CategoriesState,
+  CategoriesOptions,
+  SelectionState,
+  SelectionOptions,
+} from "@/lib/types/assetBrowser";

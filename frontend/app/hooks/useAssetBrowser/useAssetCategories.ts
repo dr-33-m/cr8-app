@@ -1,22 +1,11 @@
 import { useState, useCallback, useEffect } from "react";
+import { polyhavenService } from "@/lib/services/polyhavenService";
 import {
   AssetType,
-  polyhavenService,
   CategoriesResponse,
-} from "@/lib/services/polyhavenService";
-
-export interface CategoriesState {
-  categories: CategoriesResponse;
-  selectedCategories: string[];
-  loading: boolean;
-  error: string | undefined;
-}
-
-export interface CategoriesOptions {
-  assetType?: AssetType;
-  initialCategories?: string[];
-  enabled?: boolean;
-}
+  CategoriesState,
+  CategoriesOptions,
+} from "@/lib/types/assetBrowser";
 
 export function useAssetCategories(options: CategoriesOptions = {}) {
   const { assetType, initialCategories = [], enabled = true } = options;

@@ -61,3 +61,16 @@ export interface ChatActionsProps {
 export interface BottomControlsProps {
   children?: React.ReactNode;
 }
+
+// Hook interfaces
+export type AnimationState = "playing" | "paused" | "playing_reverse";
+
+export interface MentionData {
+  id: string;
+  name: string;
+  type: "inbox" | "scene";
+  itemType: string;
+  source: "inbox" | "scene";
+}
+
+export type ViewportMode = "solid" | "rendered";

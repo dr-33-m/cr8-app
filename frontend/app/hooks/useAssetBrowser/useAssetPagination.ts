@@ -1,18 +1,6 @@
 import { useState, useCallback } from "react";
 
-export interface PaginationState {
-  page: number;
-  limit: number;
-  totalPages: number;
-  totalCount: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
-
-export interface PaginationOptions {
-  initialPage?: number;
-  initialLimit?: number;
-}
+import { PaginationState, PaginationOptions } from "@/lib/types/assetBrowser";
 
 export function useAssetPagination(options: PaginationOptions = {}) {
   const { initialPage = 1, initialLimit = 20 } = options;

@@ -21,3 +21,13 @@ export interface ObjectTransformationScrollbarProps {
   onChange: (value: number) => void;
   mode: TransformMode;
 }
+
+// Hook interfaces
+export interface UseObjectTransformationProps {
+  objectName: string;
+  onTransformChange?: (transforms: {
+    move: TransformValue;
+    rotate: TransformValue;
+    scale: TransformValue;
+  }) => void;
+}

@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 
-type ViewportMode = "solid" | "rendered";
+import { ViewportMode } from "@/lib/types/bottomControls";
 
 export function useNavigationControls() {
   const [viewportMode, setViewportMode] = useState<ViewportMode>("solid");

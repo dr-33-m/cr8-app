@@ -1,13 +1,9 @@
 import { useState, useCallback } from "react";
-import { PolyHavenAsset } from "@/lib/services/polyhavenService";
-
-export interface SelectionState {
-  selectedAsset: (PolyHavenAsset & { id: string }) | null;
-}
-
-export interface SelectionOptions {
-  onAssetSelect?: (asset: PolyHavenAsset & { id: string }) => void;
-}
+import {
+  PolyHavenAsset,
+  SelectionState,
+  SelectionOptions,
+} from "@/lib/types/assetBrowser";
 
 export function useAssetSelection(options: SelectionOptions = {}) {
   const { onAssetSelect } = options;

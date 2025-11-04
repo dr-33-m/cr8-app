@@ -1,6 +1,5 @@
-import { AssetType } from "@/lib/services/polyhavenService";
+import { AssetType, AssetTypeTabsProps } from "@/lib/types/assetBrowser";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AssetTypeTabsProps } from "@/lib/types/assetBrowser";
 
 export function AssetTypeTabs({
   selectedType,

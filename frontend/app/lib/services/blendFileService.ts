@@ -1,18 +1,10 @@
 import { toast } from "sonner";
 
-export interface BlendFileInfo {
-  filename: string;
-  full_path: string;
-}
-
-export interface ScanBlendFolderResponse {
-  blend_files: BlendFileInfo[];
-  total_count: number;
-}
-
-export interface ScanBlendFolderRequest {
-  folder_path: string;
-}
+import {
+  BlendFileInfo,
+  ScanBlendFolderResponse,
+  ScanBlendFolderRequest,
+} from "@/lib/types/onboarding";
 
 class BlendFileService {
   private baseUrl: string;

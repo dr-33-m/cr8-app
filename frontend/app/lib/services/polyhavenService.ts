@@ -1,86 +1,20 @@
 import { toast } from "sonner";
 
-// Asset type definitions
-export type AssetType = "hdris" | "textures" | "models";
-
-// Base asset interface
-export interface PolyHavenAsset {
-  name: string;
-  type: number; // 0 = hdris, 1 = textures, 2 = models
-  date_published: number;
-  download_count: number;
-  files_hash: string;
-  authors: Record<string, string>;
-  donated?: boolean;
-  categories: string[];
-  tags: string[];
-  max_resolution: [number, number];
-  thumbnail_url: string;
-}
-
-// Specific asset types
-export interface HDRIAsset extends PolyHavenAsset {
-  whitebalance?: number;
-  backplates?: boolean;
-  evs_cap: number;
-  coords?: [number, number];
-  date_taken?: number;
-}
-
-export interface TextureAsset extends PolyHavenAsset {
-  dimensions: [number, number];
-}
-
-export interface ModelAsset extends PolyHavenAsset {
-  lods?: number[];
-}
-
-// Response types
-export interface AssetTypesResponse {
-  types: string[];
-}
-
-export interface AssetsResponse {
-  [assetId: string]: PolyHavenAsset;
-}
-
-export interface PaginatedAssetsResponse {
-  assets: AssetsResponse;
-  pagination: {
-    page: number;
-    limit: number;
-    total_count: number;
-    total_pages: number;
-    has_next: boolean;
-    has_prev: boolean;
-  };
-}
-
-export interface CategoriesResponse {
-  [category: string]: number;
-}
-
-export interface Author {
-  name: string;
-  link?: string;
-  email?: string;
-  donate?: string;
-}
-
-// File structure types
-export interface FileInfo {
-  url: string;
-  md5: string;
-  size: number;
-}
-
-export interface FileWithIncludes extends FileInfo {
-  include?: Record<string, FileInfo>;
-}
-
-export interface AssetFiles {
-  [key: string]: any; // Dynamic structure based on asset type
-}
+import {
+  AssetType,
+  PolyHavenAsset,
+  HDRIAsset,
+  TextureAsset,
+  ModelAsset,
+  AssetTypesResponse,
+  AssetsResponse,
+  PaginatedAssetsResponse,
+  CategoriesResponse,
+  Author,
+  FileInfo,
+  FileWithIncludes,
+  AssetFiles,
+} from "@/lib/types/assetBrowser";
 
 class PolyHavenService {
   private baseUrl: string;

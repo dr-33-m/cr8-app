@@ -93,3 +93,21 @@ export interface WebSocketHandlers {
   onError?: (error: WebSocketError) => void;
   onMessage?: (data: any) => void;
 }
+
+// Hook interfaces
+export interface ConnectionListener {
+  connected: (clientId: string) => void;
+  disconnected: () => void;
+}
+
+export interface PeerListener {
+  producerAdded?: (producer: Peer) => void;
+  producerRemoved?: (producer: Peer) => void;
+  consumerAdded?: (consumer: Peer) => void;
+  consumerRemoved?: (consumer: Peer) => void;
+}
+
+export interface Peer {
+  readonly id: string;
+  readonly meta: Record<string, unknown>;
+}

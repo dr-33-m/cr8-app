@@ -3,23 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 const PRODUCER_ID = import.meta.env.VITE_WEBRTC_PRODUCER_ID;
 const SIGNALLING_SERVER_URL = import.meta.env.VITE_WEBRTC_SIGNALING_SERVER_URL;
 
-// Define types locally since they're not exported
-interface ConnectionListener {
-  connected: (clientId: string) => void;
-  disconnected: () => void;
-}
-
-interface PeerListener {
-  producerAdded?: (producer: Peer) => void;
-  producerRemoved?: (producer: Peer) => void;
-  consumerAdded?: (consumer: Peer) => void;
-  consumerRemoved?: (consumer: Peer) => void;
-}
-
-interface Peer {
-  readonly id: string;
-  readonly meta: Record<string, unknown>;
-}
+import { ConnectionListener, PeerListener, Peer } from "@/lib/types/websocket";
 
 export function useWebRTCStream() {
   const videoRef = useRef<HTMLVideoElement>(null);

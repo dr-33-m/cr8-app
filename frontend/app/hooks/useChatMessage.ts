@@ -4,13 +4,7 @@ import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import useInboxStore from "@/store/inboxStore";
 import useSceneContextStore from "@/store/sceneContextStore";
 
-interface MentionData {
-  id: string;
-  name: string;
-  type: "inbox" | "scene";
-  itemType: string;
-  source: "inbox" | "scene";
-}
+import { MentionData } from "@/lib/types/bottomControls";
 
 export function useChatMessage() {
   const [message, setMessage] = useState("");
