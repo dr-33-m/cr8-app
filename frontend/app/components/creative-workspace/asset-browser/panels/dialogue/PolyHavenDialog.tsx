@@ -23,15 +23,11 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import {
-  AssetType,
-  PolyHavenAsset,
-  polyhavenService,
-  CategoriesResponse,
-} from "@/lib/services/polyhavenService";
-import { AssetGrid } from "./AssetGrid";
+import { AssetType, PolyHavenAsset } from "@/lib/services/polyhavenService";
 import { Search, X, Filter } from "lucide-react";
 import polyhaveLogo from "@/assets/polyhaven_256.png";
+import { useAssetBrowser } from "@/hooks/useAssetBrowser";
+import { AssetGrid } from "../../assets/AssetGrid";
 
 interface PolyHavenDialogProps {
   open: boolean;
@@ -46,120 +42,30 @@ export function PolyHavenDialog({
   onAssetSelect,
   initialType = "textures",
 }: PolyHavenDialogProps) {
-  const [selectedType, setSelectedType] = useState<AssetType>(initialType);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [assets, setAssets] = useState<Array<PolyHavenAsset & { id: string }>>(
-    []
-  );
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 20,
-    total_count: 0,
-    total_pages: 0,
-    has_next: false,
-    has_prev: false,
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | undefined>(undefined);
-  const [categories, setCategories] = useState<CategoriesResponse>({});
-  const [loadingCategories, setLoadingCategories] = useState(false);
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
 
-  // Load categories when asset type changes
+  // Use the asset browser hook with dialog settings
+  const assetBrowser = useAssetBrowser({
+    initialType,
+    initialLimit: 20, // Full pagination for dialog
+    onAssetSelect,
+    enabled: open, // Only enable when dialog is open
+  });
+
+  // Reset to initial type when dialog opens
   useEffect(() => {
-    const loadCategories = async () => {
-      setLoadingCategories(true);
-      try {
-        const categoriesData =
-          await polyhavenService.getCategories(selectedType);
-        setCategories(categoriesData);
-      } catch (error) {
-        console.error("Failed to load categories:", error);
-        setCategories({});
-      } finally {
-        setLoadingCategories(false);
-      }
-    };
-
     if (open) {
-      loadCategories();
+      assetBrowser.setType(initialType);
     }
-  }, [open, selectedType]);
+  }, [open, initialType]);
 
-  // Load assets when filters change
-  useEffect(() => {
-    const loadAssets = async () => {
-      setLoading(true);
-      setError(undefined);
-      try {
-        const response = await polyhavenService.getAssetsPaginated({
-          assetType: selectedType,
-          categories:
-            selectedCategories.length > 0 ? selectedCategories : undefined,
-          page: 1,
-          limit: 20,
-          search: searchQuery.trim() || undefined,
-        });
-
-        const assetArray = polyhavenService.convertAssetsToArray(
-          response.assets
-        );
-        setAssets(assetArray);
-        setPagination(response.pagination);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load assets");
-        setAssets([]);
-        setPagination({
-          page: 1,
-          limit: 20,
-          total_count: 0,
-          total_pages: 0,
-          has_next: false,
-          has_prev: false,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (open) {
-      loadAssets();
-    }
-  }, [open, selectedType, selectedCategories, searchQuery]);
-
-  // Load more assets for pagination
-  const loadPage = async (page: number) => {
-    if (loading) return;
-
-    setLoading(true);
-    setError(undefined);
-    try {
-      const response = await polyhavenService.getAssetsPaginated({
-        assetType: selectedType,
-        categories:
-          selectedCategories.length > 0 ? selectedCategories : undefined,
-        page,
-        limit: 20,
-        search: searchQuery.trim() || undefined,
-      });
-
-      const assetArray = polyhavenService.convertAssetsToArray(response.assets);
-      setAssets(assetArray);
-      setPagination(response.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load assets");
-    } finally {
-      setLoading(false);
-    }
+  // Handle pagination
+  const handlePageChange = (page: number) => {
+    assetBrowser.setPage(page);
   };
 
   // Since we're using server-side search, filteredAssets is just the current assets
-  const filteredAssets = assets;
-
-  const handleAssetSelect = (asset: PolyHavenAsset & { id: string }) => {
-    onAssetSelect?.(asset);
-  };
+  const filteredAssets = assetBrowser.assets;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -176,8 +82,10 @@ export function PolyHavenDialog({
           <div className="shrink-0 flex items-center justify-between gap-4 mb-6">
             {/* Asset Type Tabs */}
             <Tabs
-              value={selectedType}
-              onValueChange={(value) => setSelectedType(value as AssetType)}
+              value={assetBrowser.selectedType}
+              onValueChange={(value) =>
+                assetBrowser.setType(value as AssetType)
+              }
             >
               <TabsList>
                 <TabsTrigger value="hdris">HDRIs</TabsTrigger>
@@ -193,16 +101,16 @@ export function PolyHavenDialog({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search assets..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={assetBrowser.searchQuery}
+                  onChange={(e) => assetBrowser.setSearch(e.target.value)}
                   className="pl-10 w-64"
                 />
-                {searchQuery && (
+                {assetBrowser.searchQuery && (
                   <Button
                     variant="destructive"
                     size="icon"
                     className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => assetBrowser.clearSearch()}
                   >
                     <X className="w-4 h-4" />
                   </Button>
@@ -218,9 +126,9 @@ export function PolyHavenDialog({
                   <Button variant="outline">
                     <Filter className="w-4 h-4 mr-2" />
                     Categories
-                    {selectedCategories.length > 0 && (
+                    {assetBrowser.selectedCategories.length > 0 && (
                       <Badge className="ml-2 bg-primary/20 text-primary-foreground border-primary/30">
-                        {selectedCategories.length}
+                        {assetBrowser.selectedCategories.length}
                       </Badge>
                     )}
                   </Button>
@@ -229,18 +137,18 @@ export function PolyHavenDialog({
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium">Filter by Category</h4>
-                      {selectedCategories.length > 0 && (
+                      {assetBrowser.selectedCategories.length > 0 && (
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => setSelectedCategories([])}
+                          onClick={() => assetBrowser.clearCategories()}
                         >
                           Clear all
                         </Button>
                       )}
                     </div>
 
-                    {loadingCategories ? (
+                    {assetBrowser.loading ? (
                       <div className="grid grid-cols-2 gap-2">
                         {Array.from({ length: 8 }).map((_, i) => (
                           <div
@@ -251,33 +159,32 @@ export function PolyHavenDialog({
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                        {Object.entries(categories)
+                        {Object.entries(assetBrowser.categories)
                           .filter(([category]) => category !== "all")
-                          .sort(([, countA], [, countB]) => countB - countA)
+                          .sort(
+                            ([, countA], [, countB]) =>
+                              (countB as number) - (countA as number)
+                          )
                           .slice(0, 20)
                           .map(([category, count]) => (
                             <Button
                               key={category}
                               variant={
-                                selectedCategories.includes(category)
+                                assetBrowser.selectedCategories.includes(
+                                  category
+                                )
                                   ? "default"
                                   : "outline"
                               }
                               size="sm"
                               className={`justify-between text-left`}
-                              onClick={() => {
-                                const newCategories =
-                                  selectedCategories.includes(category)
-                                    ? selectedCategories.filter(
-                                        (c) => c !== category
-                                      )
-                                    : [...selectedCategories, category];
-                                setSelectedCategories(newCategories);
-                              }}
+                              onClick={() =>
+                                assetBrowser.toggleCategory(category)
+                              }
                             >
                               <span className="truncate">{category}</span>
                               <Badge variant="outline" className="ml-1 text-xs">
-                                {count}
+                                {count as number}
                               </Badge>
                             </Button>
                           ))}
@@ -290,9 +197,9 @@ export function PolyHavenDialog({
           </div>
 
           {/* Selected Categories */}
-          {selectedCategories.length > 0 && (
+          {assetBrowser.selectedCategories.length > 0 && (
             <div className="shrink-0 flex flex-wrap gap-1 mb-6">
-              {selectedCategories.map((category) => (
+              {assetBrowser.selectedCategories.map((category) => (
                 <Badge
                   key={category}
                   className="bg-primary/20 text-primary-foreground border-primary/30 pr-1"
@@ -302,11 +209,7 @@ export function PolyHavenDialog({
                     variant="destructive"
                     size="icon"
                     className="h-4 w-4 ml-1"
-                    onClick={() => {
-                      setSelectedCategories(
-                        selectedCategories.filter((c) => c !== category)
-                      );
-                    }}
+                    onClick={() => assetBrowser.removeCategory(category)}
                   >
                     <X className="w-3 h-3" />
                   </Button>
@@ -320,15 +223,15 @@ export function PolyHavenDialog({
             <div className="w-full max-w-6xl mx-auto">
               <AssetGrid
                 assets={filteredAssets}
-                onAssetSelect={handleAssetSelect}
-                loading={loading}
-                error={error}
+                onAssetSelect={assetBrowser.selectAsset}
+                loading={assetBrowser.loading}
+                error={assetBrowser.error}
               />
             </div>
           </div>
 
           {/* Centered Pagination - Always at bottom */}
-          {pagination.total_pages > 1 && (
+          {assetBrowser.pagination.totalPages > 1 && (
             <div className="absolute bottom-0 left-0 right-0 shrink-0 flex justify-center mt-6">
               <Pagination>
                 <PaginationContent>
@@ -336,12 +239,12 @@ export function PolyHavenDialog({
                     <PaginationPrevious
                       size="default"
                       onClick={() =>
-                        pagination.has_prev &&
-                        !loading &&
-                        loadPage(pagination.page - 1)
+                        assetBrowser.pagination.hasPrev &&
+                        !assetBrowser.loading &&
+                        handlePageChange(assetBrowser.pagination.page - 1)
                       }
                       className={
-                        !pagination.has_prev || loading
+                        !assetBrowser.pagination.hasPrev || assetBrowser.loading
                           ? "pointer-events-none opacity-50"
                           : ""
                       }
@@ -349,21 +252,29 @@ export function PolyHavenDialog({
                   </PaginationItem>
 
                   {Array.from(
-                    { length: Math.min(5, pagination.total_pages) },
+                    { length: Math.min(5, assetBrowser.pagination.totalPages) },
                     (_, i) => {
-                      const startPage = Math.max(1, pagination.page - 2);
+                      const startPage = Math.max(
+                        1,
+                        assetBrowser.pagination.page - 2
+                      );
                       const pageNum = startPage + i;
 
-                      if (pageNum > pagination.total_pages) return null;
+                      if (pageNum > assetBrowser.pagination.totalPages)
+                        return null;
 
                       return (
                         <PaginationItem key={pageNum}>
                           <PaginationLink
                             size="icon"
-                            onClick={() => !loading && loadPage(pageNum)}
-                            isActive={pageNum === pagination.page}
+                            onClick={() =>
+                              !assetBrowser.loading && handlePageChange(pageNum)
+                            }
+                            isActive={pageNum === assetBrowser.pagination.page}
                             className={
-                              loading ? "pointer-events-none opacity-50" : ""
+                              assetBrowser.loading
+                                ? "pointer-events-none opacity-50"
+                                : ""
                             }
                           >
                             {pageNum}
@@ -373,8 +284,9 @@ export function PolyHavenDialog({
                     }
                   )}
 
-                  {pagination.total_pages > 5 &&
-                    pagination.page < pagination.total_pages - 2 && (
+                  {assetBrowser.pagination.totalPages > 5 &&
+                    assetBrowser.pagination.page <
+                      assetBrowser.pagination.totalPages - 2 && (
                       <>
                         <PaginationItem>
                           <PaginationEllipsis />
@@ -383,13 +295,18 @@ export function PolyHavenDialog({
                           <PaginationLink
                             size="icon"
                             onClick={() =>
-                              !loading && loadPage(pagination.total_pages)
+                              !assetBrowser.loading &&
+                              handlePageChange(
+                                assetBrowser.pagination.totalPages
+                              )
                             }
                             className={
-                              loading ? "pointer-events-none opacity-50" : ""
+                              assetBrowser.loading
+                                ? "pointer-events-none opacity-50"
+                                : ""
                             }
                           >
-                            {pagination.total_pages}
+                            {assetBrowser.pagination.totalPages}
                           </PaginationLink>
                         </PaginationItem>
                       </>
@@ -399,12 +316,12 @@ export function PolyHavenDialog({
                     <PaginationNext
                       size="default"
                       onClick={() =>
-                        pagination.has_next &&
-                        !loading &&
-                        loadPage(pagination.page + 1)
+                        assetBrowser.pagination.hasNext &&
+                        !assetBrowser.loading &&
+                        handlePageChange(assetBrowser.pagination.page + 1)
                       }
                       className={
-                        !pagination.has_next || loading
+                        !assetBrowser.pagination.hasNext || assetBrowser.loading
                           ? "pointer-events-none opacity-50"
                           : ""
                       }
