@@ -11,7 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import useSceneContextStore from "@/store/sceneContextStore";
-import { TransformationPopover } from "@/components/creative-workspace/TransformationPopover";
+import { ObjectTransformationPopover } from "@/components/creative-workspace/object-transformation";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
@@ -148,7 +148,7 @@ export function SceneControls() {
                         >
                           <ScanEye className="h-3 w-3" />
                         </Button>
-                        <TransformationPopover objectName={obj.name} />
+                        <ObjectTransformationPopover objectName={obj.name} />
                         <Button
                           variant="destructive"
                           size="icon"

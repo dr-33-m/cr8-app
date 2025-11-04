@@ -26,3 +26,16 @@ export function getAssetTypeName(type: number): string {
       return "Asset";
   }
 }
+
+import { TransformValue } from "./types/transformation";
+
+export function hasValuesChanged(
+  newValues: TransformValue,
+  oldValues: TransformValue
+): boolean {
+  return (
+    Math.abs(newValues.x - oldValues.x) > 0.001 ||
+    Math.abs(newValues.y - oldValues.y) > 0.001 ||
+    Math.abs(newValues.z - oldValues.z) > 0.001
+  );
+}
