@@ -167,6 +167,7 @@ const defineStepper = <const Steps extends Stepperize.Step[]>(
                 aria-posinset={stepIndex + 1}
                 aria-setsize={steps.length}
                 aria-selected={isActive}
+                disabled={dataState === "inactive"}
                 onKeyDown={(e) =>
                   onStepKeyDown(
                     e,
@@ -208,7 +209,7 @@ const defineStepper = <const Steps extends Stepperize.Step[]>(
             {variant === "vertical" && (
               <div className="flex gap-4">
                 {!isLast && (
-                  <div className="flex justify-center ps-[calc(var(--spacing)_*_4.5_-_1px)]">
+                  <div className="flex justify-center ps-[calc(var(--spacing)*4.5-1px)]">
                     <StepperSeparator
                       orientation="vertical"
                       isLast={isLast}
