@@ -1,10 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { BlendFileInfo } from "@/lib/services/blendFileService";
-
-interface FileStepProps {
-  blendFiles: BlendFileInfo[];
-  onFileSelect: (file: BlendFileInfo) => void;
-}
+import { FileStepProps } from "@/lib/types/onboarding";
 
 export function FileStep({ blendFiles, onFileSelect }: FileStepProps) {
   return (

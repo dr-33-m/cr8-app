@@ -1,14 +1,6 @@
-import { PolyHavenAsset } from "@/lib/services/polyhavenService";
 import { AssetCard } from "./AssetCard";
 import { EmptyState } from "@/components/placeholders/EmptyState";
-
-interface AssetGridProps {
-  assets: Array<PolyHavenAsset & { id: string }>;
-  onAssetSelect?: (asset: PolyHavenAsset & { id: string }) => void;
-  compact?: boolean;
-  loading?: boolean;
-  error?: string;
-}
+import { AssetGridProps } from "@/lib/types/assetBrowser";
 
 export function AssetGrid({
   assets,

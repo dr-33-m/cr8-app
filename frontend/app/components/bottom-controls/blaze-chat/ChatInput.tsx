@@ -1,40 +1,11 @@
 import { MentionsInput, Mention } from "react-mentions";
 import { useChatMessage } from "@/hooks/useChatMessage";
+import { ChatInputProps } from "@/lib/types/bottomControls";
 import {
   inboxMentionStyle,
   mentionsInputStyle,
   sceneMentionStyle,
 } from "./chatStyles";
-
-interface ChatInputProps {
-  inboxMentions: Array<{
-    id: string;
-    display: string;
-    type: string;
-    source: "inbox";
-  }>;
-  sceneMentions: Array<{
-    id: string;
-    display: string;
-    type: string;
-    source: "scene";
-  }>;
-  renderInboxSuggestion: (
-    suggestion: any,
-    search: string,
-    highlightedDisplay: React.ReactNode,
-    index: number,
-    focused: boolean
-  ) => React.ReactNode;
-  renderSceneSuggestion: (
-    suggestion: any,
-    search: string,
-    highlightedDisplay: React.ReactNode,
-    index: number,
-    focused: boolean
-  ) => React.ReactNode;
-  onSendMessage: () => void;
-}
 
 export function ChatInput({
   inboxMentions,

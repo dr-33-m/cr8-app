@@ -1,11 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import { Maximize2, Minimize2 } from "lucide-react";
-import { ReactNode } from "react";
-
-interface ControlsOverlayProps {
-  children: ReactNode;
-}
+import { ControlsOverlayProps } from "@/lib/types/creativeWorkspace";
 
 export function ControlsOverlay({ children }: ControlsOverlayProps) {
   const isFullscreen = useVisibilityStore((state) => state.isFullscreen);

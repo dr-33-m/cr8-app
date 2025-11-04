@@ -1,10 +1,5 @@
 import { Input } from "@/components/ui/input";
-
-interface UsernameStepProps {
-  username: string;
-  onUsernameChange: (value: string) => void;
-  onEnterPress: () => void;
-}
+import { UsernameStepProps } from "@/lib/types/onboarding";
 
 export function UsernameStep({
   username,

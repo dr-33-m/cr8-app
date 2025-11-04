@@ -1,12 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react";
-
-interface OrbitProps {
-  onOrbitUp: () => void;
-  onOrbitDown: () => void;
-  onOrbitLeft: () => void;
-  onOrbitRight: () => void;
-}
+import { OrbitProps } from "@/lib/types/bottomControls";
 
 export function Orbit({
   onOrbitUp,

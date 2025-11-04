@@ -1,12 +1,5 @@
 import { Sparkles } from "lucide-react";
-
-interface EmptyStateProps {
-  title?: string;
-  description?: string;
-  hint?: string;
-  icon?: React.ReactNode;
-  className?: string;
-}
+import { EmptyStateProps } from "@/lib/types/components";
 
 export function EmptyState({
   title = "Nothing here yet",

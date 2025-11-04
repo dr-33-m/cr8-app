@@ -50,3 +50,22 @@ Guidelines for building maintainable React components with proper separation of 
 - Use index.ts files for clean exports
 - Keep related components together
 - Follow existing project patterns and conventions
+
+## Interface organization
+
+- Centralize component interfaces in dedicated types files
+- Group interfaces by feature/domain (e.g., assetBrowser.ts, bottomControls.ts)
+- Use descriptive interface names that clearly indicate their purpose
+- Import interfaces from types files instead of defining them inline
+- Keep interfaces minimal and focused on component props
+- Use consistent naming patterns (e.g., ComponentNameProps)
+
+## Custom hooks
+
+- Extract complex logic into custom hooks for reusability
+- Group related hooks in feature-specific directories (e.g., hooks/useAssetBrowser/)
+- Use descriptive hook names with "use" prefix (e.g., useAssetBrowser)
+- Keep hooks focused on a single responsibility
+- Return objects with descriptive property names for multiple values
+- Handle loading states, errors, and data fetching within hooks
+- Use index files for clean hook exports

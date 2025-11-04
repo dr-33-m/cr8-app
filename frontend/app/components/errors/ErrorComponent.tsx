@@ -1,12 +1,5 @@
 import { Button } from "@/components/ui/button";
-
-interface ErrorComponentProps {
-  message: string;
-  action?: () => void;
-  actionText?: string;
-  actionIcon?: React.ReactNode;
-  className?: string;
-}
+import { ErrorComponentProps } from "@/lib/types/components";
 
 export function ErrorComponent({
   message,

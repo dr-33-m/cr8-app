@@ -8,10 +8,7 @@ import { ViewportControls } from "./ViewportControls";
 import { BlazeChat } from "./blaze-chat";
 import { AnimationControls } from "./AnimationControls";
 import { Navigation } from "./Navigation/Navigation";
-
-interface BottomControlsProps {
-  children?: React.ReactNode;
-}
+import { BottomControlsProps } from "@/lib/types/bottomControls";
 
 export function BottomControls({ children }: BottomControlsProps) {
   const isVisible = useVisibilityStore(

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { PolyHavenAsset } from "@/lib/services/polyhavenService";
 import { Download, User, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,13 +10,7 @@ import {
 import useInboxStore from "@/store/inboxStore";
 import { toast } from "sonner";
 import { formatDownloads, getAssetTypeName } from "@/lib/utils";
-
-interface AssetCardProps {
-  asset: PolyHavenAsset & { id: string };
-  onSelect?: (asset: PolyHavenAsset & { id: string }) => void;
-  isSelected?: boolean;
-  compact?: boolean;
-}
+import { AssetCardProps } from "@/lib/types/assetBrowser";
 
 export function AssetCard({
   asset,

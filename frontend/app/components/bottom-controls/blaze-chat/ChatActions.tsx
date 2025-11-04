@@ -2,9 +2,7 @@ import { Send } from "lucide-react";
 import { InboxPopover } from "../InboxPopover";
 import { useChatMessage } from "@/hooks/useChatMessage";
 
-interface ChatActionsProps {
-  onSendMessage: () => void;
-}
+import { ChatActionsProps } from "@/lib/types/bottomControls";
 
 export function ChatActions({ onSendMessage }: ChatActionsProps) {
   const { message, isLoading } = useChatMessage();

@@ -1,11 +1,5 @@
 import { ConfirmationCard } from "@/components/confirmation-card";
-import { BlendFileInfo } from "@/lib/services/blendFileService";
-
-interface LaunchStepProps {
-  username: string;
-  folderPath: string;
-  selectedBlendFile: BlendFileInfo | null;
-}
+import { LaunchStepProps } from "@/lib/types/onboarding";
 
 export function LaunchStep({
   username,

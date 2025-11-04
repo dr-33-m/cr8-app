@@ -2,15 +2,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, X } from "lucide-react";
-
-interface AssetSearchInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  onClear: () => void;
-  placeholder?: string;
-  className?: string;
-  compact?: boolean;
-}
+import { AssetSearchInputProps } from "@/lib/types/assetBrowser";
 
 export function AssetSearchInput({
   value,

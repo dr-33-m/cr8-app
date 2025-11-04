@@ -4,17 +4,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PolyHavenAsset, AssetType } from "@/lib/services/polyhavenService";
 import { useAssetBrowser } from "@/hooks/useAssetBrowser";
 import { AssetDialogView } from "./AssetDialogView";
 import polyhaveLogo from "@/assets/polyhaven_256.png";
-
-interface AssetDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onAssetSelect?: (asset: PolyHavenAsset & { id: string }) => void;
-  initialType?: AssetType;
-}
+import { AssetDialogProps } from "@/lib/types/assetBrowser";
 
 export function AssetDialog({
   open,

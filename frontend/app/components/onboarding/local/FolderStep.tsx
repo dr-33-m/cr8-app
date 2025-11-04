@@ -1,10 +1,5 @@
 import { Input } from "@/components/ui/input";
-
-interface FolderStepProps {
-  folderPath: string;
-  onFolderPathChange: (value: string) => void;
-  onEnterPress: () => void;
-}
+import { FolderStepProps } from "@/lib/types/onboarding";
 
 export function FolderStep({
   folderPath,

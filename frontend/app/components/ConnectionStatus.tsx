@@ -1,9 +1,5 @@
-import { WebSocketStatus } from "@/lib/types/websocket";
 import { cn } from "@/lib/utils";
-
-interface ConnectionStatusProps {
-  status: WebSocketStatus;
-}
+import { ConnectionStatusProps } from "@/lib/types/components";
 
 export function ConnectionStatus({ status }: ConnectionStatusProps) {
   const getStatusColor = () => {

@@ -8,16 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { Filter } from "lucide-react";
 import { useAssetCategories } from "@/hooks/useAssetBrowser";
-import { AssetType } from "@/lib/services/polyhavenService";
-
-interface CategoryFilterPopoverProps {
-  selectedCategories: string[];
-  onCategoriesChange: (categories: string[]) => void;
-  assetType: AssetType;
-  compact?: boolean;
-  categories?: Record<string, number>;
-  loading?: boolean;
-}
+import { CategoryFilterPopoverProps } from "@/lib/types/assetBrowser";
 
 export function CategoryFilterPopover({
   selectedCategories,

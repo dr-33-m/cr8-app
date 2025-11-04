@@ -8,7 +8,6 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import { PolyHavenAsset, AssetType } from "@/lib/services/polyhavenService";
 import { useAssetBrowser } from "@/hooks/useAssetBrowser";
 import { AssetGrid } from "../grids";
 import {
@@ -17,11 +16,7 @@ import {
   CategoryFilterPopover,
   SelectedCategoriesDisplay,
 } from "../filters";
-
-interface AssetDialogViewProps {
-  onAssetSelect?: (asset: PolyHavenAsset & { id: string }) => void;
-  initialType?: AssetType;
-}
+import { AssetDialogViewProps } from "@/lib/types/assetBrowser";
 
 export function AssetDialogView({
   onAssetSelect,

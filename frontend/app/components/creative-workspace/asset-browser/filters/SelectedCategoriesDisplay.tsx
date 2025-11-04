@@ -1,12 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-
-interface SelectedCategoriesDisplayProps {
-  selectedCategories: string[];
-  onCategoryRemove: (category: string) => void;
-  onClearAll: () => void;
-}
+import { SelectedCategoriesDisplayProps } from "@/lib/types/assetBrowser";
 
 export function SelectedCategoriesDisplay({
   selectedCategories,

@@ -1,12 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react";
-
-interface DPadProps {
-  onPanUp: () => void;
-  onPanDown: () => void;
-  onPanLeft: () => void;
-  onPanRight: () => void;
-}
+import { DPadProps } from "@/lib/types/bottomControls";
 
 export function DPad({ onPanUp, onPanDown, onPanLeft, onPanRight }: DPadProps) {
   return (

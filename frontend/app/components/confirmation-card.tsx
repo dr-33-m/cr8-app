@@ -2,19 +2,7 @@ import * as React from "react";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-
-export interface ConfirmationItem {
-  label: string;
-  value: string;
-  className?: string;
-}
-
-export interface ConfirmationCardProps {
-  title: string;
-  description: string;
-  items: ConfirmationItem[];
-  className?: string;
-}
+import { ConfirmationCardProps } from "@/lib/types/components";
 
 const ConfirmationCard = React.forwardRef<
   HTMLDivElement,
@@ -35,7 +23,7 @@ const ConfirmationCard = React.forwardRef<
                 {item.value}
               </span>
             </div>
-            {index < items.length - 1 && <Separator className="bg-white/10" />}
+            {index < items.length - 1 && <Separator />}
           </React.Fragment>
         ))}
       </div>

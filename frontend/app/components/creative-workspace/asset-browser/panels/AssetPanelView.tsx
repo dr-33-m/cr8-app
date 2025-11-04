@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CardContent } from "@/components/ui/card";
 import { RefreshCw } from "lucide-react";
-import { PolyHavenAsset } from "@/lib/services/polyhavenService";
 import { AssetGrid } from "../grids";
 import { ErrorComponent } from "@/components/errors/ErrorComponent";
 import {
@@ -13,14 +12,7 @@ import {
   SelectedCategoriesDisplay,
 } from "../filters";
 import polyhaveLogo from "@/assets/polyhaven_256.png";
-
-interface AssetPanelViewProps {
-  assetBrowser: ReturnType<
-    typeof import("@/hooks/useAssetBrowser").useAssetBrowser
-  >;
-  onShowDialog: () => void;
-  onAssetSelect?: (asset: PolyHavenAsset & { id: string }) => void;
-}
+import { AssetPanelViewProps } from "@/lib/types/assetBrowser";
 
 export function AssetPanelView({
   assetBrowser,

@@ -11,16 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-
-interface AssetFiltersProps {
-  selectedType: AssetType;
-  onTypeChange: (type: AssetType) => void;
-  selectedCategories: string[];
-  onCategoriesChange: (categories: string[]) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  compact?: boolean;
-}
+import { AssetFiltersProps } from "@/lib/types/assetBrowser";
 
 export function AssetFilters({
   selectedType,
@@ -63,7 +54,7 @@ export function AssetFilters({
         value={selectedType}
         onValueChange={(value) => onTypeChange(value as AssetType)}
       >
-        <TabsList className="grid w-full grid-cols-3 bg-white/5 border border-white/10">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="hdris">HDRIs</TabsTrigger>
           <TabsTrigger value="textures">Textures</TabsTrigger>
           <TabsTrigger value="models">Models</TabsTrigger>

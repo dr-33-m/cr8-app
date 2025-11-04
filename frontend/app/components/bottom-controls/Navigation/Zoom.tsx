@@ -1,10 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Plus, Minus } from "lucide-react";
-
-interface ZoomProps {
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-}
+import { ZoomProps } from "@/lib/types/bottomControls";
 
 export function Zoom({ onZoomIn, onZoomOut }: ZoomProps) {
   return (

@@ -1,10 +1,5 @@
 import { ImageIcon } from "lucide-react";
-import { RefObject } from "react";
-
-interface SceneViewPortProps {
-  videoRef: RefObject<HTMLVideoElement>;
-  isConnected: boolean;
-}
+import { SceneViewPortProps } from "@/lib/types/creativeWorkspace";
 
 export function SceneViewPort({ videoRef, isConnected }: SceneViewPortProps) {
   return (

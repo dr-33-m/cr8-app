@@ -9,18 +9,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Move3D, Scale3d, Rotate3d, Move3d } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TransformValue, TransformMode } from "@/lib/types/transformation";
 import { useObjectTransformation } from "@/hooks/useObjectTransformation";
 import { ObjectTransformationScrollbar } from "./ObjectTransformationScrollbar";
-
-interface ObjectTransformationPopoverProps {
-  objectName: string;
-  onTransformChange?: (transforms: {
-    move: TransformValue;
-    rotate: TransformValue;
-    scale: TransformValue;
-  }) => void;
-}
+import { ObjectTransformationPopoverProps } from "@/lib/types/transformation";
 
 export const ObjectTransformationPopover: React.FC<
   ObjectTransformationPopoverProps

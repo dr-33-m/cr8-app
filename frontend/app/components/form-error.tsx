@@ -1,8 +1,5 @@
 import { AlertCircle } from "lucide-react";
-
-interface FormErrorProps {
-  message?: string;
-}
+import { FormErrorProps } from "@/lib/types/components";
 
 export function FormError({ message }: FormErrorProps) {
   if (!message) return null;

@@ -5,3 +5,19 @@ export interface TransformValue {
 }
 
 export type TransformMode = "move" | "rotate" | "scale";
+
+export interface ObjectTransformationPopoverProps {
+  objectName: string;
+  onTransformChange?: (transforms: {
+    move: TransformValue;
+    rotate: TransformValue;
+    scale: TransformValue;
+  }) => void;
+}
+
+export interface ObjectTransformationScrollbarProps {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  mode: TransformMode;
+}

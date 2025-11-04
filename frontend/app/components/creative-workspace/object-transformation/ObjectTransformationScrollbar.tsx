@@ -1,13 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { TransformMode } from "@/lib/types/transformation";
-
-interface ObjectTransformationScrollbarProps {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  mode: TransformMode;
-}
+import { ObjectTransformationScrollbarProps } from "@/lib/types/transformation";
 
 export const ObjectTransformationScrollbar: React.FC<
   ObjectTransformationScrollbarProps

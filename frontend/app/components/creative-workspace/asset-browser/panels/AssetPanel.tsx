@@ -1,12 +1,8 @@
 import { useState } from "react";
-import { PolyHavenAsset } from "@/lib/services/polyhavenService";
 import { useAssetBrowser } from "@/hooks/useAssetBrowser";
 import { AssetPanelView } from "./AssetPanelView";
 import { AssetDialog } from "../dialogs";
-
-interface AssetPanelProps {
-  onAssetSelect?: (asset: PolyHavenAsset & { id: string }) => void;
-}
+import { AssetPanelProps } from "@/lib/types/assetBrowser";
 
 export function AssetPanel({ onAssetSelect }: AssetPanelProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
