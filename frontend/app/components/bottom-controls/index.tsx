@@ -5,9 +5,9 @@ import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { ConnectionStatus } from "../ConnectionStatus";
 import { ViewportControls } from "./ViewportControls";
-import { ChatInterface } from "./ChatInterface";
+import { BlazeChat } from "./blaze-chat";
 import { AnimationControls } from "./AnimationControls";
-import { Navigation3DPanel } from "./Navigation3DPanel";
+import { Navigation } from "./Navigation/Navigation";
 
 interface BottomControlsProps {
   children?: React.ReactNode;
@@ -63,7 +63,7 @@ export function BottomControls({ children }: BottomControlsProps) {
               </div>
 
               {/* Row 2: Chat Interface - Spans all 3 columns */}
-              <ChatInterface />
+              <BlazeChat />
 
               {/* Row 3: Animation Controls - Spans all 3 columns */}
               <AnimationControls />
@@ -82,7 +82,7 @@ export function BottomControls({ children }: BottomControlsProps) {
           className={`absolute bottom-0 left-[calc(50%+280px)] transition-all duration-300 
     ${isVisible ? "translate-y-0" : "translate-y-full"}`}
         >
-          <Navigation3DPanel />
+          <Navigation />
         </div>
       )}
     </div>
