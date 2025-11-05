@@ -1,12 +1,13 @@
 import { Send } from "lucide-react";
 import { InboxPopover } from "../InboxPopover";
-import { useChatMessage } from "@/hooks/useChatMessage";
 
 import { ChatActionsProps } from "@/lib/types/bottomControls";
 
-export function ChatActions({ onSendMessage }: ChatActionsProps) {
-  const { message, isLoading } = useChatMessage();
-
+export function ChatActions({
+  onSendMessage,
+  message,
+  isLoading,
+}: ChatActionsProps) {
   return (
     <div className="flex items-center justify-between w-full mt-4">
       {/* Left side - Inbox Button */}

@@ -9,7 +9,8 @@ import {
 } from "./MentionSuggestions";
 
 export function BlazeChat() {
-  const { handleSendMessage } = useChatMessage();
+  const { message, setMessage, isLoading, handleSendMessage } =
+    useChatMessage();
 
   const inboxItems = useInboxStore((state) => state.items);
   const sceneObjects = useSceneContextStore((state) => state.objects);
@@ -40,10 +41,17 @@ export function BlazeChat() {
           renderInboxSuggestion={renderInboxSuggestion}
           renderSceneSuggestion={renderSceneSuggestion}
           onSendMessage={handleSendMessage}
+          message={message}
+          setMessage={setMessage}
+          isLoading={isLoading}
         />
 
         {/* Action Buttons Row */}
-        <ChatActions onSendMessage={handleSendMessage} />
+        <ChatActions
+          onSendMessage={handleSendMessage}
+          message={message}
+          isLoading={isLoading}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,4 @@
 import { MentionsInput, Mention } from "react-mentions";
-import { useChatMessage } from "@/hooks/useChatMessage";
 import { ChatInputProps } from "@/lib/types/bottomControls";
 import {
   inboxMentionStyle,
@@ -13,9 +12,10 @@ export function ChatInput({
   renderInboxSuggestion,
   renderSceneSuggestion,
   onSendMessage,
+  message,
+  setMessage,
+  isLoading,
 }: ChatInputProps) {
-  const { message, setMessage, isLoading } = useChatMessage();
-
   // Handle key press for Enter to send
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

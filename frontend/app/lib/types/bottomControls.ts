@@ -31,6 +31,9 @@ export interface ChatInputProps {
     focused: boolean
   ) => React.ReactNode;
   onSendMessage: () => void;
+  message: string;
+  setMessage: (message: string) => void;
+  isLoading: boolean;
 }
 
 // Navigation-related interfaces
@@ -56,6 +59,8 @@ export interface ZoomProps {
 // Additional bottom controls interfaces
 export interface ChatActionsProps {
   onSendMessage: () => void;
+  message: string;
+  isLoading: boolean;
 }
 
 export interface BottomControlsProps {
