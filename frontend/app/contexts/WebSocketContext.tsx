@@ -7,18 +7,34 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { useWebSocket } from "@/hooks/useWebsocket";
-import { WebSocketStatus, WebSocketMessage } from "@/lib/types/websocket";
+import { useSocketIO } from "@/hooks/useSocketIO";
+import {
+  WebSocketStatus,
+  WebSocketMessage,
+  MessageType,
+  SocketMessage,
+  isSocketMessage,
+  isResponsePayload,
+} from "@/lib/types/websocket";
 import useSceneContextStore from "@/store/sceneContextStore";
 import useInboxStore from "@/store/inboxStore";
 import { toast } from "sonner";
+import { Socket } from "socket.io-client";
+
+type ConnectionState =
+  | "disconnected" // Not connected
+  | "browser_connected" // Browser connected, waiting for Blender
+  | "fully_connected" // Both connected
+  | "blender_disconnected" // Blender crashed/closed
+  | "reconnecting"; // Attempting reconnect
 
 interface WebSocketContextType {
   status: WebSocketStatus;
-  websocket: WebSocket | null;
+  socket: Socket | null;
   isConnected: boolean;
   blenderConnected: boolean;
   isFullyConnected: boolean;
+  connectionState: ConnectionState;
   reconnect: () => void;
   disconnect: () => void;
   sendMessage: (message: WebSocketMessage) => void;
@@ -38,6 +54,8 @@ export function WebSocketProvider({
   const [blenderConnected, setBlenderConnected] = useState(false);
   const [contextUpdateSent, setContextUpdateSent] = useState(false);
   const [sessionCreated, setSessionCreated] = useState(false);
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("disconnected");
 
   // Use refs for immediate state tracking to avoid race conditions
   const isReconnectionRef = useRef(false);
@@ -45,105 +63,113 @@ export function WebSocketProvider({
 
   const processMessage = useCallback(
     (data: any) => {
-      // Handle system messages
-      if (data.type === "system") {
-        switch (data.status) {
-          case "blender_connected":
-            setBlenderConnected(true);
-            if (data.message?.includes("Reconnected to existing")) {
-              isReconnectionRef.current = true;
-              shouldSendBrowserReadyRef.current = false;
-              toast.success("Reconnected to existing Blender session");
-            }
-            break;
-          case "blender_disconnected":
-            setBlenderConnected(false);
-            break;
-          case "waiting_for_blender":
-            setBlenderConnected(false);
-            toast.info(data.message || "Waiting for Blender to connect...");
-            break;
-          case "error":
-            if (data.message?.includes("Failed to launch Blender")) {
-              setBlenderConnected(false);
-              toast.error(data.message);
-              // Auto-recovery attempt
-              setTimeout(() => {
-                if (wsHook.websocket?.readyState === WebSocket.OPEN) {
-                  console.log("Attempting to recover Blender connection");
-                  wsHook.sendMessage({
-                    command: "browser_ready",
-                    recovery: true,
-                  });
-                }
-              }, 1000);
-            }
-            break;
-        }
+      // Check if it's a standardized message
+      if (!isSocketMessage(data)) {
+        console.warn("Received non-standardized message:", data);
+        onMessage?.(data);
+        return;
       }
 
-      // Handle scene context updates
-      else if (
-        data.type === "scene_context_update" &&
-        data.status === "success"
-      ) {
-        const { objects, timestamp } = data.data;
-        useSceneContextStore.getState().setSceneObjects(objects, timestamp);
-        console.log("Scene context updated:", objects.length, "objects");
-      }
+      const message = data as SocketMessage;
+      const payload = message.payload;
 
-      // Handle clear inbox command from process_inbox_assets response
-      if (
-        data.command === "process_inbox_assets_result" &&
-        data.status === "success"
-      ) {
-        try {
-          // Parse the JSON string in data.data.message to check for commands
-          const messageData =
-            typeof data.data?.message === "string"
-              ? JSON.parse(data.data.message)
-              : data.data?.message;
-
-          if (
-            messageData?.commands &&
-            messageData.commands.includes("clear_inbox")
-          ) {
-            // Clear the inbox store
-            useInboxStore.getState().clearAll();
-            toast.success("Inbox cleared after successful processing");
-            return; // Don't process further
+      // Handle messages by type using switch
+      switch (message.type) {
+        case MessageType.SESSION_CREATED:
+          toast.success("Connected to Cr8 Engine");
+          setSessionCreated(true);
+          setConnectionState("browser_connected");
+          if (!isReconnectionRef.current) {
+            shouldSendBrowserReadyRef.current = true;
           }
-        } catch (parseError) {
-          // If parsing fails, continue with normal processing
-          console.warn(
-            "Failed to parse message data for clear_inbox command:",
-            parseError
-          );
-        }
-      }
+          break;
 
-      // Handle direct clear inbox command (for backward compatibility)
-      if (data.type === "clear_inbox" && data.status === "success") {
-        // Clear the inbox store
-        useInboxStore.getState().clearAll();
-        toast.success(data.message || "Inbox cleared successfully");
-        return; // Don't process further
-      }
+        case MessageType.BLENDER_CONNECTED:
+          setBlenderConnected(true);
+          setConnectionState("fully_connected");
+          if (
+            isResponsePayload(payload) &&
+            payload.data?.message?.includes("Reconnected")
+          ) {
+            isReconnectionRef.current = true;
+            shouldSendBrowserReadyRef.current = false;
+            toast.success("Reconnected to existing Blender session");
+          }
+          break;
 
-      // Handle B.L.A.Z.E Agent responses
-      if (data.status === "success") {
-        const isNavigationCommand =
-          data.data?.data?.navigation_action ||
-          data.data?.data?.viewport_mode ||
-          data.data?.data?.animation_state ||
-          data.data?.data?.current_frame ||
-          data.command.includes("transform_");
+        case MessageType.BLENDER_DISCONNECTED:
+          setBlenderConnected(false);
+          setConnectionState("blender_disconnected");
+          // Clear scene context when Blender disconnects
+          useSceneContextStore.getState().clearSceneObjects();
+          // Reset context update flag so it triggers on next connection
+          setContextUpdateSent(false);
+          if (isResponsePayload(payload)) {
+            toast.info(payload.data?.message || "Blender disconnected");
+          }
+          break;
 
-        if (!isNavigationCommand) {
-          toast.success("B.L.A.Z.E: " + (data.message || "Action completed"));
-        }
-      } else if (data.status === "error") {
-        toast.error("B.L.A.Z.E Error: " + (data.message || "Unknown error"));
+        case MessageType.INBOX_CLEARED:
+          useInboxStore.getState().clearAll();
+          toast.success("Inbox cleared successfully");
+          break;
+
+        case MessageType.COMMAND_COMPLETED:
+          // Handle scene context updates from list_scene_objects command
+          if (isResponsePayload(payload) && payload.status === "success") {
+            // Check if this is a scene objects response (array of objects nested in data.data)
+            const hasData = payload.data?.data;
+            const isArray = Array.isArray(payload.data?.data);
+            const hasLength = payload.data?.data?.length > 0;
+            const hasFirstName = payload.data?.data?.[0]?.name;
+
+            if (hasData && isArray && hasLength && hasFirstName) {
+              const objects = payload.data.data;
+              const timestamp = Math.floor(Date.now() / 1000); // Store as seconds to match component expectations
+              useSceneContextStore
+                .getState()
+                .setSceneObjects(objects, timestamp);
+            }
+            // Remove toast.success completely - direct commands have visual feedback
+            // Only agent commands should send success responses if needed
+          }
+          break;
+
+        case MessageType.COMMAND_FAILED:
+          if (isResponsePayload(payload) && payload.error) {
+            toast.error(payload.error.user_message);
+            console.error("Command failed:", payload.error.technical_message);
+          }
+          break;
+
+        case MessageType.AGENT_RESPONSE_READY:
+          if (isResponsePayload(payload) && payload.data?.message) {
+            toast.success("B.L.A.Z.E: " + payload.data.message);
+          }
+          break;
+
+        case MessageType.AGENT_ERROR:
+          if (isResponsePayload(payload) && payload.error) {
+            toast.error("B.L.A.Z.E: " + payload.error.user_message);
+            console.error("Agent error:", payload.error.technical_message);
+            if (payload.error.recovery_suggestions?.length) {
+              console.info(
+                "Recovery suggestions:",
+                payload.error.recovery_suggestions
+              );
+            }
+          }
+          break;
+
+        case MessageType.EXECUTION_ERROR:
+          if (isResponsePayload(payload) && payload.error) {
+            toast.error(payload.error.user_message);
+            console.error("Execution error:", payload.error.technical_message);
+          }
+          break;
+
+        default:
+          console.log("Unhandled message type:", message.type);
       }
 
       // Forward to custom handler
@@ -152,14 +178,15 @@ export function WebSocketProvider({
     [onMessage]
   );
 
-  const wsHook = useWebSocket((data: any) => {
+  const wsHook = useSocketIO((data: any) => {
     // Process message first
     processMessage(data);
 
-    // Handle session creation
-    if (data.status === "connected" && data.message === "Session created") {
+    // Handle session creation (Socket.IO connect event)
+    if (data.type === "system" && data.status === "connected") {
       toast.success("Connected to Cr8 Engine");
       setSessionCreated(true);
+      setConnectionState("browser_connected");
       // Only prepare to send browser_ready for fresh connections
       if (!isReconnectionRef.current) {
         shouldSendBrowserReadyRef.current = true;
@@ -167,12 +194,20 @@ export function WebSocketProvider({
     }
   });
 
+  const reconnect = useCallback(() => {
+    if (wsHook.socket?.connected) {
+      setConnectionState("reconnecting");
+      console.log("Sending browser_ready signal for reconnection");
+      wsHook.socket.emit("browser_ready", { recovery: true });
+    }
+  }, [wsHook.socket]);
+
   // Send browser_ready for fresh connections only
   useEffect(() => {
     if (
       sessionCreated &&
       shouldSendBrowserReadyRef.current &&
-      wsHook.websocket?.readyState === WebSocket.OPEN &&
+      wsHook.socket?.connected &&
       !isReconnectionRef.current
     ) {
       const timeoutId = setTimeout(() => {
@@ -183,7 +218,7 @@ export function WebSocketProvider({
 
       return () => clearTimeout(timeoutId);
     }
-  }, [sessionCreated, wsHook.websocket, wsHook.sendMessage]);
+  }, [sessionCreated, wsHook.socket, wsHook.sendMessage]);
 
   // Handle context updates for both fresh and reconnected sessions
   useEffect(() => {
@@ -191,7 +226,7 @@ export function WebSocketProvider({
       wsHook.isConnected &&
       blenderConnected &&
       !contextUpdateSent &&
-      wsHook.websocket?.readyState === WebSocket.OPEN
+      wsHook.socket?.connected
     ) {
       const messageId = isReconnectionRef.current
         ? `reconnect_context_update_${Date.now()}`
@@ -203,9 +238,18 @@ export function WebSocketProvider({
           : "Sending initial context update request"
       );
 
-      wsHook.sendMessage({
-        command: "list_scene_objects",
+      wsHook.socket?.emit("command_sent", {
         message_id: messageId,
+        type: "command_sent",
+        payload: {
+          addon_id: "multi_registry_assets",
+          command: "list_scene_objects",
+          params: {},
+        },
+        metadata: {
+          route: "direct",
+          source: "browser",
+        },
       });
 
       setContextUpdateSent(true);
@@ -214,19 +258,20 @@ export function WebSocketProvider({
     wsHook.isConnected,
     blenderConnected,
     contextUpdateSent,
-    wsHook.websocket,
+    wsHook.socket,
     wsHook.sendMessage,
   ]);
 
   // Handle logout disconnection
   useEffect(() => {
     const handleLogoutDisconnect = () => {
-      console.log("Logout event received, disconnecting WebSocket");
-      if (wsHook.websocket) {
+      console.log("Logout event received, disconnecting Socket.IO");
+      if (wsHook.socket) {
         wsHook.disconnect();
         setBlenderConnected(false);
         setContextUpdateSent(false);
         setSessionCreated(false);
+        setConnectionState("disconnected");
         isReconnectionRef.current = false;
         shouldSendBrowserReadyRef.current = false;
       }
@@ -235,12 +280,14 @@ export function WebSocketProvider({
     window.addEventListener("logout-disconnect", handleLogoutDisconnect);
     return () =>
       window.removeEventListener("logout-disconnect", handleLogoutDisconnect);
-  }, [wsHook.websocket, wsHook.disconnect]);
+  }, [wsHook.socket, wsHook.disconnect]);
 
   const contextValue = {
     ...wsHook,
     blenderConnected,
     isFullyConnected: wsHook.isConnected && blenderConnected,
+    connectionState,
+    reconnect,
   };
 
   return (

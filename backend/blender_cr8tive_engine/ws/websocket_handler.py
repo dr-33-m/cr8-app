@@ -1,19 +1,19 @@
 """
-WebSocket handler implementation for Blender AI Router.
-This module provides the main WebSocket handler class with command routing to AI addons.
+Socket.IO handler implementation for Blender AI Router.
+This module provides the main Socket.IO handler class with command routing to AI addons.
 """
 
 import os
 import re
 import json
-import threading
 import logging
-import websocket
 import time
 import bpy
 from pathlib import Path
+import socketio
 from .utils.session_manager import SessionManager
 from .utils.response_manager import ResponseManager
+from .message_types import MessageType
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -28,16 +28,16 @@ def execute_in_main_thread(function, args):
 
 
 class WebSocketHandler:
-    """WebSocket handler with direct command routing."""
+    """Socket.IO handler with direct command routing."""
     _instance = None
 
     def __new__(cls):
         if not cls._instance:
             cls._instance = super(WebSocketHandler, cls).__new__(cls)
             cls._instance._initialized = False
-            cls._instance.lock = threading.Lock()
+            cls._instance.lock = __import__('threading').Lock()
             # Initialize without connection
-            cls._instance.ws = None
+            cls._instance.sio = None
             cls._instance.url = None  # Start unconfigured
             cls._instance.username = None
             cls._instance._initialized = True  # Mark as initialized
@@ -49,19 +49,17 @@ class WebSocketHandler:
             return
 
         # Initialize components
-        self.processing_complete = threading.Event()
+        self.processing_complete = __import__('threading').Event()
         self.processed_commands = set()
-        self.reconnect_attempts = 0
-        self.max_retries = 5
+        self.processing_commands = set()  # Track in-progress commands
         self.stop_retries = False
-        self.ws_thread = None
 
-        logging.info("AI Router WebSocketHandler initialized")
+        logging.info("AI Router Socket.IO Handler initialized")
 
     def initialize_connection(self, url=None):
         """Call this explicitly when ready to connect"""
-        if self.ws:
-            return  # Already connected
+        if self.sio:
+            return  # Already initialized
 
         logging.info(f"WS_URL from env: {os.environ.get('WS_URL')}")
         logging.info(
@@ -75,17 +73,11 @@ class WebSocketHandler:
             logging.error("No WS_URL found in environment variables")
             return
 
-        # Fallback to parsing username from URL if not in environment
+        # Username is required and must come from CR8_USERNAME environment variable
         if not self.username:
-            # Simplified regex for local development
-            match = re.match(r'ws://([^:/]+):\d+/ws/([^/]+)/blender', self.url)
-            if match:
-                self.host = match.group(1)
-                self.username = match.group(2)
-            else:
-                raise ValueError(
-                    "Username not found in CR8_USERNAME or WebSocket URL."
-                )
+            raise ValueError(
+                "Username required: Set CR8_USERNAME environment variable"
+            )
 
         # Set username in SessionManager
         session_manager = SessionManager.get_instance()
@@ -97,75 +89,121 @@ class WebSocketHandler:
                 "or passed to initialize_connection()"
             )
 
-        # Initialize components only when needed
-        self.ws = None
+        # Create Socket.IO client
+        self.sio = socketio.Client(
+            logger=True,
+            engineio_logger=True,
+            reconnection=True,
+            reconnection_attempts=5,
+            reconnection_delay=2,
+            reconnection_delay_max=10
+        )
+
+        # Register event handlers
+        self._register_handlers()
+
+    def _register_handlers(self):
+        """Register all Socket.IO event handlers"""
+
+        @self.sio.on('connect', namespace='/blender')
+        def on_connect():
+            logging.info("Connected to Socket.IO server")
+            self.processing_complete.clear()
+
+            def send_init_message():
+                try:
+                    # Send connection status via Socket.IO emit
+                    self.sio.emit(
+                        'connection_status',
+                        {
+                            'status': 'Connected',
+                            'message': 'Blender registered'
+                        },
+                        namespace='/blender'
+                    )
+                    logging.info("Sent connection status to server")
+
+                    # Send registry update
+                    self._send_registry_update()
+                except Exception as e:
+                    logging.error(f"Error in on_connect: {e}")
+
+            execute_in_main_thread(send_init_message, ())
+
+        @self.sio.on('disconnect', namespace='/blender')
+        def on_disconnect(reason):
+            logging.info(f"Disconnected from server: {reason}")
+            self.processing_complete.set()
+            self.processing_commands.clear()
+
+        @self.sio.on('connect_error', namespace='/blender')
+        def on_connect_error(data):
+            logging.error(f"Connection error: {data}")
+
+        @self.sio.on(MessageType.COMMAND_RECEIVED, namespace='/blender')
+        def on_command_received(data):
+            """Handle commands forwarded from backend (standardized)"""
+            logging.info(f"Received {MessageType.COMMAND_RECEIVED}: {data}")
+
+            def execute():
+                self.process_message(data)
+
+            execute_in_main_thread(execute, ())
+
+        @self.sio.on('ping', namespace='/blender')
+        def on_ping(data):
+            """Handle ping events"""
+            logging.info(f"Received ping: {data}")
+
+            def execute():
+                self._handle_ping(data)
+
+            execute_in_main_thread(execute, ())
 
     def connect(self, retries=5, delay=2):
-        """Establish WebSocket connection with retries and exponential backoff"""
-        self.max_retries = retries
-        self.reconnect_attempts = 0
-        self.stop_retries = False
+        """Establish Socket.IO connection"""
+        try:
+            # Use URL directly (should be http:// or https://)
+            connection_url = self.url
 
-        while self.reconnect_attempts < retries and not self.stop_retries:
-            try:
-                if self.ws:
-                    self.ws.close()
+            logging.info(f"Connecting to Socket.IO server at {connection_url}")
 
-                self.ws = websocket.WebSocketApp(
-                    self.url,
-                    on_message=self._on_message,
-                    on_open=self._on_open,
-                    on_close=self._on_close,
-                    on_error=self._on_error,
-                )
+            self.sio.connect(
+                connection_url,
+                namespaces=['/blender'],
+                socketio_path='/ws/socket.io/',
+                auth={
+                    'username': self.username,
+                    'blend_file_path': bpy.data.filepath
+                },
+                wait=False  # Non-blocking, Socket.IO handles threading
+            )
 
-                response_manager = ResponseManager.get_instance()
-                response_manager.set_websocket(self.ws)
+            # Set ResponseManager's socketio client
+            response_manager = ResponseManager.get_instance()
+            response_manager.set_socketio(self.sio)
 
-                self.processing_complete.clear()
-                self.ws_thread = threading.Thread(
-                    target=self._run_websocket, daemon=True
-                )
-                self.ws_thread.start()
+            logging.info(f"Socket.IO connection initialized to {connection_url}")
+            return True
 
-                logging.info(f"WebSocket connection initialized to {self.url}")
-                return True
-            except Exception as e:
-                logging.error(
-                    f"Connection to {self.url} failed: {e}, retrying in {delay} seconds..."
-                )
-                time.sleep(delay)
-                delay *= 2
-                self.reconnect_attempts += 1
-
-        logging.error(
-            f"Max retries reached for {self.url}. Connection failed.")
-        return False
-
-    def _run_websocket(self):
-        """Run WebSocket without SSL"""
-        while not self.processing_complete.is_set() and not self.stop_retries:
-            try:
-                self.ws.run_forever()
-            except websocket.WebSocketException as ws_err:
-                logging.error(f"WebSocket error: {ws_err}")
-                break
-            except Exception as e:
-                logging.error(f"Unexpected error in WebSocket connection: {e}")
-                break
+        except Exception as e:
+            logging.error(f"Connection to {connection_url} failed: {e}")
+            return False
 
     def disconnect(self):
-        """Disconnect WebSocket"""
+        """Disconnect Socket.IO"""
         with self.lock:
             self.processing_complete.set()
             self.stop_retries = True
-            if self.ws and self.ws.sock and self.ws.sock.connected:
-                self.ws.close()
-                self.ws = None
+            try:
+                if self.sio and self.sio.connected:
+                    self.sio.disconnect()
+                    self.sio = None
+            except Exception as e:
+                logging.error(f"Error disconnecting: {e}")
 
-            if self.ws_thread:
-                self.ws_thread.join(timeout=2)
-                self.ws_thread = None
+            self.processing_commands.clear()
+            self.processed_commands.clear()
 
     def _handle_ping(self, data):
         """Handle ping command by responding with a pong"""
@@ -195,15 +233,23 @@ class WebSocketHandler:
                 f"Acknowledged connection confirmation with message_id: {message_id}")
 
     def _handle_addon_command(self, data):
-        """Handle structured addon commands from FastAPI"""
+        """Handle structured addon commands with route preservation"""
         try:
             addon_id = data.get('addon_id')
             command = data.get('command')
             params = data.get('params', {})
             message_id = data.get('message_id')
+            
+            # Extract route from incoming command (critical for proper response routing)
+            # Check both metadata.route and direct route field for compatibility
+            route = 'direct'  # Default
+            if 'metadata' in data:
+                route = data['metadata'].get('route', 'direct')
+            elif 'route' in data:
+                route = data.get('route', 'direct')
 
             logging.info(
-                f"Handling addon command: {addon_id}.{command} with params: {params}")
+                f"Handling addon command: {addon_id}.{command} with params: {params}, route: {route}")
 
             # Get router instance
             from .. import get_router
@@ -212,18 +258,27 @@ class WebSocketHandler:
             # Execute command through router
             result = router.execute_command(addon_id, command, params)
 
-            # Send response
+            # Send response with preserved route
             response_manager = ResponseManager.get_instance()
             response_manager.send_response(
                 f"{command}_result",
                 result.get('status') == 'success',
                 result,
-                message_id
+                message_id,
+                route=route  # Preserve route for proper forwarding
             )
 
         except Exception as e:
             logging.error(f"Error handling addon command: {str(e)}")
             response_manager = ResponseManager.get_instance()
+            
+            # Extract route for error response too
+            route = 'direct'
+            if 'metadata' in data:
+                route = data['metadata'].get('route', 'direct')
+            elif 'route' in data:
+                route = data.get('route', 'direct')
+                
             response_manager.send_response(
                 f"{command}_result",
                 False,
@@ -232,7 +287,8 @@ class WebSocketHandler:
                     "message": f"Command handling failed: {str(e)}",
                     "error_code": "COMMAND_HANDLING_ERROR"
                 },
-                data.get('message_id')
+                data.get('message_id'),
+                route=route
             )
 
     def _route_command_to_addon(self, command, data):
@@ -280,7 +336,7 @@ class WebSocketHandler:
             )
 
     def _send_registry_update(self):
-        """Send registry update event to FastAPI"""
+        """Send registry update event to FastAPI via Socket.IO"""
         try:
             from .. import get_registry
             registry = get_registry()
@@ -294,10 +350,10 @@ class WebSocketHandler:
                 "available_tools": available_tools
             }
 
-            if self.ws:
-                self.ws.send(json.dumps(registry_event))
+            if self.sio and self.sio.connected:
+                self.sio.emit('registry_update', registry_event, namespace='/blender')
                 logging.info(
-                    f"Sent registry update to FastAPI: {total_addons} addons, {len(available_tools)} tools")
+                    f"Sent registry update to server: {total_addons} addons, {len(available_tools)} tools")
                 logging.debug(f"Registry data: {registry_event}")
 
         except Exception as e:
@@ -305,109 +361,90 @@ class WebSocketHandler:
             import traceback
             traceback.print_exc()
 
-    def _on_open(self, ws):
-        self.reconnect_attempts = 0
-
-        def send_init_message():
-            try:
-                # Use proper format for initialization message
-                init_message = json.dumps({
-                    'command': 'connection_status',
-                    'status': 'Connected',  # Capital C to match what CR8 Engine expects
-                    'message': 'Blender registered'
-                })
-                ws.send(init_message)
-                logging.info("Connected Successfully")
-            except Exception as e:
-                logging.error(f"Error in _on_open: {e}")
-
-        execute_in_main_thread(send_init_message, ())
-
-    def _on_message(self, ws, message):
-        self.process_message(message)
-
-    def process_message(self, message):
+    def process_message(self, data):
+        """Process incoming message with deduplication"""
         try:
-            logging.info(f"Processing incoming message: {message}")
-            data = json.loads(message)
+            logging.info(f"Processing incoming message: {data}")
+            
+            # Get both type and command fields
+            message_type = data.get('type')
             command = data.get('command')
             message_id = data.get('message_id')
 
             logging.info(
-                f"Parsed message - command: {command}, message_id: {message_id}")
+                f"Parsed message - type: {message_type}, command: {command}, message_id: {message_id}")
+
+            # Create unique command key using type or command
+            command_identifier = message_type or command
+            command_key = (command_identifier, message_id) if message_id else None
 
             # Validation safety net: warn about missing message IDs for important commands
-            if not message_id and command not in ['ping', 'connection_confirmation']:
+            if not message_id and command_identifier not in ['ping', 'connection_confirmation']:
                 logging.warning(
-                    f"Command {command} received without message_id - this may cause deduplication issues")
+                    f"Command {command_identifier} received without message_id - this may cause deduplication issues")
 
-            # Prevent reprocessing of the same command (only if we have a proper message_id)
-            if message_id and (command, message_id) in self.processed_commands:
+            # Check if already processed
+            if command_key and command_key in self.processed_commands:
                 logging.warning(
-                    f"Skipping already processed command: {command} with message_id: {message_id}")
+                    f"Skipping already processed command: {command_identifier} with message_id: {message_id}")
                 return
 
-            if not command:
+            # Check if currently processing (CRITICAL: prevents duplicate execution)
+            if command_key and command_key in self.processing_commands:
                 logging.warning(
-                    f"Received message without a valid command: {data}")
+                    f"Command {command_identifier} with message_id {message_id} still processing, ignoring duplicate")
                 return
 
-            logging.info(f"Looking for handler for command: {command}")
+            # Mark as processing
+            if command_key:
+                self.processing_commands.add(command_key)
 
-            # Handle utility commands directly
-            if command == 'ping':
-                def execute_ping():
-                    self._handle_ping(data)
-                    self.processed_commands.add((command, message_id))
-                execute_in_main_thread(execute_ping, ())
+            if not command_identifier:
+                logging.warning(
+                    f"Received message without a valid type or command: {data}")
                 return
+
+            logging.info(f"Looking for handler for type: {message_type}, command: {command}")
+
+            # Route based on message type first, then command
+            if message_type == 'addon_command':
+                # Handle addon commands through router (AI-routed commands)
+                self._handle_addon_command(data)
+                
+            elif command == 'ping':
+                # Handle utility commands directly
+                self._handle_ping(data)
 
             elif command == 'connection_confirmation':
-                def execute_confirmation():
-                    self._handle_connection_confirmation(data)
-                    self.processed_commands.add((command, message_id))
-                execute_in_main_thread(execute_confirmation, ())
-                return
+                self._handle_connection_confirmation(data)
 
-            # Handle addon commands through router
-            elif command.startswith('addon_command'):
-                def execute_addon_command():
-                    self._handle_addon_command(data)
-                    self.processed_commands.add((command, message_id))
-                execute_in_main_thread(execute_addon_command, ())
-                return
-
-            # Route all other commands through the AI router
-            def execute_router_command():
+            elif command:
+                # Route all other commands through the AI router (direct commands)
                 self._route_command_to_addon(command, data)
-                self.processed_commands.add((command, message_id))
+            
+            else:
+                logging.warning(f"Unknown message type/command: type={message_type}, command={command}")
+
+            # Mark as processed and remove from processing
+            if command_key:
+                self.processing_commands.discard(command_key)
+                self.processed_commands.add(command_key)
                 logging.info(
-                    f"Marked command {command} with message_id {message_id} as processed")
-            execute_in_main_thread(execute_router_command, ())
+                    f"Marked command {command_identifier} with message_id {message_id} as processed")
 
         except json.JSONDecodeError as e:
             logging.error(f"Error decoding JSON message: {e}")
         except Exception as e:
-            logging.error(f"Error processing WebSocket message: {e}")
+            logging.error(f"Error processing message: {e}")
             import traceback
             traceback.print_exc()
-
-    def _on_close(self, ws, close_status_code, close_msg):
-        logging.info(
-            f"WebSocket connection closed. Status: {close_status_code}, Message: {close_msg}")
-        self.processing_complete.set()
-
-    def _on_error(self, ws, error):
-        logging.error(f"WebSocket error: {error}")
-        self.reconnect_attempts += 1
-        if self.reconnect_attempts >= self.max_retries:
-            logging.error("Max retries reached. Stopping WebSocket attempts.")
-            self.stop_retries = True
-            self.processing_complete.set()
+            # Ensure we remove from processing on error
+            if command_key and command_key in self.processing_commands:
+                self.processing_commands.discard(command_key)
 
     def send_response(self, command, result, data=None, message_id=None):
         """
-        Send a WebSocket response using ResponseManager.
+        Send a Socket.IO response using ResponseManager.
         This method is kept for compatibility during transition.
         """
         response_manager = ResponseManager.get_instance()
@@ -423,8 +460,8 @@ def get_handler():
 # Register the operator for Blender
 class ConnectWebSocketOperator(bpy.types.Operator):
     bl_idname = "ws_handler.connect_websocket"
-    bl_label = "Connect WebSocket"
-    bl_description = "Initialize WebSocket connection to Cr8tive Engine server"
+    bl_label = "Connect Socket.IO"
+    bl_description = "Initialize Socket.IO connection to Cr8tive Engine server"
 
     def execute(self, context):
         try:
@@ -441,12 +478,12 @@ class ConnectWebSocketOperator(bpy.types.Operator):
 
 
 def register():
-    """Register WebSocket handler and operator"""
+    """Register Socket.IO handler and operator"""
     bpy.utils.register_class(ConnectWebSocketOperator)
 
 
 def unregister():
-    """Unregister WebSocket handler and operator"""
+    """Unregister Socket.IO handler and operator"""
     bpy.utils.unregister_class(ConnectWebSocketOperator)
     handler = get_handler()
     handler.disconnect()

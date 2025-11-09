@@ -1,20 +1,27 @@
 """
-Response manager for sending WebSocket responses.
+Response manager for sending Socket.IO responses.
+Refactored to use standardized message structure (Phase 3)
 """
 
 import logging
 import json
+import uuid
 
 logger = logging.getLogger(__name__)
 
 
+def generate_message_id() -> str:
+    """Generate unique message ID"""
+    return str(uuid.uuid4())
+
+
 class ResponseManager:
     """
-    Singleton class for managing WebSocket responses.
+    Singleton class for managing Socket.IO responses.
     Provides a centralized way to send responses without dependency on WebSocketHandler.
     """
     _instance = None
-    _websocket = None
+    _socketio_client = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -29,50 +36,64 @@ class ResponseManager:
             cls._instance = cls()
         return cls._instance
 
-    def set_websocket(self, websocket):
-        """Set the WebSocket connection to use for sending responses"""
-        logger.info("Setting WebSocket connection in ResponseManager")
-        self._websocket = websocket
+    def set_socketio(self, sio):
+        """Set the Socket.IO client to use for sending responses"""
+        logger.info("Setting Socket.IO client in ResponseManager")
+        self._socketio_client = sio
 
-    def send_response(self, command, result, data=None, message_id=None):
+    def send_response(self, command, result, data=None, message_id=None, route='direct'):
         """
-        Send a WebSocket response.
+        Send a standardized Socket.IO response.
 
-        :param command: The command to send (e.g., 'template_controls')
+        :param command: The command name
         :param result: Boolean indicating success or failure
-        :param data: Optional additional data to send (e.g., controllables object)
-        :param message_id: Optional message ID for tracking requests
+        :param data: Optional additional data to send
+        :param message_id: Message ID for tracking (REQUIRED)
+        :param route: Route type ('direct' or 'agent') to preserve from original command
         """
-        if not self._websocket:
-            logger.error("Cannot send response: WebSocket not set")
+        if not self._socketio_client:
+            logger.error("Cannot send response: Socket.IO client not set")
             return False
 
-        logger.info(f"Preparing response for command: {command}")
-        status = 'success' if result else 'failed'
+        # Enforce message_id requirement
+        if message_id is None:
+            message_id = generate_message_id()
+            logger.warning(f"No message_id provided, generated: {message_id}")
 
+        logger.info(f"Preparing standardized response for command: {command} with route: {route}")
+        
+        # Create standardized response structure
+        status = 'success' if result else 'error'
+        
+        # Build standardized message
         response = {
-            'command': command,
-            'status': status
+            'message_id': message_id,
+            'type': 'command_completed' if result else 'command_failed',
+            'payload': {
+                'status': status,
+                'data': data if data is not None else {'command': command}
+            },
+            'metadata': {
+                'timestamp': __import__('time').time(),
+                'source': 'blender',
+                'route': route  # Preserve the route from original command
+            }
         }
 
-        # CRITICAL FIX: Include message_id at top level if provided
-        # This is required for FastAPI to correlate responses back to B.L.A.Z.E
-        if message_id is not None:
-            response['message_id'] = message_id
-            logger.info(f"Including message_id in response: {message_id}")
+        logger.info(f"Sending standardized Socket.IO response: {response}")
 
-        # Include the data in the response if provided
-        if data is not None:
-            response['data'] = data
-
-        # Convert the response dictionary to a JSON string
-        json_response = json.dumps(response)
-        logger.info(f"Sending WebSocket response: {json_response}")
-
-        # Send the response via WebSocket
+        # Send the response via Socket.IO emit
         try:
-            self._websocket.send(json_response)
+            # Use the new event name based on success/failure
+            event_name = 'command_completed' if result else 'command_failed'
+            
+            self._socketio_client.emit(
+                event_name,
+                response,
+                namespace='/blender'
+            )
+            logger.info(f"Successfully emitted {event_name} for command: {command}")
             return True
         except Exception as e:
-            logger.error(f"Error sending WebSocket response: {e}")
+            logger.error(f"Error sending Socket.IO response: {e}")
             return False

@@ -1,19 +1,20 @@
 """
-WebSocket Server Package Initialization
+Real-time Engine Package Initialization
 
-This module exposes key classes and functions from the package,
-making them easy to import.
+This module exposes Socket.IO server components for real-time communication.
 """
 
-# Import key classes to make them accessible at the package level
-from .websockets.session_manager import SessionManager
-from .websockets.websocket_handler import WebSocketHandler
+# Import Socket.IO server components
+from .socketio_server import create_socketio_server, create_socketio_app
+from .namespaces import BrowserNamespace, BlenderNamespace
 
 # Optional: Define what should be imported with *
 __all__ = [
-    'SessionManager',
-    'WebSocketHandler',
+    'create_socketio_server',
+    'create_socketio_app',
+    'BrowserNamespace',
+    'BlenderNamespace',
 ]
 
-# Optional: Package-level version information
-__version__ = '0.1.0'
+# Package version
+__version__ = '2.0.0'

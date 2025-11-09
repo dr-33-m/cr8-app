@@ -117,11 +117,11 @@ export function useObjectTransformation({
     try {
       const messageId = uuidv4();
       sendMessage({
-        type: "addon_command",
         addon_id: "multi_registry_assets",
         command: command,
         params: params,
         message_id: messageId,
+        route: "direct", // Direct command to Blender
       });
     } catch (error) {
       toast.error(`Failed to send transformation: ${error}`);

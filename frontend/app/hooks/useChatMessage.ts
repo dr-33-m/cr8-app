@@ -106,7 +106,6 @@ export function useChatMessage() {
 
       // Send message to B.L.A.Z.E Agent with context
       wsSendMessage({
-        type: "agent_message",
         message: plainTextMessage.trim(),
         context: {
           inbox_items: inboxItems,
@@ -116,6 +115,8 @@ export function useChatMessage() {
             objects: objectMentions,
           },
         },
+        route: "agent",
+        refresh_context: inboxItems.length > 0, // Refresh context when there are inbox items to process
       });
 
       // Clear input

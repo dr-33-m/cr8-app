@@ -14,10 +14,9 @@ export function useNavigationControls() {
 
       try {
         sendMessage({
-          type: "addon_command",
-          addon_id: "blender_ai_router",
           command: command,
           params: {},
+          route: "direct",
         });
       } catch (error) {
         toast.error(`Failed to send ${command} command`);

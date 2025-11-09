@@ -6,6 +6,12 @@ python-dotenv
 pillow
 httpx
 
+# Socket.IO for WebSocket management
+python-socketio
+
+# Process management
+psutil
+
 # B.L.A.Z.E Agent dependencies
 pydantic-ai
 mcp

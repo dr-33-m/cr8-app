@@ -18,7 +18,8 @@ export function BottomControls({ children }: BottomControlsProps) {
     (state) => state.toggleBottomControls
   );
 
-  const { status, reconnect, isFullyConnected } = useWebSocketContext();
+  const { status, reconnect, isFullyConnected, connectionState } =
+    useWebSocketContext();
 
   return (
     <div
@@ -40,11 +41,24 @@ export function BottomControls({ children }: BottomControlsProps) {
 
       <Card className="p-4">
         <div className="grid grid-cols-[auto_1fr_auto] grid-rows-[auto_auto_auto] gap-4 min-w-[500px]">
-          {status === "disconnected" ? (
+          {connectionState === "disconnected" ? (
             <div className="col-span-3 row-span-3 flex items-center justify-center">
               <Button variant="secondary" onClick={reconnect}>
                 Reconnect
               </Button>
+            </div>
+          ) : connectionState === "blender_disconnected" ? (
+            <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-2">
+              <p className="text-muted-foreground text-sm">
+                Blender disconnected
+              </p>
+              <Button variant="secondary" onClick={reconnect}>
+                Reconnect to Blender
+              </Button>
+            </div>
+          ) : connectionState === "reconnecting" ? (
+            <div className="col-span-3 row-span-3 flex items-center justify-center">
+              <p className="text-muted-foreground text-sm">Reconnecting...</p>
             </div>
           ) : isFullyConnected ? (
             <>
