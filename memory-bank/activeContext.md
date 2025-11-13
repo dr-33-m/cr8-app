@@ -2,115 +2,132 @@
 
 ## Current Focus
 
-**POLYHAVEN DIALOG UI REFINEMENTS COMPLETED** - Successfully implemented major UI improvements to the PolyHaven asset browser dialog based on user feedback for better spacing, layout, and user experience.
+**BLAZE AGENT ERROR HANDLING COMPLETED** - Successfully implemented comprehensive error notification system ensuring all Blaze agent execution failures are communicated to frontend with user-friendly toast notifications.
 
 ## Recent Major Achievements
 
-### ✅ **POLYHAVEN DIALOG LAYOUT REORGANIZATION**
+### ✅ **BLAZE AGENT ERROR HANDLING IMPLEMENTATION**
 
-- **Header Cleanup**: Removed asset count badge and "Visit Poly Haven" button for cleaner header
-- **Horizontal Filters Layout**: Moved asset type tabs (HDRIs/Textures/Models) to top row with search and categories inline
-- **Spacing Refinements**: Implemented consistent 24px spacing between sections (reduced header-to-filters gap, increased filters-to-grid gap)
-- **Pagination Integration**: Replaced custom pagination with UI design system components for professional appearance
+- **Error Emission System**: Added `send_agent_error()` method to browser_namespace.py that emits AGENT_ERROR events via SocketIO
+- **Message Processor Integration**: Updated message_processor.py to catch agent execution failures and emit errors to frontend
+- **Frontend Error Display**: Leveraged existing WebSocketContext.tsx error handlers that display toast notifications
+- **Error Response Format**: Standardized error messages using `create_error_response()` for consistent frontend handling
+- **Logging & Debugging**: Comprehensive error logging for debugging failed agent executions
+- **Graceful Failure Handling**: Emission failures handled gracefully with fallback logging
 
-### ✅ **ASSET CARD COMPLETE REDESIGN**
+### ✅ **BACKEND ARCHITECTURE DOCUMENTATION**
 
-- **Full Thumbnail Display**: Changed from `object-cover` to `object-contain` to show complete images without cropping
-- **Info Icon + HoverCard**: Removed type badges, downloads, names, authors from card surface - moved all details to elegant HoverCard on info icon hover
-- **Clean Interaction**: Removed hover overlay buttons that interfered with HoverCard functionality
-- **Fixed HoverCard Structure**: Moved HoverCard wrapper outside overflow containers to prevent clipping
+- **Created .clinerules/backend-architecture.md**: Comprehensive guide documenting system workflow principles
+- **System Workflows**: Documented that local tools need explicit system prompt guidance
+- **Separation of Concerns**: Explained distinction between Blender tools (dynamic, addon-provided) vs Local tools (maintained, explicit)
+- **Implementation Workflow**: Step-by-step guide for adding new system workflows
+- **Future Vision**: Documented manifest-based workflow guidance for extensible addon ecosystem
+- **Inbox Clearing Example**: Detailed example showing complete workflow implementation pattern
 
-### ✅ **BACKEND CACHING & PAGINATION SYSTEM**
+### ✅ **INBOX CLEARING BUG FIX**
 
-- **DataCache Implementation**: Built Python caching system with TTL management using user's proposed architecture
-- **Pagination Backend**: Added pagination parameters to FastAPI endpoints (page, limit, offset)
-- **Server-side Logic**: Implemented pagination metadata with has_next/has_prev flags
-- **Performance Optimization**: Reduced from 500+ assets loading to 20 per page for 90% performance improvement
+- **Problem**: AI would download assets but inbox wouldn't automatically clear
+- **Solution**: Created local_tools.py with `clear_inbox()` function that AI calls autonomously
+- **System Prompt**: Added explicit workflow instructions for download → verify → clear sequence
+- **Result**: Inbox now clears automatically after successful asset downloads
 
-## 🚨 **REMAINING CRITICAL ISSUE**
+## Technical Implementation Details
 
-**FLEX LAYOUT VERTICAL CENTERING PROBLEM**
+### Error Handling Flow
 
-- **Issue**: When there are fewer search results, the asset grid vertically centers in the dialog instead of staying at the top
-- **Root Cause**: Complex flex layout structure causing vertical centering behavior
-- **Attempted Fixes**:
-  - Removed `flex flex-col` from outer container
-  - Removed `flex-1` from inner container
-  - Simplified to `overflow-y-auto` with `mx-auto` for horizontal centering only
-- **Status**: Still not resolved - assets continue to center vertically with fewer results
-
-**Current Problematic Structure**:
-
-```jsx
-<div className="flex-1 overflow-y-auto mb-6">               // Outer container
-  <div className="w-full max-w-6xl mx-auto">                // Inner container
-    <AssetGrid ... />                                       // Grid component
-  </div>
-</div>
+```
+Agent Execution Failure
+    ↓
+message_processor.py catches exception
+    ↓
+Creates error_response with details
+    ↓
+Calls browser_namespace.send_agent_error()
+    ↓
+SocketIO emits AGENT_ERROR event
+    ↓
+Frontend WebSocketContext receives event
+    ↓
+Toast notification displayed to user
 ```
 
-## Next Priority Task
+### Files Modified
 
-**FIX ASSET GRID VERTICAL ALIGNMENT**
+- **backend/cr8_engine/app/realtime_engine/namespaces/browser_namespace.py**
 
-- Investigate CSS flex/grid properties causing vertical centering
-- Test different layout approaches (CSS Grid, different flex properties)
-- Ensure assets always start from top regardless of result count
-- Maintain horizontal centering and scrolling functionality
+  - Added `send_agent_error(username, error_data)` method
+  - Uses `create_error_response()` for standardized error format
+  - Logs all error emissions for debugging
+
+- **backend/cr8_engine/app/blaze/message_processor.py**
+
+  - Updated exception handler in `process_message()`
+  - Calls `await self.agent_instance.browser_namespace.send_agent_error()`
+  - Gracefully handles emission failures
+
+- **frontend/app/contexts/WebSocketContext.tsx**
+
+  - Already has handler for `MessageType.AGENT_ERROR`
+  - Displays toast notifications with error details
+  - Logs technical details to console
+
+- **.clinerules/backend-architecture.md** (CREATED)
+  - Documents system workflow principles
+  - Explains separation of concerns architecture
+  - Includes implementation workflow and future extensibility
 
 ## Active Decisions
 
-- **UI Design System**: Committed to using established UI components (pagination, hover cards) for consistency
-- **Progressive Disclosure**: Asset details hidden until needed via HoverCard interaction
-- **Clean Visual Hierarchy**: Removed redundant UI elements, focused on essential information
-- **Performance First**: Backend pagination maintains responsive UI at scale
+- **Error Visibility**: All agent errors must reach frontend immediately via SocketIO
+- **User Feedback**: Toast notifications provide immediate error feedback without blocking UI
+- **Logging Strategy**: Comprehensive logging for debugging while maintaining clean user experience
+- **Architecture Pattern**: Local tools get explicit system prompt guidance; Blender tools are self-documenting
+- **Extensibility**: Future addon developers can include workflow guidance in manifests
 
 ## Key Technical Patterns
 
-### **HoverCard Architecture**
+### Error Response Format
 
-```jsx
-<HoverCard>
-  {" "}
-  // Wrapper outside overflow container
-  <Card>
-    {" "}
-    // Asset card with overflow-hidden
-    <HoverCardTrigger asChild>
-      <Button /> // Info icon trigger
-    </HoverCardTrigger>
-  </Card>
-  <HoverCardContent> // Content outside overflow context // Asset details...</HoverCardContent>
-</HoverCard>
+```python
+{
+  "type": "error",
+  "message": "User-friendly error message",
+  "details": "Technical details for debugging",
+  "recovery_suggestion": "Optional guidance for recovery"
+}
 ```
 
-### **Pagination Implementation**
+### System Workflow Pattern
 
-- **Frontend**: Uses UI pagination components with server-side data
-- **Backend**: DataCache with TTL + paginated responses
-- **UX**: Clean navigation without "Showing X of Y" text clutter
+1. **Identify workflow steps** - What needs to happen in sequence?
+2. **Separate concerns** - Which are 3D operations vs system operations?
+3. **Create local tools** - Implement system operation tools in local_tools.py
+4. **Register tools** - Use @agent.tool decorator
+5. **Update system prompt** - Add explicit workflow instructions
+6. **Pass dependencies** - Ensure tools have access to needed context
+7. **Test workflow** - Verify AI calls tools in correct sequence
 
 ## Project Insights
 
-- **Container Overflow**: HoverCard content must be outside `overflow-hidden` containers to display properly
-- **Flex Layout Complexity**: Multiple nested flex containers can cause unexpected centering behaviors
-- **User Feedback Iteration**: Spacing and layout refinements significantly improve user experience
-- **Progressive Enhancement**: Starting with full thumbnails then adding details on demand works well
-- **Performance vs UX**: Backend pagination essential for good UX with large datasets
+- **Silent Failures**: Without error emission, users have no feedback when agent fails
+- **Architecture Clarity**: Separating Blender tools (dynamic) from local tools (explicit) prevents tight coupling
+- **System Prompt Guidance**: Explicit workflow instructions in system prompt are essential for multi-step operations
+- **Error Context**: Detailed error information helps both users and developers understand failures
+- **Extensibility**: Manifest-based approach allows addon ecosystem to grow without system prompt changes
 
-## Technical Achievements
+## Next Priority Tasks
 
-- **✅ Implemented**: Complete dialog spacing refinements with consistent 24px margins
-- **✅ Redesigned**: AssetCard with full thumbnails and HoverCard details
-- **✅ Integrated**: UI design system components for professional appearance
-- **✅ Fixed**: HoverCard visibility by proper container structure
-- **✅ Built**: Backend caching and pagination system for performance
-- **❌ Outstanding**: Vertical centering issue in flex layout structure
+1. **Test Error Handling**: Verify error notifications work end-to-end in running application
+2. **Fix Asset Grid Vertical Alignment**: Resolve flex layout centering issue with fewer search results
+3. **Implement Backend Pagination**: Add pagination for Poly Haven assets (performance optimization)
+4. **Document WebSocket Patterns**: Detailed documentation of message routing and session management
+5. **Enhance Error Recovery**: Add automatic retry mechanisms for transient failures
 
-## Files Modified
+## Verification Points
 
-- `frontend/components/creative-workspace/PolyHavenDialog.tsx` - Major layout restructuring
-- `frontend/components/creative-workspace/AssetCard.tsx` - Complete redesign with HoverCard
-- `backend/cr8_engine/app/services/data_cache.py` - New caching system
-- `backend/cr8_engine/app/api/v1/endpoints/polyhaven.py` - Pagination implementation
-- `backend/cr8_engine/app/services/polyhaven_service.py` - Pagination support
+- [x] Error emission mechanism implemented in browser_namespace
+- [x] Message processor catches and emits agent errors
+- [x] Frontend error handlers display notifications
+- [x] Backend architecture documentation created
+- [x] System workflow patterns documented
+- [x] Inbox clearing workflow implemented and tested
