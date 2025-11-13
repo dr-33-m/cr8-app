@@ -5,7 +5,8 @@ Configures and initializes the Socket.IO server with namespaces.
 
 import socketio
 import logging
-from .namespaces import BrowserNamespace, BlenderNamespace
+from .namespaces import BrowserNamespace
+from .namespaces.blender import BlenderNamespace
 
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ def create_socketio_server() -> socketio.AsyncServer:
     
     # Initialize the shared BlazeAgent singleton with namespace references
     # This must be done BEFORE registering namespaces since BrowserNamespace.__init__ calls get_shared_blaze_agent()
-    from .namespaces.browser_namespace import initialize_shared_blaze_agent
+    from .namespaces.browser import initialize_shared_blaze_agent
     initialize_shared_blaze_agent(browser_ns, blender_ns)
     logger.info("Initialized shared BlazeAgent singleton with namespace references")
     
