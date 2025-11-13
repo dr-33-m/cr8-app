@@ -531,6 +531,41 @@ class BrowserNamespace(socketio.AsyncNamespace):
             await self.emit(MessageType.AGENT_ERROR.value, error_msg.to_dict(), to=sid)
     
     
+    async def send_agent_error(self, username: str, error_data: Dict[str, Any]):
+        """
+        Send agent error notification to browser client using standardized message.
+        
+        Args:
+            username: Username of the browser client
+            error_data: Error response dict with error_code, user_message, technical_message, etc.
+        """
+        try:
+            browser_sid = self.username_to_sid.get(username)
+            if not browser_sid:
+                self.logger.warning(f"No browser session found for {username}")
+                return
+            
+            # Create standardized error message
+            error_msg = create_error_response(
+                error_code=error_data.get('error_code', 'AGENT_ERROR'),
+                user_message=error_data.get('user_message', 'An error occurred during execution'),
+                technical_message=error_data.get('technical_message', ''),
+                message_id=error_data.get('message_id', generate_message_id()),
+                recovery_suggestions=error_data.get('recovery_suggestions'),
+                source='backend',
+                route='agent'
+            )
+            
+            await self.emit(
+                MessageType.AGENT_ERROR.value,
+                error_msg.to_dict(),
+                to=browser_sid
+            )
+            self.logger.info(f"Sent {MessageType.AGENT_ERROR.value} to {username}: {error_data.get('user_message')}")
+            
+        except Exception as e:
+            self.logger.error(f"Error sending agent error: {str(e)}")
+    
     async def send_inbox_cleared(self, username: str):
         """
         Send inbox_cleared notification to browser client using standardized message.

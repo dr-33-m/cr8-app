@@ -1,7 +1,6 @@
 # Essential packages only - let pip resolve compatible versions
 fastapi
 uvicorn
-websockets
 python-dotenv
 pillow
 httpx
