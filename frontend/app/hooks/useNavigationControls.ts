@@ -1,22 +1,34 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
-
-import { ViewportMode } from "@/lib/types/bottomControls";
+import { useNavigationStore } from "@/store/navigationStore";
 
 export function useNavigationControls() {
-  const [viewportMode, setViewportMode] = useState<ViewportMode>("solid");
+  const {
+    viewportMode,
+    topButtonDirection,
+    bottomButtonDirection,
+    panAmount,
+    setViewportMode,
+    setTopButtonDirection,
+    setBottomButtonDirection,
+    setPanAmount,
+    toggleTopButtonDirection,
+    toggleBottomButtonDirection,
+  } = useNavigationStore();
+
   const { sendMessage, isFullyConnected } = useWebSocketContext();
 
   const sendNavigationCommand = useCallback(
-    async (command: string) => {
+    async (command: string, params: Record<string, any> = {}) => {
       if (!isFullyConnected) return;
 
       try {
         sendMessage({
           command: command,
-          params: {},
+          params: params,
           route: "direct",
+          addon_id: "blender_controls",
         });
       } catch (error) {
         toast.error(`Failed to send ${command} command`);
@@ -31,16 +43,16 @@ export function useNavigationControls() {
       sendNavigationCommand("viewport_set_solid");
       setViewportMode("solid");
     }
-  }, [viewportMode, sendNavigationCommand]);
+  }, [viewportMode, sendNavigationCommand, setViewportMode]);
 
   const handleViewportRendered = useCallback(() => {
     if (viewportMode !== "rendered") {
       sendNavigationCommand("viewport_set_rendered");
       setViewportMode("rendered");
     }
-  }, [viewportMode, sendNavigationCommand]);
+  }, [viewportMode, sendNavigationCommand, setViewportMode]);
 
-  // 3D Navigation controls
+  // 3D Navigation controls - using getState() to access current values
   const handleZoomIn = useCallback(
     () => sendNavigationCommand("zoom_in"),
     [sendNavigationCommand]
@@ -51,25 +63,31 @@ export function useNavigationControls() {
     [sendNavigationCommand]
   );
 
-  const handlePanUp = useCallback(
-    () => sendNavigationCommand("pan_up"),
-    [sendNavigationCommand]
-  );
+  const handlePanUp = useCallback(() => {
+    const { topButtonDirection, panAmount } = useNavigationStore.getState();
+    sendNavigationCommand("pan_up_forward", {
+      direction: topButtonDirection,
+      amount: panAmount,
+    });
+  }, [sendNavigationCommand]);
 
-  const handlePanDown = useCallback(
-    () => sendNavigationCommand("pan_down"),
-    [sendNavigationCommand]
-  );
+  const handlePanDown = useCallback(() => {
+    const { bottomButtonDirection, panAmount } = useNavigationStore.getState();
+    sendNavigationCommand("pan_down_backward", {
+      direction: bottomButtonDirection,
+      amount: panAmount,
+    });
+  }, [sendNavigationCommand]);
 
-  const handlePanLeft = useCallback(
-    () => sendNavigationCommand("pan_left"),
-    [sendNavigationCommand]
-  );
+  const handlePanLeft = useCallback(() => {
+    const { panAmount } = useNavigationStore.getState();
+    sendNavigationCommand("pan_left", { amount: panAmount });
+  }, [sendNavigationCommand]);
 
-  const handlePanRight = useCallback(
-    () => sendNavigationCommand("pan_right"),
-    [sendNavigationCommand]
-  );
+  const handlePanRight = useCallback(() => {
+    const { panAmount } = useNavigationStore.getState();
+    sendNavigationCommand("pan_right", { amount: panAmount });
+  }, [sendNavigationCommand]);
 
   const handleOrbitLeft = useCallback(
     () => sendNavigationCommand("orbit_left"),
@@ -93,6 +111,14 @@ export function useNavigationControls() {
 
   return {
     viewportMode,
+    topButtonDirection,
+    bottomButtonDirection,
+    setTopButtonDirection,
+    setBottomButtonDirection,
+    panAmount,
+    setPanAmount,
+    toggleTopButtonDirection,
+    toggleBottomButtonDirection,
     handleViewportSolid,
     handleViewportRendered,
     handleZoomIn,

@@ -1,53 +1,16 @@
 {
   "addon_info": {
-    "id": "blender_ai_router",
-    "name": "Blender AI Router",
+    "id": "blender_controls",
+    "name": "Blaze Controls",
     "version": "0.1.0",
     "author": "Cr8-xyz <thamsanqa.dev@gmail.com>",
-    "category": "utility",
-    "description": "Main AI router addon for discovering and routing commands to AI-capable addons",
-    "homepage": "https://code.streetcrisis.online/Cr8-xyz/cr8-app"
+    "category": "controls",
+    "description": "Animation, viewport, and navigation controls for AI agents",
+    "homepage": "https://code.cr8-xyz.art/Cr8-xyz/cr8-app"
   },
   "ai_integration": {
-    "agent_description": "This is the main AI router that orchestrates communication between the AI agent and AI-capable addons in Blender. It discovers installed AI addons, validates their manifests, and routes commands from the AI agent to the appropriate addon handlers.\n\nThe router does not provide direct scene manipulation capabilities but enables dynamic discovery and routing to addons that do.",
+    "agent_description": "This addon provides comprehensive scene manipulation and viewport control capabilities for AI agents. It handles animation playback, timeline navigation, viewport shading modes, and 3D navigation controls. All controls are designed to work seamlessly with Blender's interface and provide immediate visual feedback.\n\nThe controls are organized into three main categories: Animation controls for timeline manipulation, Viewport controls for display modes, and Navigation controls for 3D view manipulation.",
     "tools": [
-      {
-        "name": "get_available_addons",
-        "description": "Get list of all registered AI-capable addons",
-        "usage": "Use to discover what capabilities are available in the current Blender instance",
-        "parameters": [],
-        "examples": [
-          "what addons are available",
-          "show me the installed AI capabilities"
-        ],
-        "category": "system"
-      },
-      {
-        "name": "get_addon_info",
-        "description": "Get detailed information about a specific addon",
-        "usage": "Use to get detailed information about an addon's capabilities",
-        "parameters": [
-          {
-            "name": "addon_id",
-            "type": "string",
-            "description": "The ID of the addon to get information about",
-            "required": true
-          }
-        ],
-        "examples": [
-          "tell me about the scene_controller addon",
-          "what can the asset_manager addon do"
-        ],
-        "category": "system"
-      },
-      {
-        "name": "refresh_addons",
-        "description": "Refresh the addon registry by scanning for new addons",
-        "usage": "Use when addons have been installed or removed",
-        "parameters": [],
-        "examples": ["refresh the addon list", "scan for new addons"],
-        "category": "system"
-      },
       {
         "name": "frame_jump_start",
         "description": "Jump to animation start frame",
@@ -121,6 +84,42 @@
         "category": "viewport"
       },
       {
+        "name": "get_viewport_screenshot",
+        "description": "Capture a screenshot of the current 3D viewport and return the image for visual analysis",
+        "usage": "Use to capture and immediately see the current viewport state. Returns both file info and image data for B.L.A.Z.E to analyze visually.",
+        "parameters": [
+          {
+            "name": "max_size",
+            "type": "integer",
+            "description": "Maximum size in pixels for the largest dimension of the image",
+            "required": false,
+            "default": 800,
+            "min": 100,
+            "max": 2048
+          },
+          {
+            "name": "filepath",
+            "type": "string",
+            "description": "Path where to save the screenshot file (required)",
+            "required": true
+          },
+          {
+            "name": "format",
+            "type": "enum",
+            "description": "Image format for the screenshot",
+            "required": false,
+            "default": "png",
+            "options": ["png", "jpg"]
+          }
+        ],
+        "examples": [
+          "take a screenshot and show me what it looks like",
+          "capture viewport so I can see the current scene",
+          "let me see what the viewport looks like right now"
+        ],
+        "category": "viewport"
+      },
+      {
         "name": "orbit_left",
         "description": "Orbit the viewport view to the left",
         "usage": "Use to rotate the 3D view around the scene to the left",
@@ -156,32 +155,96 @@
         "name": "pan_left",
         "description": "Pan the viewport view to the left",
         "usage": "Use to move the 3D view left without rotating",
-        "parameters": [],
-        "examples": ["pan left", "move view left"],
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "float",
+            "description": "Distance to pan (default: 0.5)",
+            "required": false,
+            "default": 0.5,
+            "min": 0.1,
+            "max": 5.0
+          }
+        ],
+        "examples": ["pan left", "move view left", "pan left by 1.0"],
         "category": "navigation"
       },
       {
         "name": "pan_right",
         "description": "Pan the viewport view to the right",
         "usage": "Use to move the 3D view right without rotating",
-        "parameters": [],
-        "examples": ["pan right", "move view right"],
+        "parameters": [
+          {
+            "name": "amount",
+            "type": "float",
+            "description": "Distance to pan (default: 0.5)",
+            "required": false,
+            "default": 0.5,
+            "min": 0.1,
+            "max": 5.0
+          }
+        ],
+        "examples": ["pan right", "move view right", "pan right by 1.0"],
         "category": "navigation"
       },
       {
-        "name": "pan_up",
-        "description": "Pan the viewport view upward",
-        "usage": "Use to move the 3D view up without rotating",
-        "parameters": [],
-        "examples": ["pan up", "move view up"],
+        "name": "pan_up_forward",
+        "description": "Pan the viewport view up or forward",
+        "usage": "Use to move the 3D view up or forward without rotating",
+        "parameters": [
+          {
+            "name": "direction",
+            "type": "enum",
+            "description": "Direction to pan (PANUP or PANFORWARD)",
+            "required": true,
+            "options": ["PANUP", "PANFORWARD"]
+          },
+          {
+            "name": "amount",
+            "type": "float",
+            "description": "Distance to pan (default: 0.5)",
+            "required": false,
+            "default": 0.5,
+            "min": 0.1,
+            "max": 5.0
+          }
+        ],
+        "examples": [
+          "pan up",
+          "pan forward",
+          "pan up by 1.0",
+          "pan forward by 0.8"
+        ],
         "category": "navigation"
       },
       {
-        "name": "pan_down",
-        "description": "Pan the viewport view downward",
-        "usage": "Use to move the 3D view down without rotating",
-        "parameters": [],
-        "examples": ["pan down", "move view down"],
+        "name": "pan_down_backward",
+        "description": "Pan the viewport view down or backward",
+        "usage": "Use to move the 3D view down or backward without rotating",
+        "parameters": [
+          {
+            "name": "direction",
+            "type": "enum",
+            "description": "Direction to pan (PANDOWN or PANBACK)",
+            "required": true,
+            "options": ["PANDOWN", "PANBACK"]
+          },
+          {
+            "name": "amount",
+            "type": "float",
+            "description": "Distance to pan (default: 0.5)",
+            "required": false,
+            "default": 0.5,
+            "min": 0.1,
+            "max": 5.0
+          }
+        ],
+        "examples": [
+          "pan down",
+          "pan backward",
+          "pan down by 1.0",
+          "pan backward by 0.8"
+        ],
         "category": "navigation"
       },
       {
@@ -199,55 +262,20 @@
         "parameters": [],
         "examples": ["zoom out", "get wider view"],
         "category": "navigation"
-      },
-      {
-        "name": "get_viewport_screenshot",
-        "description": "Capture a screenshot of the current 3D viewport and return the image for visual analysis",
-        "usage": "Use to capture and immediately see the current viewport state. Returns both file info and image data for B.L.A.Z.E to analyze visually.",
-        "parameters": [
-          {
-            "name": "max_size",
-            "type": "integer",
-            "description": "Maximum size in pixels for the largest dimension of the image",
-            "required": false,
-            "default": 800,
-            "min": 100,
-            "max": 2048
-          },
-          {
-            "name": "filepath",
-            "type": "string",
-            "description": "Path where to save the screenshot file (required)",
-            "required": true
-          },
-          {
-            "name": "format",
-            "type": "enum",
-            "description": "Image format for the screenshot",
-            "required": false,
-            "default": "png",
-            "options": ["png", "jpg"]
-          }
-        ],
-        "examples": [
-          "take a screenshot and show me what it looks like",
-          "capture viewport so I can see the current scene",
-          "let me see what the viewport looks like right now"
-        ],
-        "category": "viewport"
       }
     ],
     "context_hints": [
-      "The router manages addon discovery and command routing automatically",
-      "Individual addons provide the actual scene manipulation capabilities",
-      "Use get_available_addons to see what capabilities are currently available"
+      "Controls are organized into Animation, Viewport, and Navigation categories",
+      "All controls provide immediate visual feedback in the Blender viewport",
+      "Navigation controls work with any 3D view, animation controls affect the timeline",
+      "Viewport controls change how the scene is displayed without affecting the scene data"
     ],
     "requirements": {
       "blender_version_min": "4.2.0",
-      "python_packages": ["websocket-client"]
+      "python_packages": []
     },
     "metadata": {
-      "priority": 100,
+      "priority": 90,
       "performance_impact": "low",
       "experimental": false
     }

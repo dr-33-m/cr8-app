@@ -1,0 +1,38 @@
+schema_version = "1.0.0"
+
+# Blender Controls Addon - Scene manipulation and viewport controls
+id = "blender_controls"
+version = "0.1.0"
+name = "Blaze Controls"
+tagline = "Animation, viewport, and navigation controls for AI agents"
+maintainer = "Cr8-xyz <thamsanqa.dev@gmail.com>"
+type = "add-on"
+
+# Links and documentation
+website = "https://code.cr8-xyz.art/Cr8-xyz/cr8-app"
+
+# Tags for categorization
+tags = ["Development", "AI", "Animation", "Navigation", "Viewport"]
+
+blender_version_min = "4.2.0"
+
+# License
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+# Permissions - Controls addon needs scene manipulation access
+[permissions]
+scene = "Manipulate scene objects, animation, and viewport settings"
+
+# Build configuration
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.git/",
+  "/*.zip",
+  "/core/",
+  "/assets/",
+  "/rendering/",
+  "/templates/",
+]

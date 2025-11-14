@@ -6,6 +6,12 @@ import { DPad } from "./DPad";
 
 export function Navigation() {
   const {
+    topButtonDirection,
+    bottomButtonDirection,
+    panAmount,
+    setPanAmount,
+    toggleTopButtonDirection,
+    toggleBottomButtonDirection,
     handleZoomIn,
     handleZoomOut,
     handlePanUp,
@@ -27,6 +33,12 @@ export function Navigation() {
           onPanDown={handlePanDown}
           onPanLeft={handlePanLeft}
           onPanRight={handlePanRight}
+          topButtonDirection={topButtonDirection}
+          bottomButtonDirection={bottomButtonDirection}
+          panAmount={panAmount}
+          onPanAmountChange={(value) => setPanAmount(value[0])}
+          onTopButtonToggle={toggleTopButtonDirection}
+          onBottomButtonToggle={toggleBottomButtonDirection}
         />
         <div className="flex items-center justify-between gap-6">
           {/* Vertical Zoom Controls */}

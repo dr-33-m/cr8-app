@@ -46,7 +46,7 @@ This addon requires the **Multi-Registry Asset Manager** (set-builder) addon as 
 
    ```bash
    python package_addon.py
-   # This creates: dist/multi_registry_asset_manager_v1.0.0.zip
+   # This creates: dist/blender_ai_router_v1.0.0.zip
    ```
 
 3. Install in Blender:
@@ -85,7 +85,7 @@ Both addons include packaging scripts for easy distribution:
 ```bash
 # From set-builder directory
 python package_addon.py
-# Creates: dist/multi_registry_asset_manager_v1.0.0.zip
+# Creates: dist/blender_ai_router_v1.0.0.zip
 ```
 
 ### Package Blender Cr8tive Engine
@@ -108,7 +108,7 @@ python package_addon.py --dev
 
 The Cr8tive Engine system consists of two complementary addons:
 
-### Blender Cr8tive Engine (AI Router)
+### Blaze Router
 
 - **Role**: Main orchestration and command routing
 - **Discovery**: Automatically finds AI-capable addons

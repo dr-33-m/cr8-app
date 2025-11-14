@@ -18,6 +18,7 @@ export function useAnimationControls() {
           command: command,
           params: {},
           route: "direct",
+          addon_id: "blender_controls",
         });
       } catch (error) {
         toast.error(`Failed to send ${command} command`);

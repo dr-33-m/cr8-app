@@ -3,13 +3,13 @@ schema_version = "1.0.0"
 # Blender AI Router - Main AI orchestration addon
 id = "blender_ai_router"
 version = "0.1.0"
-name = "Blender AI Router"
+name = "Blaze Router"
 tagline = "AI orchestration and addon discovery for Blender"
 maintainer = "Cr8-xyz <thamsanqa.dev@gmail.com>"
 type = "add-on"
 
 # Links and documentation
-website = "https://code.streetcrisis.online/Cr8-xyz/cr8-app"
+website = "https://code.cr8-xyz.art/Cr8-xyz/cr8-app"
 
 # Tags for categorization
 tags = ["Development", "AI", "Automation"]
@@ -23,7 +23,7 @@ license = [
 
 # Permissions - AI Router needs network access for WebSocket communication
 [permissions]
-network = "Connect to AI engine server for command routing"
+network = "Connect to cr8_engine server for command routing"
 files = "Read addon manifests and configurations"
 
 # Build configuration 

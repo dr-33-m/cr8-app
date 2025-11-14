@@ -1,0 +1,67 @@
+{
+  "addon_info": {
+    "id": "blender_ai_router",
+    "name": "Blaze Router",
+    "version": "0.1.0",
+    "author": "Cr8-xyz <thamsanqa.dev@gmail.com>",
+    "category": "utility",
+    "description": "Main AI router addon for discovering and routing commands to AI-capable addons",
+    "homepage": "https://code.cr8-xyz.art/Cr8-xyz/cr8-app"
+  },
+  "ai_integration": {
+    "agent_description": "This is the main AI router that orchestrates communication between the AI agent and AI-capable addons in Blender. It discovers installed AI addons, validates their manifests, and routes commands from the AI agent to the appropriate addon handlers.\n\nThe router does not provide direct scene manipulation capabilities but enables dynamic discovery and routing to addons that do.",
+    "tools": [
+      {
+        "name": "get_available_addons",
+        "description": "Get list of all registered AI-capable addons",
+        "usage": "Use to discover what capabilities are available in the current Blender instance",
+        "parameters": [],
+        "examples": [
+          "what addons are available",
+          "show me the installed AI capabilities"
+        ],
+        "category": "system"
+      },
+      {
+        "name": "get_addon_info",
+        "description": "Get detailed information about a specific addon",
+        "usage": "Use to get detailed information about an addon's capabilities",
+        "parameters": [
+          {
+            "name": "addon_id",
+            "type": "string",
+            "description": "The ID of the addon to get information about",
+            "required": true
+          }
+        ],
+        "examples": [
+          "tell me about the scene_controller addon",
+          "what can the asset_manager addon do"
+        ],
+        "category": "system"
+      },
+      {
+        "name": "refresh_addons",
+        "description": "Refresh the addon registry by scanning for new addons",
+        "usage": "Use when addons have been installed or removed",
+        "parameters": [],
+        "examples": ["refresh the addon list", "scan for new addons"],
+        "category": "system"
+      }
+    ],
+    "context_hints": [
+      "The router manages addon discovery and command routing automatically",
+      "Individual addons provide the actual scene manipulation capabilities",
+      "Use get_available_addons to see what capabilities are currently available"
+    ],
+    "requirements": {
+      "blender_version_min": "4.2.0",
+      "python_packages": ["websocket-client"]
+    },
+    "metadata": {
+      "priority": 100,
+      "performance_impact": "low",
+      "experimental": false
+    }
+  }
+}

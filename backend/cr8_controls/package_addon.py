@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Blender Cr8tive Engine Addon Packaging Script
-=============================================
+Blender Controls Addon Packaging Script
+=======================================
 
-This script packages the Blender Cr8tive Engine addon for distribution.
+This script packages the Blender Controls addon for distribution.
 Creates a ZIP file that can be installed directly in Blender.
-The main AI router for discovering and routing commands to AI-capable addons.
+Provides comprehensive scene manipulation and viewport control capabilities for AI agents.
 """
 
 import os
@@ -47,8 +47,8 @@ def create_addon_package(output_dir="dist", version=None):
 
     # Define directories to include
     addon_directories = [
-        "registry",
-        "ws"
+        "handlers",
+        "utils"
     ]
 
     # Files to exclude from package
@@ -78,7 +78,7 @@ def create_addon_package(output_dir="dist", version=None):
             version = "1.0.0"
 
     # Create package filename
-    package_name = f"blender_cr8tive_engine_v{version}.zip"
+    package_name = f"blender_controls_v{version}.zip"
     package_path = output_path / package_name
 
     print(f"Creating addon package: {package_path}")
@@ -89,7 +89,7 @@ def create_addon_package(output_dir="dist", version=None):
         for file_name in addon_files:
             if os.path.exists(file_name):
                 # Add file to ZIP with addon folder structure
-                arcname = f"blender_cr8tive_engine/{file_name}"
+                arcname = f"blender_controls/{file_name}"
                 zf.write(file_name, arcname)
                 print(f"  Added: {file_name}")
             else:
@@ -100,7 +100,7 @@ def create_addon_package(output_dir="dist", version=None):
             if os.path.exists(directory) and os.path.isdir(directory):
                 print(f"  Adding directory: {directory}/")
                 add_directory_to_zip(
-                    zf, directory, "blender_cr8tive_engine", exclude_files)
+                    zf, directory, "blender_controls", exclude_files)
             else:
                 print(f"  WARNING: Missing directory: {directory}")
 
@@ -118,9 +118,9 @@ def create_addon_package(output_dir="dist", version=None):
     print(f"1. Open Blender")
     print(f"2. Go to Edit → Preferences → Add-ons")
     print(f"3. Click 'Install...' and select: {package_name}")
-    print(f"4. Enable 'Blender AI Router' in the addon list")
-    print(f"5. Ensure Multi-Registry Asset Manager (set-builder) is also installed as prerequisite")
-    print(f"6. The AI Router will automatically discover and route commands to AI-capable addons")
+    print(f"4. Enable 'Blaze Controls' in the addon list")
+    print(f"5. Ensure Blender AI Router (cr8-router) is also installed as prerequisite")
+    print(f"6. The Controls addon will provide scene manipulation capabilities to AI agents")
 
     return package_path
 
@@ -136,14 +136,14 @@ def create_development_package():
     ]
 
     addon_directories = [
-        "registry",
-        "ws"
+        "handlers",
+        "utils"
     ]
 
     output_path = Path("dist")
     output_path.mkdir(exist_ok=True)
 
-    package_name = "blender_cr8tive_engine_dev.zip"
+    package_name = "blender_controls_dev.zip"
     package_path = output_path / package_name
 
     print(f"Creating development package: {package_path}")
@@ -151,7 +151,7 @@ def create_development_package():
     with zipfile.ZipFile(package_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for file_name in addon_files:
             if os.path.exists(file_name):
-                arcname = f"blender_cr8tive_engine/{file_name}"
+                arcname = f"blender_controls/{file_name}"
                 zf.write(file_name, arcname)
                 print(f"  Added: {file_name}")
 
@@ -161,7 +161,7 @@ def create_development_package():
             if os.path.exists(directory) and os.path.isdir(directory):
                 print(f"  Adding directory: {directory}/")
                 add_directory_to_zip(
-                    zf, directory, "blender_cr8tive_engine", exclude_files)
+                    zf, directory, "blender_controls", exclude_files)
 
     print(f"✅ Development package created: {package_path}")
     return package_path
@@ -176,8 +176,8 @@ def validate_addon_structure():
     ]
 
     required_directories = [
-        "registry",
-        "ws"
+        "handlers",
+        "utils"
     ]
 
     missing_files = []
@@ -209,27 +209,27 @@ def validate_addon_structure():
 
 def show_addon_info():
     """Display information about the addon"""
-    print("🎯 Blender Cr8tive Engine")
+    print("🎯 Blender Controls")
     print("=" * 40)
-    print("Main AI router addon for discovering and routing commands to AI-capable addons")
+    print("Scene manipulation and viewport control capabilities for AI agents")
     print()
     print("📋 Features:")
-    print("  • AI command routing and discovery")
-    print("  • Multi-addon orchestration")
-    print("  • WebSocket integration with CR8 Engine")
-    print("  • Automatic addon discovery and registration")
-    print("  • Animation and viewport controls")
-    print("  • Natural language command processing")
+    print("  • Animation playback controls (play, pause, timeline navigation)")
+    print("  • Viewport shading modes (solid, rendered)")
+    print("  • 3D navigation controls (orbit, pan, zoom)")
+    print("  • Screenshot capture with visual analysis")
+    print("  • Keyframe navigation and jumping")
+    print("  • Immediate visual feedback in Blender viewport")
     print()
     print("🔧 Prerequisite Addons:")
-    print("  • Multi-Registry Asset Manager (set-builder)")
-    print("  • Repository: https://code.cr8-xyz.art/Cr8-xyz/set-builder")
+    print("  • Blender AI Router (cr8-router)")
+    print("  • Repository: https://code.cr8-xyz.art/Cr8-xyz/cr8-app")
     print()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Package Blender Cr8tive Engine addon")
+        description="Package Blender Controls addon")
     parser.add_argument(
         "--version", help="Version string for package filename")
     parser.add_argument("--dev", action="store_true",
@@ -254,7 +254,7 @@ def main():
             print("❌ Addon structure validation failed")
         return
 
-    print("🚀 Blender Cr8tive Engine Packager")
+    print("🚀 Blender Controls Packager")
     print("=" * 40)
 
     # Validate before packaging
@@ -270,9 +270,9 @@ def main():
     print("\n🎉 Packaging complete!")
     print("\n💡 Next steps:")
     print("  1. Install the addon in Blender")
-    print("  2. Ensure Multi-Registry Asset Manager (set-builder) is also installed")
+    print("  2. Ensure Blender AI Router (cr8-router) is also installed")
     print("  3. Enable both addons in Blender preferences")
-    print("  4. Test AI routing and command discovery functionality")
+    print("  4. Test scene manipulation and viewport control functionality")
 
 
 if __name__ == "__main__":
