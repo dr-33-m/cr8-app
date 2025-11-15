@@ -1,9 +1,10 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { TransformValue, TransformMode } from "@/lib/types/transformation";
 import { hasValuesChanged } from "@/lib/utils";
+import useSceneContextStore from "@/store/sceneContextStore";
 
 import { UseObjectTransformationProps } from "@/lib/types/transformation";
 
@@ -11,9 +12,27 @@ export function useObjectTransformation({
   objectName,
   onTransformChange,
 }: UseObjectTransformationProps) {
-  const [move, setMove] = useState<TransformValue>({ x: 0, y: 0, z: 0 });
-  const [rotate, setRotate] = useState<TransformValue>({ x: 0, y: 0, z: 0 });
-  const [scale, setScale] = useState<TransformValue>({ x: 1, y: 1, z: 1 });
+  // Get the current object from scene context store
+  const sceneObject = useSceneContextStore((state) =>
+    state.getObjectByName(objectName)
+  );
+
+  // Initialize state with actual object transform values
+  const [move, setMove] = useState<TransformValue>({
+    x: sceneObject?.location[0] ?? 0,
+    y: sceneObject?.location[1] ?? 0,
+    z: sceneObject?.location[2] ?? 0,
+  });
+  const [rotate, setRotate] = useState<TransformValue>({
+    x: sceneObject?.rotation[0] ?? 0,
+    y: sceneObject?.rotation[1] ?? 0,
+    z: sceneObject?.rotation[2] ?? 0,
+  });
+  const [scale, setScale] = useState<TransformValue>({
+    x: sceneObject?.scale[0] ?? 1,
+    y: sceneObject?.scale[1] ?? 1,
+    z: sceneObject?.scale[2] ?? 1,
+  });
   const [mode, setMode] = useState<TransformMode>("move");
   const { sendMessage, isFullyConnected } = useWebSocketContext();
 
@@ -27,6 +46,45 @@ export function useObjectTransformation({
     rotate: { x: 0, y: 0, z: 0 },
     scale: { x: 1, y: 1, z: 1 },
   });
+
+  // Reinitialize state when objectName changes
+  useEffect(() => {
+    if (sceneObject) {
+      setMove({
+        x: sceneObject.location[0],
+        y: sceneObject.location[1],
+        z: sceneObject.location[2],
+      });
+      setRotate({
+        x: sceneObject.rotation[0],
+        y: sceneObject.rotation[1],
+        z: sceneObject.rotation[2],
+      });
+      setScale({
+        x: sceneObject.scale[0],
+        y: sceneObject.scale[1],
+        z: sceneObject.scale[2],
+      });
+      // Reset last sent values to prevent stale comparisons
+      lastSentValues.current = {
+        move: {
+          x: sceneObject.location[0],
+          y: sceneObject.location[1],
+          z: sceneObject.location[2],
+        },
+        rotate: {
+          x: sceneObject.rotation[0],
+          y: sceneObject.rotation[1],
+          z: sceneObject.rotation[2],
+        },
+        scale: {
+          x: sceneObject.scale[0],
+          y: sceneObject.scale[1],
+          z: sceneObject.scale[2],
+        },
+      };
+    }
+  }, [sceneObject]);
 
   // Update transform change callback when values change
   const updateTransformChange = useCallback(() => {
