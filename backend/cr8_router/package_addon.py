@@ -6,6 +6,9 @@ Blender Cr8tive Engine Addon Packaging Script
 This script packages the Blender Cr8tive Engine addon for distribution.
 Creates a ZIP file that can be installed directly in Blender.
 The main AI router for discovering and routing commands to AI-capable addons.
+
+DYNAMIC PACKAGING: Automatically discovers all addon files and directories.
+No manual file lists needed - just add new modules and they're included!
 """
 
 import os
@@ -13,23 +16,68 @@ import zipfile
 import shutil
 from pathlib import Path
 import argparse
+import fnmatch
 
 
-def add_directory_to_zip(zf, directory, base_arcname, exclude_files):
+def should_exclude(path, exclude_patterns):
+    """Check if a path matches any exclude pattern"""
+    for pattern in exclude_patterns:
+        if fnmatch.fnmatch(path, pattern) or fnmatch.fnmatch(os.path.basename(path), pattern):
+            return True
+    return False
+
+
+def discover_addon_files(exclude_patterns):
+    """
+    Dynamically discover all addon files and directories.
+    Returns a tuple of (files, directories) to include in the package.
+    """
+    addon_files = []
+    addon_directories = []
+
+    # Scan current directory for addon files
+    for item in os.listdir('.'):
+        if os.path.isfile(item):
+            # Include essential addon files
+            if item in ['__init__.py', 'blender_manifest.toml', 'addon_ai.json', 'README.md']:
+                if not should_exclude(item, exclude_patterns):
+                    addon_files.append(item)
+        elif os.path.isdir(item):
+            # Include directories that contain Python modules
+            if not should_exclude(item, exclude_patterns):
+                # Check if directory has Python files
+                has_python_files = False
+                for root, dirs, files in os.walk(item):
+                    # Skip excluded directories
+                    dirs[:] = [d for d in dirs if not should_exclude(d, exclude_patterns)]
+                    
+                    for file in files:
+                        if file.endswith('.py') and not should_exclude(file, exclude_patterns):
+                            has_python_files = True
+                            break
+                    if has_python_files:
+                        break
+                
+                if has_python_files:
+                    addon_directories.append(item)
+
+    return addon_files, addon_directories
+
+
+def add_directory_to_zip(zf, directory, base_arcname, exclude_patterns):
     """Recursively add directory contents to ZIP file"""
     for root, dirs, files in os.walk(directory):
         # Remove excluded directories
-        dirs[:] = [d for d in dirs if d not in exclude_files]
+        dirs[:] = [d for d in dirs if not should_exclude(d, exclude_patterns)]
 
         for file in files:
-            if file.endswith('.pyc') or file in exclude_files:
+            if should_exclude(file, exclude_patterns):
                 continue
 
             file_path = os.path.join(root, file)
             # Create archive path relative to base
             rel_path = os.path.relpath(file_path, directory)
-            arcname = f"{base_arcname}/{directory}/{rel_path}".replace(
-                '\\', '/')
+            arcname = f"{base_arcname}/{directory}/{rel_path}".replace('\\', '/')
             zf.write(file_path, arcname)
             print(f"  Added: {file_path}")
 
@@ -37,27 +85,21 @@ def add_directory_to_zip(zf, directory, base_arcname, exclude_files):
 def create_addon_package(output_dir="dist", version=None):
     """Create a ZIP package of the addon for distribution"""
 
-    # Define addon files to include
-    addon_files = [
-        "__init__.py",
-        "blender_manifest.toml",
-        "addon_ai.json",
-        "README.md"
-    ]
-
-    # Define directories to include
-    addon_directories = [
-        "registry",
-        "ws"
-    ]
-
-    # Files to exclude from package
-    exclude_files = [
+    # Define patterns to exclude from package
+    exclude_patterns = [
         "package_addon.py",
         "__pycache__",
-        ".git",
+        ".git*",
         ".gitignore",
-        "*.pyc"
+        "*.pyc",
+        "*.pyo",
+        ".pytest_cache",
+        "test_*",
+        "*_test.py",
+        ".env*",
+        "dist",
+        "build",
+        "*.egg-info"
     ]
 
     # Create output directory
@@ -82,6 +124,17 @@ def create_addon_package(output_dir="dist", version=None):
     package_path = output_path / package_name
 
     print(f"Creating addon package: {package_path}")
+    print(f"🔍 Discovering addon files dynamically...")
+
+    # Dynamically discover addon files and directories
+    addon_files, addon_directories = discover_addon_files(exclude_patterns)
+
+    if not addon_files or not addon_directories:
+        print("❌ No addon files or directories found!")
+        return None
+
+    print(f"✓ Found {len(addon_files)} addon files")
+    print(f"✓ Found {len(addon_directories)} addon directories")
 
     # Create ZIP package
     with zipfile.ZipFile(package_path, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -99,8 +152,7 @@ def create_addon_package(output_dir="dist", version=None):
         for directory in addon_directories:
             if os.path.exists(directory) and os.path.isdir(directory):
                 print(f"  Adding directory: {directory}/")
-                add_directory_to_zip(
-                    zf, directory, "blender_ai_router", exclude_files)
+                add_directory_to_zip(zf, directory, "blender_ai_router", exclude_patterns)
             else:
                 print(f"  WARNING: Missing directory: {directory}")
 
@@ -127,17 +179,20 @@ def create_addon_package(output_dir="dist", version=None):
 
 def create_development_package():
     """Create a development package with all source files"""
-    addon_files = [
-        "__init__.py",
-        "blender_manifest.toml",
-        "addon_ai.json",
-        "README.md",
-        "package_addon.py"  # Include packaging script in dev build
-    ]
-
-    addon_directories = [
-        "registry",
-        "ws"
+    exclude_patterns = [
+        "package_addon.py",
+        "__pycache__",
+        ".git*",
+        ".gitignore",
+        "*.pyc",
+        "*.pyo",
+        ".pytest_cache",
+        "test_*",
+        "*_test.py",
+        ".env*",
+        "dist",
+        "build",
+        "*.egg-info"
     ]
 
     output_path = Path("dist")
@@ -147,6 +202,13 @@ def create_development_package():
     package_path = output_path / package_name
 
     print(f"Creating development package: {package_path}")
+    print(f"🔍 Discovering addon files dynamically...")
+
+    # Dynamically discover addon files and directories
+    addon_files, addon_directories = discover_addon_files(exclude_patterns)
+
+    print(f"✓ Found {len(addon_files)} addon files")
+    print(f"✓ Found {len(addon_directories)} addon directories")
 
     with zipfile.ZipFile(package_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for file_name in addon_files:
@@ -156,54 +218,64 @@ def create_development_package():
                 print(f"  Added: {file_name}")
 
         # Add directories
-        exclude_files = ["package_addon.py", "__pycache__", ".git", "*.pyc"]
         for directory in addon_directories:
             if os.path.exists(directory) and os.path.isdir(directory):
                 print(f"  Adding directory: {directory}/")
-                add_directory_to_zip(
-                    zf, directory, "blender_ai_router", exclude_files)
+                add_directory_to_zip(zf, directory, "blender_ai_router", exclude_patterns)
 
     print(f"✅ Development package created: {package_path}")
     return package_path
 
 
 def validate_addon_structure():
-    """Validate that all required files are present"""
-    required_files = [
+    """
+    Validate that addon structure is valid.
+    Uses dynamic discovery - no hardcoded file lists!
+    """
+    # Essential files that must exist
+    essential_files = [
         "__init__.py",
         "blender_manifest.toml",
         "addon_ai.json"
     ]
 
-    required_directories = [
-        "registry",
-        "ws"
+    # Exclude patterns
+    exclude_patterns = [
+        "package_addon.py",
+        "__pycache__",
+        ".git*",
+        "*.pyc",
+        "test_*",
+        "*_test.py"
     ]
 
     missing_files = []
-    for file_name in required_files:
+    for file_name in essential_files:
         if not os.path.exists(file_name):
             missing_files.append(file_name)
-
-    missing_directories = []
-    for dir_name in required_directories:
-        if not os.path.exists(dir_name) or not os.path.isdir(dir_name):
-            missing_directories.append(dir_name)
 
     if missing_files:
         print("❌ Missing required files:")
         for file_name in missing_files:
             print(f"  - {file_name}")
-
-    if missing_directories:
-        print("❌ Missing required directories:")
-        for dir_name in missing_directories:
-            print(f"  - {dir_name}/")
-
-    if missing_files or missing_directories:
         return False
 
-    print("✅ All required files and directories present")
+    # Check that we have at least one Python module directory
+    addon_files, addon_directories = discover_addon_files(exclude_patterns)
+
+    if not addon_directories:
+        print("❌ No Python module directories found!")
+        print("   Expected directories with .py files (e.g., registry/, ws/, handlers/)")
+        return False
+
+    print("✅ All required files present")
+    print(f"✅ Found {len(addon_directories)} addon module directories:")
+    for directory in addon_directories:
+        print(f"   - {directory}/")
+    print(f"✅ Found {len(addon_files)} addon files:")
+    for file_name in addon_files:
+        print(f"   - {file_name}")
+    print("✅ Addon structure is valid and ready to package!")
     return True
 
 
@@ -220,16 +292,22 @@ def show_addon_info():
     print("  • Automatic addon discovery and registration")
     print("  • Animation and viewport controls")
     print("  • Natural language command processing")
+    print("  • Modular registry architecture (manifest/ and discovery/ subdirectories)")
     print()
     print("🔧 Prerequisite Addons:")
     print("  • Multi-Registry Asset Manager (set-builder)")
     print("  • Repository: https://code.cr8-xyz.art/Cr8-xyz/set-builder")
     print()
+    print("📦 Packaging:")
+    print("  • Dynamic file discovery - add new modules without updating the script!")
+    print("  • Automatic exclusion of build artifacts and cache files")
+    print("  • Supports nested directory structures")
+    print()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Package Blender Cr8tive Engine addon")
+        description="Package Blender Cr8tive Engine addon (with dynamic file discovery)")
     parser.add_argument(
         "--version", help="Version string for package filename")
     parser.add_argument("--dev", action="store_true",
@@ -256,10 +334,12 @@ def main():
 
     print("🚀 Blender Cr8tive Engine Packager")
     print("=" * 40)
+    print("📝 Using DYNAMIC file discovery - no hardcoded file lists!")
+    print()
 
     # Validate before packaging
     if not validate_addon_structure():
-        print("❌ Cannot package addon - missing required files")
+        print("❌ Cannot package addon - structure validation failed")
         return
 
     if args.dev:
@@ -273,6 +353,9 @@ def main():
     print("  2. Ensure Multi-Registry Asset Manager (set-builder) is also installed")
     print("  3. Enable both addons in Blender preferences")
     print("  4. Test AI routing and command discovery functionality")
+    print()
+    print("💡 Pro tip: Add new modules to the addon without updating this script!")
+    print("   The packager will automatically discover and include them.")
 
 
 if __name__ == "__main__":

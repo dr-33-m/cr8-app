@@ -5,5 +5,6 @@ Handles addon discovery, validation, and management
 
 from .addon_registry import AIAddonRegistry
 from .command_router import AICommandRouter
+from .manifest import AddonManifest
 
-__all__ = ['AIAddonRegistry', 'AICommandRouter']
+__all__ = ['AIAddonRegistry', 'AICommandRouter', 'AddonManifest']
