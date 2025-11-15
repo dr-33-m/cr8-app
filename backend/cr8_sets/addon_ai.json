@@ -1,0 +1,761 @@
+{
+  "addon_info": {
+    "id": "multi_registry_assets",
+    "name": "Blaze Sets",
+    "version": "0.1.0",
+    "author": "Cr8-xyz <thamsanqa.dev@gmail.com>",
+    "category": "asset_management",
+    "description": "AI-capable multi-registry asset addon with direct API access for fast asset search across Polyhaven, BlenderKit, and more"
+  },
+  "ai_integration": {
+    "agent_description": "Multi-Registry Asset Manager provides lightning-fast access to multiple asset libraries including Polyhaven's free high-quality PBR assets (HDRIs, textures, models) and BlenderKit's premium community assets. I can intelligently search, select, download and apply assets with AI-powered scoring based on relevance, quality, popularity, and ratings. The system supports multiple registries through a unified interface, allowing seamless access to both free and premium asset sources.",
+    "tools": [
+      {
+        "name": "search_polyhaven_assets",
+        "description": "Search Polyhaven's free asset library using natural language queries with immediate results via direct API calls",
+        "usage": "Use when user wants to find free high-quality assets from Polyhaven. Provides instant search results with AI-driven quality scoring and relevance ranking. Polyhaven offers professionally created PBR materials, HDRIs, and 3D models.",
+        "category": "asset_search",
+        "parameters": [
+          {
+            "name": "query",
+            "type": "string",
+            "description": "Natural language search keywords describing what to find (e.g. 'modern wooden table', 'brick texture', 'sunset HDR', 'outdoor HDRI')",
+            "required": true
+          },
+          {
+            "name": "asset_type",
+            "type": "enum",
+            "description": "Type of asset to search for",
+            "required": false,
+            "default": "model",
+            "options": ["model", "texture", "hdri"]
+          },
+          {
+            "name": "limit",
+            "type": "integer",
+            "description": "Maximum number of results to return",
+            "required": false,
+            "default": 10,
+            "min": 1,
+            "max": 20
+          },
+          {
+            "name": "categories",
+            "type": "string",
+            "description": "Comma-separated category filter (e.g. 'outdoor,brick' or 'indoor,natural')",
+            "required": false
+          }
+        ],
+        "examples": [
+          "search for modern furniture models",
+          "find weathered wood textures",
+          "get outdoor HDR environments",
+          "search for brick textures in outdoor category"
+        ]
+      },
+      {
+        "name": "download_polyhaven_asset",
+        "description": "Download a specific Polyhaven asset by ID and optionally import it to the current scene",
+        "usage": "Use to download specific assets by ID from Polyhaven search results, with automatic scene placement and import",
+        "category": "asset_download",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "type": "string",
+            "description": "Polyhaven asset ID from search results",
+            "required": true
+          },
+          {
+            "name": "import_to_scene",
+            "type": "boolean",
+            "description": "Whether to automatically import the asset to the current Blender scene",
+            "required": false,
+            "default": true
+          },
+          {
+            "name": "location_x",
+            "type": "float",
+            "description": "X coordinate for asset placement in 3D space",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "location_y",
+            "type": "float",
+            "description": "Y coordinate for asset placement in 3D space",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "location_z",
+            "type": "float",
+            "description": "Z coordinate for asset placement in 3D space",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "resolution",
+            "type": "enum",
+            "description": "Asset resolution quality",
+            "required": false,
+            "default": "1k",
+            "options": ["1k", "2k", "4k", "8k"]
+          },
+          {
+            "name": "file_format",
+            "type": "string",
+            "description": "Specific file format (hdr, exr, jpg, png, gltf, etc.) - auto-detected if not specified",
+            "required": false
+          }
+        ],
+        "examples": [
+          "download asset abandoned_factory_01 in 4k resolution",
+          "download asset brick_wall_01 and place at coordinates 2,0,0",
+          "download asset sunset_hdri in HDR format"
+        ]
+      },
+      {
+        "name": "find_and_add_polyhaven_asset",
+        "description": "Complete workflow: search Polyhaven assets, automatically select the best match using AI scoring, download, and add to scene in one operation",
+        "usage": "Use for quick one-step asset addition from Polyhaven. AI automatically selects the best matching asset based on relevance, quality, and suitability. Most convenient function for rapid scene enhancement with free high-quality assets.",
+        "category": "asset_workflow",
+        "parameters": [
+          {
+            "name": "query",
+            "type": "string",
+            "description": "Natural language description of the desired asset",
+            "required": true
+          },
+          {
+            "name": "asset_type",
+            "type": "enum",
+            "description": "Type of asset to find and add",
+            "required": false,
+            "default": "model",
+            "options": ["model", "texture", "hdri"]
+          },
+          {
+            "name": "location_x",
+            "type": "float",
+            "description": "X coordinate for asset placement",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "location_y",
+            "type": "float",
+            "description": "Y coordinate for asset placement",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "location_z",
+            "type": "float",
+            "description": "Z coordinate for asset placement",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "resolution",
+            "type": "enum",
+            "description": "Asset resolution quality",
+            "required": false,
+            "default": "1k",
+            "options": ["1k", "2k", "4k", "8k"]
+          }
+        ],
+        "examples": [
+          "add a comfortable modern armchair to the living room at position 3,2,0",
+          "apply realistic brick wall texture in 4k quality",
+          "set dramatic cloudy sky HDR environment",
+          "add wooden dining table model in 2k resolution"
+        ]
+      },
+      {
+        "name": "get_polyhaven_categories",
+        "description": "Get available categories for filtering Polyhaven assets by type",
+        "usage": "Use to discover available asset categories for more targeted searches. Helps users understand what types of assets are available.",
+        "category": "asset_discovery",
+        "parameters": [
+          {
+            "name": "asset_type",
+            "type": "enum",
+            "description": "Asset type to get categories for",
+            "required": false,
+            "default": "all",
+            "options": ["all", "model", "texture", "hdri"]
+          }
+        ],
+        "examples": [
+          "get texture categories from polyhaven",
+          "show available model categories",
+          "list all asset categories"
+        ]
+      },
+      {
+        "name": "apply_polyhaven_texture_to_object",
+        "description": "Apply a previously downloaded Polyhaven texture to a specific Blender object with automatic PBR material setup",
+        "usage": "Use to apply downloaded textures to objects in the scene. Creates a complete PBR material with proper node connections for diffuse, normal, roughness, metallic maps, etc.",
+        "category": "material_application",
+        "parameters": [
+          {
+            "name": "object_name",
+            "type": "string",
+            "description": "Name of the Blender object to apply texture to",
+            "required": true
+          },
+          {
+            "name": "texture_asset_id",
+            "type": "string",
+            "description": "Polyhaven texture asset ID that was previously downloaded",
+            "required": true
+          }
+        ],
+        "examples": [
+          "apply texture brick_wall_01 to object Cube",
+          "apply downloaded wood texture to table object",
+          "set metal texture on sphere object"
+        ]
+      },
+      {
+        "name": "search_assets",
+        "description": "Generic search function that can search across different registries (currently Polyhaven, BlenderKit support coming)",
+        "usage": "Use for registry-agnostic asset searches. Allows specifying which registry to search while maintaining consistent interface.",
+        "category": "asset_search",
+        "parameters": [
+          {
+            "name": "query",
+            "type": "string",
+            "description": "Natural language search query",
+            "required": true
+          },
+          {
+            "name": "asset_type",
+            "type": "enum",
+            "description": "Type of asset to search for",
+            "required": false,
+            "default": "model",
+            "options": ["model", "texture", "hdri"]
+          },
+          {
+            "name": "registry",
+            "type": "enum",
+            "description": "Registry to search in",
+            "required": false,
+            "default": "polyhaven",
+            "options": ["polyhaven"]
+          },
+          {
+            "name": "limit",
+            "type": "integer",
+            "description": "Maximum number of results",
+            "required": false,
+            "default": 10,
+            "min": 1,
+            "max": 20
+          },
+          {
+            "name": "categories",
+            "type": "string",
+            "description": "Comma-separated category filter",
+            "required": false
+          }
+        ],
+        "examples": [
+          "search polyhaven for modern furniture",
+          "find brick textures in polyhaven registry",
+          "search for outdoor HDRIs with limit 5"
+        ]
+      },
+      {
+        "name": "download_asset",
+        "description": "Generic download function that can download assets from different registries with automatic import and scene integration",
+        "usage": "Use for registry-agnostic asset downloads. Supports different registries while maintaining consistent interface.",
+        "category": "asset_download",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "type": "string",
+            "description": "Asset identifier from search results",
+            "required": true
+          },
+          {
+            "name": "registry",
+            "type": "enum",
+            "description": "Registry to download from",
+            "required": false,
+            "default": "polyhaven",
+            "options": ["polyhaven"]
+          },
+          {
+            "name": "import_to_scene",
+            "type": "boolean",
+            "description": "Whether to import to scene",
+            "required": false,
+            "default": true
+          },
+          {
+            "name": "location_x",
+            "type": "float",
+            "description": "X coordinate for placement",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "location_y",
+            "type": "float",
+            "description": "Y coordinate for placement",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "location_z",
+            "type": "float",
+            "description": "Z coordinate for placement",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "resolution",
+            "type": "enum",
+            "description": "Asset resolution",
+            "required": false,
+            "default": "1k",
+            "options": ["1k", "2k", "4k", "8k"]
+          },
+          {
+            "name": "file_format",
+            "type": "string",
+            "description": "Specific file format",
+            "required": false
+          }
+        ],
+        "examples": [
+          "download asset chair_01 from polyhaven in 2k resolution",
+          "download texture_brick from polyhaven and place at 0,0,1"
+        ]
+      },
+      {
+        "name": "list_scene_objects",
+        "description": "Get comprehensive list of all objects currently in the Blender scene for spatial planning and object reference",
+        "usage": "Use before positioning operations to see what objects are available. Essential for understanding scene composition and planning spatial relationships.",
+        "category": "scene_query",
+        "parameters": [],
+        "examples": [
+          "list all objects in the scene",
+          "show me what objects are available",
+          "get scene inventory for spatial planning",
+          "check what objects I can work with"
+        ]
+      },
+      {
+        "name": "process_inbox_assets",
+        "description": "Process and download assets from the user's inbox context",
+        "usage": "Automatically download all assets from the user's inbox that are ready for download",
+        "category": "asset_download",
+        "parameters": [
+          {
+            "name": "resolution",
+            "type": "enum",
+            "description": "Asset resolution quality for all downloads",
+            "required": false,
+            "default": "1k",
+            "options": ["1k", "2k", "4k", "8k"]
+          },
+          {
+            "name": "import_to_scene",
+            "type": "boolean",
+            "description": "Whether to automatically import downloaded assets to the scene",
+            "required": false,
+            "default": true
+          },
+          {
+            "name": "clear_inbox_after_processing",
+            "type": "boolean",
+            "description": "Whether to automatically clear the inbox after successful processing",
+            "required": false,
+            "default": true
+          }
+        ],
+        "examples": [
+          "download all my inbox assets in 2k resolution",
+          "process my inbox and import everything to the scene",
+          "download inbox assets without importing to scene",
+          "process inbox and keep items for later use"
+        ]
+      },
+      {
+        "name": "get_objects_by_type",
+        "description": "Filter scene objects by type for targeted spatial operations and better scene organization",
+        "usage": "Use to focus on specific object types when planning scene layouts. Helps identify furniture vs decorations vs lighting for systematic positioning.",
+        "category": "scene_query",
+        "parameters": [
+          {
+            "name": "asset_type",
+            "type": "enum",
+            "description": "Type of objects to filter for",
+            "required": false,
+            "default": "all",
+            "options": ["all", "mesh", "light", "camera"]
+          }
+        ],
+        "examples": [
+          "get all mesh objects for furniture arrangement",
+          "list all lights for lighting setup",
+          "show all camera objects",
+          "filter objects by type for organization"
+        ]
+      },
+      {
+        "name": "transform_resize",
+        "description": "Resize/scale selected objects with precise control over each axis",
+        "usage": "Use to scale selected objects in the scene. Provides precise control over scaling factors for each axis with optional axis constraints and snapping.",
+        "category": "scene_query",
+        "parameters": [
+          {
+            "name": "value_x",
+            "type": "float",
+            "description": "Scale factor for X axis",
+            "required": false,
+            "default": 1.0
+          },
+          {
+            "name": "value_y",
+            "type": "float",
+            "description": "Scale factor for Y axis",
+            "required": false,
+            "default": 1.0
+          },
+          {
+            "name": "value_z",
+            "type": "float",
+            "description": "Scale factor for Z axis",
+            "required": false,
+            "default": 1.0
+          },
+          {
+            "name": "constraint_x",
+            "type": "boolean",
+            "description": "Lock transformation to X axis only",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "constraint_y",
+            "type": "boolean",
+            "description": "Lock transformation to Y axis only",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "constraint_z",
+            "type": "boolean",
+            "description": "Lock transformation to Z axis only",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "snap",
+            "type": "boolean",
+            "description": "Enable snapping during transformation",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "snap_target",
+            "type": "enum",
+            "description": "Snap target for alignment",
+            "required": false,
+            "default": "CLOSEST",
+            "options": ["CLOSEST", "CENTER", "MEDIAN", "ACTIVE"]
+          }
+        ],
+        "examples": [
+          "scale selected objects by 2x in all dimensions",
+          "resize object to half size on X axis only",
+          "scale furniture by 1.5x with snapping enabled",
+          "resize object with constraints on Y axis only"
+        ]
+      },
+      {
+        "name": "transform_translate",
+        "description": "Translate/move selected objects in 3D space with precise positioning",
+        "usage": "Use to move selected objects in the scene. Provides precise control over movement values for each axis with optional axis constraints and snapping.",
+        "category": "scene_query",
+        "parameters": [
+          {
+            "name": "value_x",
+            "type": "float",
+            "description": "Translation value for X axis",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "value_y",
+            "type": "float",
+            "description": "Translation value for Y axis",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "value_z",
+            "type": "float",
+            "description": "Translation value for Z axis",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "constraint_x",
+            "type": "boolean",
+            "description": "Lock transformation to X axis only",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "constraint_y",
+            "type": "boolean",
+            "description": "Lock transformation to Y axis only",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "constraint_z",
+            "type": "boolean",
+            "description": "Lock transformation to Z axis only",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "snap",
+            "type": "boolean",
+            "description": "Enable snapping during transformation",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "snap_target",
+            "type": "enum",
+            "description": "Snap target for alignment",
+            "required": false,
+            "default": "CLOSEST",
+            "options": ["CLOSEST", "CENTER", "MEDIAN", "ACTIVE"]
+          }
+        ],
+        "examples": [
+          "move selected objects 2 units along X axis",
+          "position object at coordinates 1,2,3",
+          "move furniture with snapping to nearest object",
+          "translate object with constraints on Z axis only"
+        ]
+      },
+      {
+        "name": "transform_rotate",
+        "description": "Rotate selected objects to absolute rotation values on X, Y, Z axes",
+        "usage": "Use to set absolute rotation of selected objects in the scene. Provides precise control over rotation angles on all three axes with optional constraints and snapping.",
+        "category": "scene_query",
+        "parameters": [
+          {
+            "name": "value_x",
+            "type": "float",
+            "description": "Absolute rotation value in radians for X axis",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "value_y",
+            "type": "float",
+            "description": "Absolute rotation value in radians for Y axis",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "value_z",
+            "type": "float",
+            "description": "Absolute rotation value in radians for Z axis",
+            "required": false,
+            "default": 0.0
+          },
+          {
+            "name": "constraint_x",
+            "type": "boolean",
+            "description": "Lock transformation to X axis only",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "constraint_y",
+            "type": "boolean",
+            "description": "Lock transformation to Y axis only",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "constraint_z",
+            "type": "boolean",
+            "description": "Lock transformation to Z axis only",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "snap",
+            "type": "boolean",
+            "description": "Enable snapping during transformation",
+            "required": false,
+            "default": false
+          },
+          {
+            "name": "snap_target",
+            "type": "enum",
+            "description": "Snap target for alignment",
+            "required": false,
+            "default": "CLOSEST",
+            "options": ["CLOSEST", "CENTER", "MEDIAN", "ACTIVE"]
+          }
+        ],
+        "examples": [
+          "rotate selected object to 45 degrees on Z axis: value_z=0.785",
+          "set object rotation to 90 degrees on X and Y: value_x=1.57, value_y=1.57",
+          "rotate object to specific angles with snapping enabled",
+          "set absolute rotation with constraints on Y axis only"
+        ]
+      },
+      {
+        "name": "set_active_object",
+        "description": "Make an object the active object in the scene",
+        "usage": "Use to set a specific object as the active object, which is often required before performing operations on it",
+        "category": "scene_query",
+        "parameters": [
+          {
+            "name": "object_name",
+            "type": "string",
+            "description": "Name of the object to make active",
+            "required": true
+          }
+        ],
+        "examples": [
+          "set Cube as the active object",
+          "make Chair_01 the active object",
+          "activate object Light_Sun",
+          "select Table_Master as active object"
+        ]
+      },
+      {
+        "name": "focus_on_active_object",
+        "description": "Focus the 3D view on the currently active object",
+        "usage": "Use to center the 3D viewport view on the currently active object for better visibility and navigation",
+        "category": "scene_query",
+        "parameters": [],
+        "examples": [
+          "focus the view on the active object",
+          "center camera on selected object",
+          "zoom to active object",
+          "frame the active object in viewport"
+        ]
+      },
+      {
+        "name": "select_object",
+        "description": "Select an object in the scene",
+        "usage": "Use to select a specific object in the Blender scene, optionally deselecting other objects first",
+        "category": "scene_query",
+        "parameters": [
+          {
+            "name": "object_name",
+            "type": "string",
+            "description": "Name of the object to select",
+            "required": true
+          },
+          {
+            "name": "deselect_others",
+            "type": "boolean",
+            "description": "Whether to deselect other objects first",
+            "required": false,
+            "default": true
+          }
+        ],
+        "examples": [
+          "select the chair object",
+          "select Table_01 and deselect others",
+          "choose object Light_Rig",
+          "pick Cube and keep other selections"
+        ]
+      },
+      {
+        "name": "delete_object",
+        "description": "Delete an object from the scene",
+        "usage": "Use to remove objects from the current scene",
+        "category": "scene_query",
+        "parameters": [
+          {
+            "name": "object_name",
+            "type": "string",
+            "description": "The name of the object to delete",
+            "required": true
+          }
+        ],
+        "examples": [
+          "delete the cube object",
+          "remove the light from the scene",
+          "delete chair model"
+        ]
+      }
+    ],
+    "context_hints": [
+      "When users mention needing free high-quality assets, models, furniture, or objects",
+      "When users want professional PBR materials or textures without cost",
+      "When users need HDR environments for lighting and backgrounds",
+      "When users want to populate empty scenes efficiently with quality assets",
+      "When users ask about textures, materials, or surface properties",
+      "When users want better lighting with HDR environments",
+      "When users need assets for commercial projects (Polyhaven is CC0)",
+      "When users want AI-powered asset recommendations from curated sources",
+      "When users prefer one-step operations over manual searching",
+      "When users mention Polyhaven, HDRIs, PBR textures, or free assets",
+      "When users want to move, translate, or position objects to specific locations",
+      "When users need to rotate objects to exact angles or orientations",
+      "When users want to scale or resize objects to specific dimensions",
+      "When users mention setting absolute positions, rotations, or scales",
+      "When users need precise transformation control with snapping",
+      "When users want to constrain transformations to specific axes",
+      "When users mention coordinates, angles in degrees/radians, or scale factors",
+      "When users want to transform objects from UI controls or sliders",
+      "When users need to position objects relative to other objects or surfaces",
+      "When users want smooth, predictable object transformations without jumping"
+    ],
+    "requirements": {
+      "blender_version_min": "3.0.0",
+      "internet_connection": true,
+      "dependencies": ["numpy"],
+      "api_keys": {
+        "polyhaven": "not_required",
+        "blenderkit": "required_when_available"
+      }
+    },
+    "metadata": {
+      "priority": 85,
+      "performance_impact": "low",
+      "experimental": false,
+      "capabilities": [
+        "asset_search",
+        "asset_download",
+        "spatial_positioning",
+        "scene_assembly"
+      ],
+      "registries_supported": [
+        {
+          "name": "polyhaven",
+          "status": "active",
+          "description": "Free high-quality PBR assets - HDRIs, textures, models",
+          "auth_required": false,
+          "asset_types": ["hdri", "texture", "model"]
+        },
+        {
+          "name": "blenderkit",
+          "status": "coming_soon",
+          "description": "Premium community assets with ratings and validation",
+          "auth_required": true,
+          "asset_types": ["model", "material", "brush", "hdr", "scene"]
+        }
+      ]
+    }
+  }
+}

@@ -33,6 +33,9 @@
 - ✅ **NEW**: Thin orchestrator pattern with specialized routing components
 - ✅ **NEW**: Comprehensive parameter validation with 9 type-specific validators
 - ✅ **NEW**: Standardized error handling with error codes and detailed messages
+- ✅ **NEW**: Polyhaven registry refactored into modular architecture (5 specialized modules)
+- ✅ **NEW**: Registry-agnostic design with thin orchestrator pattern
+- ✅ **NEW**: Separation of concerns: search, download, import, texture operations
 
 ## What's Left to Build
 

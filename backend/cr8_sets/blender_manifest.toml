@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+
+id = "cr8_sets"
+type = "add-on"
+version = "1.0.0-301224"
+name = "Blaze Sets"
+tagline = "AI-capable sets addon with direct API access to multiple asset registries."
+maintainer = "Cr8-xyz <thamsanqa.dev@gmail.com>"
+website = "https://code.cr8-xyz.art/Cr8-xyz/cr8-app"
+tags = ["Assets", "Automation", "AI", "Production Design"]
+blender_version_min = "4.2.0"
+# License
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+[permissions]
+files = "Import and export assets"
+network = "Search and download online asset registries"
