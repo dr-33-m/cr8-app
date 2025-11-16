@@ -5,17 +5,15 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
-  ContextMenuItem,
-  ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import {
   ArrowUp,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  Maximize2,
-  Minimize2,
   Settings,
+  ArrowUpToLine,
+  ArrowDownToLine,
 } from "lucide-react";
 interface EnhancedDPadProps {
   onPanUp: () => void;
@@ -55,7 +53,7 @@ export function DPad({
           {topButtonDirection === "PANUP" ? (
             <ArrowUp className="h-4 w-4" />
           ) : (
-            <Maximize2 className="h-4 w-4" />
+            <ArrowUpToLine className="h-4 w-4" />
           )}
         </Button>
       </div>
@@ -93,7 +91,7 @@ export function DPad({
                   {topButtonDirection === "PANUP" ? (
                     <ArrowUp className="h-4 w-4" />
                   ) : (
-                    <Maximize2 className="h-4 w-4" />
+                    <ArrowUpToLine className="h-4 w-4" />
                   )}
                 </Toggle>
               </div>
@@ -108,7 +106,7 @@ export function DPad({
                   {bottomButtonDirection === "PANDOWN" ? (
                     <ArrowDown className="h-4 w-4" />
                   ) : (
-                    <Minimize2 className="h-4 w-4" />
+                    <ArrowDownToLine className="h-4 w-4" />
                   )}
                 </Toggle>
               </div>
@@ -151,7 +149,7 @@ export function DPad({
           {bottomButtonDirection === "PANDOWN" ? (
             <ArrowDown className="h-4 w-4" />
           ) : (
-            <Minimize2 className="h-4 w-4" />
+            <ArrowDownToLine className="h-4 w-4" />
           )}
         </Button>
       </div>
