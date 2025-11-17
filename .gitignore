@@ -8,3 +8,4 @@ __pycache__/
 .vscode
 backend/cr8_engine/.env
 test_addons
+.tanstack
