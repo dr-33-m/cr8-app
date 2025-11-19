@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { ConnectionStatus } from "../ConnectionStatus";
@@ -18,8 +18,13 @@ export function BottomControls({ children }: BottomControlsProps) {
     (state) => state.toggleBottomControls
   );
 
-  const { status, reconnect, isFullyConnected, connectionState } =
-    useWebSocketContext();
+  const {
+    status,
+    reconnect,
+    isFullyConnected,
+    connectionState,
+    isHealthCheckInProgress,
+  } = useWebSocketContext();
 
   return (
     <div
@@ -41,19 +46,69 @@ export function BottomControls({ children }: BottomControlsProps) {
 
       <Card className="p-4">
         <div className="grid grid-cols-[auto_1fr_auto] grid-rows-[auto_auto_auto] gap-4 min-w-[500px]">
-          {connectionState === "disconnected" ? (
-            <div className="col-span-3 row-span-3 flex items-center justify-center">
-              <Button variant="secondary" onClick={reconnect}>
-                Reconnect
+          {connectionState === "server_unavailable" ? (
+            <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-3">
+              <div className="text-center">
+                <p className="text-destructive font-medium text-sm">
+                  Server Unavailable
+                </p>
+                <p className="text-muted-foreground text-xs mt-1">
+                  Server has been down for 5+ minutes. Session cleared.
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={reconnect}
+                disabled={isHealthCheckInProgress}
+              >
+                {isHealthCheckInProgress ? "Reconnecting" : "Reconnect"}
+                {isHealthCheckInProgress && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+              </Button>
+            </div>
+          ) : connectionState === "disconnected" ? (
+            <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-3">
+              <div className="text-center">
+                <p className="text-muted-foreground font-medium text-sm">
+                  Cannot connect to server
+                </p>
+                <p className="text-muted-foreground text-xs mt-1">
+                  Please check if Cr8 Engine is running
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={reconnect}
+                disabled={isHealthCheckInProgress}
+              >
+                {isHealthCheckInProgress ? "Reconnecting" : "Reconnect"}
+                {isHealthCheckInProgress && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
               </Button>
             </div>
           ) : connectionState === "blender_disconnected" ? (
-            <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-2">
-              <p className="text-muted-foreground text-sm">
-                Blender disconnected
-              </p>
-              <Button variant="secondary" onClick={reconnect}>
-                Reconnect to Blender
+            <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-3">
+              <div className="text-center">
+                <p className="text-muted-foreground font-medium text-sm">
+                  Blender disconnected
+                </p>
+                <p className="text-muted-foreground text-xs mt-1">
+                  Blender was closed or crashed
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={reconnect}
+                disabled={isHealthCheckInProgress}
+              >
+                {isHealthCheckInProgress
+                  ? "Reconnecting to Blender"
+                  : "Reconnect to Blender"}
+                {isHealthCheckInProgress && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
               </Button>
             </div>
           ) : connectionState === "reconnecting" ? (
@@ -80,8 +135,13 @@ export function BottomControls({ children }: BottomControlsProps) {
               <AnimationControls />
             </>
           ) : (
-            <div className="col-span-3 row-span-3 flex items-center justify-center text-muted-foreground text-sm">
-              Waiting for Blender connection...
+            <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-2">
+              <p className="text-muted-foreground text-sm">
+                Waiting for Blender to connect...
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Please launch Blender and open your project
+              </p>
             </div>
           )}
         </div>

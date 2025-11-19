@@ -41,6 +41,7 @@ class WebSocketHandler:
         self.processed_commands = set()
         self.processing_commands = set()  # Track in-progress commands
         self.stop_retries = False
+        self.server_cleanup_timer = None  # Timer for 5-minute cleanup on disconnect
 
         logging.info("AI Router Socket.IO Handler initialized")
 
@@ -84,7 +85,8 @@ class WebSocketHandler:
             reconnection=True,
             reconnection_attempts=5,
             reconnection_delay=2,
-            reconnection_delay_max=10
+            reconnection_delay_max=10,
+            handle_sigint=False
         )
 
         # Register event handlers
@@ -143,6 +145,79 @@ class WebSocketHandler:
         """
         response_manager = ResponseManager.get_instance()
         return response_manager.send_response(command, result, data, message_id)
+
+    def start_server_cleanup_timer(self):
+        """
+        Start a 5-minute timer that will save and close Blender if server remains unreachable.
+        This is called when Socket.IO disconnects after exhausting retry attempts.
+        """
+        logging.info("start_server_cleanup_timer() called")
+        
+        try:
+            import bpy
+            logging.info("bpy imported successfully")
+        except Exception as e:
+            logging.error(f"Failed to import bpy: {e}", exc_info=True)
+            return
+        
+        # Cancel any existing timer
+        if self.server_cleanup_timer is not None:
+            try:
+                bpy.app.timers.unregister(self.server_cleanup_timer)
+                logging.info("Unregistered existing cleanup timer")
+            except Exception as e:
+                logging.warning(f"Could not unregister existing timer: {e}")
+            self.server_cleanup_timer = None
+        
+        logging.warning(
+            "Server unreachable after 5 connection attempts. "
+            "Blender will save and close in 5 minutes if server does not reconnect."
+        )
+        
+        # Create timer function that will be called after 5 minutes (300 seconds)
+        def cleanup_timer():
+            logging.info("Cleanup timer callback triggered")
+            self.perform_server_cleanup()
+            return None  # Return None to unregister the timer
+        
+        try:
+            # Register timer to run after 300 seconds
+            self.server_cleanup_timer = bpy.app.timers.register(
+                cleanup_timer,
+                first_interval=300.0
+            )
+            logging.info("5-minute server cleanup timer registered successfully")
+        except Exception as e:
+            logging.error(f"Failed to register cleanup timer: {e}", exc_info=True)
+
+    def perform_server_cleanup(self):
+        """
+        Save the current Blender file and quit Blender gracefully.
+        This is called after 5 minutes of server unavailability.
+        """
+        import bpy
+        
+        logging.info("Performing server cleanup: saving file and closing Blender")
+        
+        try:
+            # Save the current file
+            if bpy.data.filepath:
+                logging.info(f"Saving Blender file: {bpy.data.filepath}")
+                bpy.ops.wm.save_mainfile()
+            else:
+                logging.warning("No blend file path found, skipping save")
+            
+            # Quit Blender
+            logging.info("Closing Blender instance")
+            bpy.ops.wm.quit_blender()
+            
+        except Exception as e:
+            logging.error(f"Error during server cleanup: {e}")
+            # Still try to quit even if save failed
+            try:
+                bpy.ops.wm.quit_blender()
+            except Exception as quit_error:
+                logging.error(f"Error quitting Blender: {quit_error}")
 
 
 # Create a singleton instance for use in Blender

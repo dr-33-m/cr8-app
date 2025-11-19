@@ -27,7 +27,7 @@ class ConnectWebSocketOperator(bpy.types.Operator):
     """Blender operator for connecting to WebSocket server."""
     bl_idname = "ws_handler.connect_websocket"
     bl_label = "Connect Socket.IO"
-    bl_description = "Initialize Socket.IO connection to Cr8tive Engine server"
+    bl_description = "Initialize Socket.IO connection to Cr8 Engine"
 
     def execute(self, context):
         try:

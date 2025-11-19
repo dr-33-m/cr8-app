@@ -12,11 +12,17 @@ import {
   AgentQueryPayload,
 } from "@/lib/types/websocket";
 
-export const useSocketIO = (onMessage?: (data: any) => void) => {
+export const useSocketIO = (
+  onMessage?: (data: any) => void,
+  onServerCleanup?: () => void
+) => {
   const [status, setStatus] = useState<WebSocketStatus>("disconnected");
   const socketRef = useRef<Socket | null>(null);
   const onMessageCallback = useRef(onMessage);
   const isManuallyDisconnected = useRef(false);
+  const serverCleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   const { username } = useUserStore();
   const serverUrl =
@@ -88,14 +94,46 @@ export const useSocketIO = (onMessage?: (data: any) => void) => {
     }
   }, []);
 
+  const cancelServerCleanupTimer = useCallback(() => {
+    if (serverCleanupTimerRef.current) {
+      clearTimeout(serverCleanupTimerRef.current);
+      serverCleanupTimerRef.current = null;
+      console.log("Server cleanup timer cancelled - reconnected");
+    }
+  }, []);
+
+  const startServerCleanupTimer = useCallback(
+    (onCleanup?: () => void) => {
+      // Cancel any existing timer first
+      if (serverCleanupTimerRef.current) {
+        clearTimeout(serverCleanupTimerRef.current);
+      }
+
+      console.log("Starting 5-minute server cleanup timer");
+      serverCleanupTimerRef.current = setTimeout(() => {
+        console.log(
+          "Server unreachable for 5 minutes, cleaning up browser session"
+        );
+        // Execute cleanup callback if provided
+        if (onCleanup) {
+          onCleanup();
+        }
+        serverCleanupTimerRef.current = null;
+      }, 300000); // 5 minutes
+    },
+    [onServerCleanup]
+  );
+
   const disconnect = useCallback(() => {
     if (socketRef.current) {
       isManuallyDisconnected.current = true;
       socketRef.current.disconnect();
       socketRef.current = null;
     }
+    // Cancel cleanup timer on manual disconnect
+    cancelServerCleanupTimer();
     setStatus("disconnected");
-  }, []);
+  }, [cancelServerCleanupTimer]);
 
   const connect = useCallback(() => {
     if (!username) {
@@ -128,6 +166,8 @@ export const useSocketIO = (onMessage?: (data: any) => void) => {
       socket.on("connect", () => {
         setStatus("connected");
         isManuallyDisconnected.current = false;
+        // Cancel cleanup timer on successful reconnection
+        cancelServerCleanupTimer();
       });
 
       socket.on("connect_error", (error) => {
@@ -155,9 +195,13 @@ export const useSocketIO = (onMessage?: (data: any) => void) => {
           reason === "io client disconnect"
         ) {
           setStatus("disconnected");
+          // Start cleanup timer for server-initiated disconnects
+          startServerCleanupTimer(onServerCleanup);
         } else {
           // Temporary disconnection, Socket.IO will auto-reconnect
           setStatus("disconnected");
+          // Start cleanup timer for any disconnection (will be cancelled on reconnect)
+          startServerCleanupTimer(onServerCleanup);
         }
       });
 

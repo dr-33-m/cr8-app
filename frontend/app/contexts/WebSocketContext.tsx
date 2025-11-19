@@ -26,6 +26,7 @@ type ConnectionState =
   | "browser_connected" // Browser connected, waiting for Blender
   | "fully_connected" // Both connected
   | "blender_disconnected" // Blender crashed/closed
+  | "server_unavailable" // Server down for 5+ minutes
   | "reconnecting"; // Attempting reconnect
 
 interface WebSocketContextType {
@@ -35,6 +36,7 @@ interface WebSocketContextType {
   blenderConnected: boolean;
   isFullyConnected: boolean;
   connectionState: ConnectionState;
+  isHealthCheckInProgress: boolean;
   reconnect: () => void;
   disconnect: () => void;
   sendMessage: (message: WebSocketMessage) => void;
@@ -56,6 +58,7 @@ export function WebSocketProvider({
   const [sessionCreated, setSessionCreated] = useState(false);
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
+  const [isHealthCheckInProgress, setIsHealthCheckInProgress] = useState(false);
 
   // Use refs for immediate state tracking to avoid race conditions
   const isReconnectionRef = useRef(false);
@@ -178,6 +181,26 @@ export function WebSocketProvider({
     [onMessage]
   );
 
+  // Define cleanup callback for when server is unavailable for 5+ minutes
+  const performServerCleanup = useCallback(() => {
+    console.log("Performing cleanup after 5 minutes of server downtime");
+
+    // Clear application state
+    useSceneContextStore.getState().clearSceneObjects();
+    useInboxStore.getState().clearAll();
+
+    // Update connection state
+    setBlenderConnected(false);
+    setConnectionState("server_unavailable");
+    setContextUpdateSent(false);
+    setSessionCreated(false);
+
+    // Notify user
+    toast.error("Server unavailable for 5+ minutes. Session cleared.", {
+      duration: 10000,
+    });
+  }, []);
+
   const wsHook = useSocketIO((data: any) => {
     // Process message first
     processMessage(data);
@@ -192,15 +215,62 @@ export function WebSocketProvider({
         shouldSendBrowserReadyRef.current = true;
       }
     }
-  });
+  }, performServerCleanup);
 
-  const reconnect = useCallback(() => {
-    if (wsHook.socket?.connected) {
-      setConnectionState("reconnecting");
-      console.log("Sending browser_ready signal for reconnection");
-      wsHook.socket.emit("browser_ready", { recovery: true });
+  // Check server health endpoint
+  const checkServerHealth = useCallback(async (): Promise<boolean> => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch("http://localhost:8000/health", {
+        method: "GET",
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return response.ok;
+    } catch (error) {
+      console.error("Health check failed:", error);
+      return false;
     }
-  }, [wsHook.socket]);
+  }, []);
+
+  // Hybrid reconnect: handles both Blender relaunch and full server reconnection
+  const reconnect = useCallback(async () => {
+    // If socket is connected but Blender is not, send browser_ready signal to relaunch Blender
+    if (
+      wsHook.socket?.connected &&
+      connectionState === "blender_disconnected"
+    ) {
+      setConnectionState("reconnecting");
+      console.log("Sending browser_ready signal to relaunch Blender");
+      wsHook.socket.emit("browser_ready", { recovery: true });
+    } else if (
+      connectionState === "server_unavailable" ||
+      connectionState === "disconnected"
+    ) {
+      // Check if server is back online before attempting reconnect (for both server_unavailable and disconnected states)
+      console.log(`Server was ${connectionState}, checking health endpoint...`);
+      setIsHealthCheckInProgress(true);
+      try {
+        const isHealthy = await checkServerHealth();
+        if (!isHealthy) {
+          toast.error("Server still unavailable");
+          return;
+        }
+        // Server is healthy, proceed with reconnect
+        console.log("Server is healthy, attempting reconnect");
+        wsHook.reconnect();
+      } finally {
+        setIsHealthCheckInProgress(false);
+      }
+    } else {
+      // Otherwise, do full reconnect cycle (for general disconnection)
+      console.log("Performing full reconnect cycle");
+      wsHook.reconnect();
+    }
+  }, [wsHook.socket, wsHook.reconnect, connectionState, checkServerHealth]);
 
   // Send browser_ready for fresh connections only
   useEffect(() => {
@@ -282,11 +352,31 @@ export function WebSocketProvider({
       window.removeEventListener("logout-disconnect", handleLogoutDisconnect);
   }, [wsHook.socket, wsHook.disconnect]);
 
+  // Handle initial connection failure
+  useEffect(() => {
+    // Only show toast for initial connection failures (not reconnections)
+    if (
+      wsHook.status === "failed" &&
+      connectionState === "disconnected" &&
+      !isReconnectionRef.current
+    ) {
+      console.log("Initial connection failed, checking server health...");
+      checkServerHealth().then((isHealthy) => {
+        if (!isHealthy) {
+          toast.error(
+            "Cannot connect to server - Please check if Cr8 Engine is running"
+          );
+        }
+      });
+    }
+  }, [wsHook.status, connectionState, checkServerHealth]);
+
   const contextValue = {
     ...wsHook,
     blenderConnected,
     isFullyConnected: wsHook.isConnected && blenderConnected,
     connectionState,
+    isHealthCheckInProgress,
     reconnect,
   };
 

@@ -140,8 +140,24 @@ class BlenderService:
             env["WS_URL"] = "http://localhost:8000"
             env["CR8_USERNAME"] = username
 
+            # Open log file to capture Blender's output
+            log_file_path = Path.cwd() / "blender_instance.log"
+            cls.logger.info(f"Redirecting Blender output to {log_file_path}")
+            log_file = open(log_file_path, "a")
+            
+            # Write separator with timestamp to log file
+            import datetime
+            log_file.write(f"\n{'='*80}\n")
+            log_file.write(f"Blender instance for {username} started at {datetime.datetime.now()}\n")
+            log_file.write(f"{'='*80}\n")
+            log_file.flush()
+
             process = subprocess.Popen(
-                command, env=env)
+                command,
+                env=env,
+                stdout=log_file,
+                stderr=subprocess.STDOUT
+            )
             cls._instances[username] = process
             # Add to process cache for persistence across restarts
             cls._process_cache.add(username, process.pid)

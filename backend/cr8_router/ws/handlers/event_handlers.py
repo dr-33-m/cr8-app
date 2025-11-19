@@ -47,9 +47,46 @@ def register_event_handlers(handler):
 
     @handler.sio.on('disconnect', namespace='/blender')
     def on_disconnect(reason):
+        import bpy
         logger.info(f"Disconnected from server: {reason}")
         handler.processing_complete.set()
         handler.processing_commands.clear()
+        
+        # Start 5-minute cleanup timer when server disconnects
+        # We use a Blender timer to check reconnection status instead of time.sleep()
+        # to avoid KeyboardInterrupt interrupting the sleep
+        def check_and_start_cleanup():
+            try:
+                logger.info("Checking if Socket.IO reconnection has been exhausted...")
+                
+                # Check if still disconnected (reconnection exhausted)
+                if not handler.sio.connected:
+                    logger.warning("Server unreachable after reconnection attempts exhausted")
+                    handler.start_server_cleanup_timer()
+                    logger.info("Server cleanup timer started successfully")
+                else:
+                    logger.info("Socket.IO reconnected successfully, cleanup timer not needed")
+            except Exception as e:
+                logger.error(f"Failed to check reconnection status: {e}", exc_info=True)
+            
+            return None  # Unregister the timer after execution
+        
+        # Register a Blender timer to check reconnection status after ~40 seconds
+        # This gives Socket.IO time to exhaust all 5 reconnection attempts
+        # (delays: 2.25s, 3.83s, 8.16s, 9.95s, 10.41s = ~34 seconds total)
+        try:
+            bpy.app.timers.register(
+                check_and_start_cleanup,
+                first_interval=40.0
+            )
+            logger.info("Registered reconnection check timer for 40 seconds")
+        except Exception as e:
+            logger.error(f"Failed to register reconnection check timer: {e}", exc_info=True)
+            # Fallback: try to start cleanup immediately if timer registration fails
+            try:
+                handler.start_server_cleanup_timer()
+            except Exception as fallback_error:
+                logger.error(f"Fallback cleanup timer also failed: {fallback_error}", exc_info=True)
 
     @handler.sio.on('connect_error', namespace='/blender')
     def on_connect_error(data):
