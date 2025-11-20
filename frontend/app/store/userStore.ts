@@ -9,6 +9,7 @@ const useUserStore = create<UserStoreState>()(
       blendFolderPath: "",
       selectedBlendFile: "",
       fullBlendFilePath: "",
+      _hasHydrated: false,
       setUsername: (username) => set({ username }),
       setBlendFolder: (path) => set({ blendFolderPath: path }),
       setSelectedBlendFile: (filename, fullPath) =>
@@ -29,6 +30,11 @@ const useUserStore = create<UserStoreState>()(
     }),
     {
       name: "user-storage",
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state._hasHydrated = true;
+        }
+      },
     }
   )
 );

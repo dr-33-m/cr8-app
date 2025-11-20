@@ -6,6 +6,7 @@ export interface UserStoreState {
   blendFolderPath: string;
   selectedBlendFile: string;
   fullBlendFilePath: string;
+  _hasHydrated: boolean;
   setUsername: (username: string) => void;
   setBlendFolder: (path: string) => void;
   setSelectedBlendFile: (filename: string, fullPath: string) => void;
