@@ -10,9 +10,9 @@ import {
 } from "@/components/ui/card";
 import { defineStepper } from "@/components/stepper";
 import useUserStore from "@/store/userStore";
-import { blendFileService } from "@/lib/services/blendFileService";
 import { BlendFileInfo } from "@/lib/types/onboarding";
 import { toast } from "sonner";
+import { scanBlendFolder } from "@/server/api/onboarding-local/scanBlendFolder";
 import { UsernameStep } from "./UsernameStep";
 import { FolderStep } from "./FolderStep";
 import { FileStep } from "./FileStep";
@@ -41,7 +41,6 @@ export function OnboardingStepper() {
   // Initialize state directly from store using lazy initialization
   const [username, setUsername] = useState(() => storedUsername || "");
   const [folderPath, setFolderPath] = useState(() => storedFolderPath || "");
-  const [blendFiles, setBlendFiles] = useState<BlendFileInfo[]>([]);
   const [selectedBlendFile, setSelectedBlendFile] =
     useState<BlendFileInfo | null>(() => {
       if (storedUsername && storedBlendFile) {
@@ -52,17 +51,19 @@ export function OnboardingStepper() {
       }
       return null;
     });
-  const [isScanning, setIsScanning] = useState(false);
   const [isReturningUser, setIsReturningUser] = useState(
     () => !!(storedUsername && storedBlendFile)
   );
+
+  // Local state for folder scanning
+  const [blendFiles, setBlendFiles] = useState<BlendFileInfo[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
 
   // Handle logout/reset (when stored data is cleared)
   useEffect(() => {
     if (!storedUsername && !storedBlendFile) {
       setUsername("");
       setFolderPath("");
-      setBlendFiles([]);
       setSelectedBlendFile(null);
       setIsReturningUser(false);
       methods.goTo("username");
@@ -79,29 +80,32 @@ export function OnboardingStepper() {
   };
 
   const handleScanFolder = async () => {
+    // If already scanned successfully, navigate to next step
+    if (!isScanning && blendFiles.length > 0) {
+      methods.next();
+      return;
+    }
+
+    // Validate folder path
     if (!folderPath.trim()) {
       toast.error("Please enter a folder path");
       return;
     }
 
+    // Start scanning
     setIsScanning(true);
     try {
-      const response = await blendFileService.scanBlendFolder(
-        folderPath.trim()
-      );
-
-      if (response.total_count === 0) {
-        toast.warning("No .blend files found in the specified folder");
-        setBlendFiles([]);
-      } else {
-        setBlendFiles(response.blend_files);
-        setBlendFolder(folderPath.trim());
-        methods.next();
-        toast.success(`Found ${response.total_count} blend file(s)`);
-      }
+      const result = await scanBlendFolder({
+        data: { folderPath: folderPath.trim() },
+      });
+      setBlendFiles(result.blend_files || []);
+      setBlendFolder(folderPath.trim());
+      // Auto-advance to file selection step
+      methods.next();
     } catch (error) {
-      // Error is already handled in the service with toast
-      console.error("Error scanning folder:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to scan folder"
+      );
     } finally {
       setIsScanning(false);
     }
@@ -124,7 +128,6 @@ export function OnboardingStepper() {
     setIsReturningUser(false);
     methods.goTo("folder");
     setFolderPath("");
-    setBlendFiles([]);
     setSelectedBlendFile(null);
   };
 
@@ -219,7 +222,11 @@ export function OnboardingStepper() {
                 className="flex-1"
                 disabled={!folderPath.trim() || isScanning}
               >
-                {isScanning ? "Scanning..." : "Scan Folder"}
+                {isScanning
+                  ? "Scanning..."
+                  : blendFiles.length > 0
+                  ? "Next"
+                  : "Scan Folder"}
               </Button>
             )}
 
