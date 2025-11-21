@@ -147,7 +147,7 @@ export interface AssetGridProps {
   onAssetSelect?: (asset: PolyHavenAsset & { id: string }) => void;
   compact?: boolean;
   loading?: boolean;
-  error?: string;
+  error?: string | null;
 }
 
 // PolyHaven service interfaces

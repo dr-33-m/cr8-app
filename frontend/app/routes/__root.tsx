@@ -44,7 +44,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootComponent() {
   return (
     <RootDocument>
-      <Outlet />
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <Navbar />
+        <Outlet />
+        <Toaster position="top-right" />
+      </ThemeProvider>
+      <TanStackDevtools
+        plugins={[
+          {
+            name: "TanStack Query",
+            render: <ReactQueryDevtoolsPanel />,
+          },
+          {
+            name: "TanStack Router",
+            render: <TanStackRouterDevtoolsPanel />,
+          },
+        ]}
+      />
     </RootDocument>
   );
 }
@@ -56,29 +77,8 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <Navbar />
-          {children}
-          <Toaster richColors closeButton position="top-right" />
-          <Scripts />
-        </ThemeProvider>
-        <TanStackDevtools
-          plugins={[
-            {
-              name: "TanStack Query",
-              render: <ReactQueryDevtoolsPanel />,
-            },
-            {
-              name: "TanStack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
+        {children}
+        <Scripts />
       </body>
     </html>
   );

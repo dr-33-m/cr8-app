@@ -1,89 +1,31 @@
-import { useState, useCallback } from "react";
-
-import { PaginationState, PaginationOptions } from "@/lib/types/assetBrowser";
+import { useState } from "react";
+import { PaginationOptions } from "@/lib/types/assetBrowser";
 
 export function useAssetPagination(options: PaginationOptions = {}) {
   const { initialPage = 1, initialLimit = 20 } = options;
 
-  const [state, setState] = useState<PaginationState>({
-    page: initialPage,
-    limit: initialLimit,
-    totalPages: 0,
-    totalCount: 0,
-    hasNext: false,
-    hasPrev: false,
-  });
+  const [page, setPage] = useState(initialPage);
+  const [limit, setLimit] = useState(initialLimit);
 
-  const setPage = useCallback((page: number) => {
-    setState((prev) => ({ ...prev, page }));
-  }, []);
+  const setLimitAndResetPage = (newLimit: number) => {
+    setLimit(newLimit);
+    setPage(1); // Reset to page 1 when limit changes
+  };
 
-  const setLimit = useCallback((limit: number) => {
-    setState((prev) => ({ ...prev, limit, page: 1 })); // Reset to page 1 when limit changes
-  }, []);
-
-  const nextPage = useCallback(() => {
-    setState((prev) =>
-      prev.hasNext ? { ...prev, page: prev.page + 1 } : prev
-    );
-  }, []);
-
-  const prevPage = useCallback(() => {
-    setState((prev) =>
-      prev.hasPrev ? { ...prev, page: prev.page - 1 } : prev
-    );
-  }, []);
-
-  const firstPage = useCallback(() => {
-    setState((prev) => ({ ...prev, page: 1 }));
-  }, []);
-
-  const lastPage = useCallback(() => {
-    setState((prev) => ({ ...prev, page: prev.totalPages }));
-  }, []);
-
-  const updatePagination = useCallback(
-    (pagination: {
-      page: number;
-      limit: number;
-      total_count: number;
-      total_pages: number;
-      has_next: boolean;
-      has_prev: boolean;
-    }) => {
-      setState((prev) => ({
-        ...prev,
-        page: pagination.page,
-        limit: pagination.limit,
-        totalPages: pagination.total_pages,
-        totalCount: pagination.total_count,
-        hasNext: pagination.has_next,
-        hasPrev: pagination.has_prev,
-      }));
-    },
-    []
-  );
-
-  const reset = useCallback(() => {
-    setState({
-      page: initialPage,
-      limit: initialLimit,
-      totalPages: 0,
-      totalCount: 0,
-      hasNext: false,
-      hasPrev: false,
-    });
-  }, [initialPage, initialLimit]);
+  const reset = () => {
+    setPage(initialPage);
+    setLimit(initialLimit);
+  };
 
   return {
-    ...state,
+    page,
+    limit,
     setPage,
-    setLimit,
-    nextPage,
-    prevPage,
-    firstPage,
-    lastPage,
-    updatePagination,
+    setLimit: setLimitAndResetPage,
+    nextPage: () => setPage((prev) => prev + 1),
+    prevPage: () => setPage((prev) => Math.max(1, prev - 1)),
+    firstPage: () => setPage(1),
+    lastPage: (totalPages: number) => setPage(totalPages),
     reset,
   };
 }

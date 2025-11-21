@@ -11,8 +11,6 @@ import {
   PaginatedAssetsResponse,
   CategoriesResponse,
   Author,
-  FileInfo,
-  FileWithIncludes,
   AssetFiles,
 } from "@/lib/types/assetBrowser";
 
@@ -60,7 +58,9 @@ class PolyHavenService {
       params.append("page", "1");
       params.append("limit", "20");
 
-      const url = `${this.baseUrl}/api/v1/polyhaven/assets?${params.toString()}`;
+      const url = `${
+        this.baseUrl
+      }/api/v1/polyhaven/assets?${params.toString()}`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -106,7 +106,9 @@ class PolyHavenService {
         params.append("search", search);
       }
 
-      const url = `${this.baseUrl}/api/v1/polyhaven/assets?${params.toString()}`;
+      const url = `${
+        this.baseUrl
+      }/api/v1/polyhaven/assets?${params.toString()}`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -178,7 +180,9 @@ class PolyHavenService {
         params.append("in", inCategories.join(","));
       }
 
-      const url = `${this.baseUrl}/api/v1/polyhaven/categories/${assetType}${params.toString() ? `?${params.toString()}` : ""}`;
+      const url = `${this.baseUrl}/api/v1/polyhaven/categories/${assetType}${
+        params.toString() ? `?${params.toString()}` : ""
+      }`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -198,7 +202,9 @@ class PolyHavenService {
   async getAuthorInfo(authorId: string): Promise<Author> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/api/v1/polyhaven/authors/${encodeURIComponent(authorId)}`
+        `${this.baseUrl}/api/v1/polyhaven/authors/${encodeURIComponent(
+          authorId
+        )}`
       );
 
       if (!response.ok) {

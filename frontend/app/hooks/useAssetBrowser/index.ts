@@ -1,14 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAssetData } from "./useAssetData";
 import { useAssetSearch } from "./useAssetSearch";
 import { useAssetPagination } from "./useAssetPagination";
 import { useAssetCategories } from "./useAssetCategories";
 import { useAssetSelection } from "./useAssetSelection";
-import {
-  AssetType,
-  PolyHavenAsset,
-  UseAssetBrowserOptions,
-} from "@/lib/types/assetBrowser";
+import { AssetType, UseAssetBrowserOptions } from "@/lib/types/assetBrowser";
 
 export function useAssetBrowser(options: UseAssetBrowserOptions = {}) {
   const {
@@ -55,40 +51,17 @@ export function useAssetBrowser(options: UseAssetBrowserOptions = {}) {
     enabled,
   });
 
-  // Update pagination when asset data changes
-  useEffect(() => {
-    if (assetData.totalCount > 0) {
-      pagination.updatePagination({
-        page: pagination.page,
-        limit: pagination.limit,
-        total_count: assetData.totalCount,
-        total_pages: Math.ceil(assetData.totalCount / pagination.limit),
-        has_next: pagination.page * pagination.limit < assetData.totalCount,
-        has_prev: pagination.page > 1,
-      });
-    }
-  }, [assetData.totalCount, pagination.page, pagination.limit]);
-
-  // Reset pagination when filters change
-  useEffect(() => {
-    pagination.firstPage();
-  }, [selectedType, search.debouncedQuery, categories.selectedCategories]);
+  // Calculate derived pagination state from server data
+  const totalPages = Math.ceil(assetData.totalCount / pagination.limit);
+  const hasNext = pagination.page < totalPages;
+  const hasPrev = pagination.page > 1;
 
   // Handle asset type change
   const handleTypeChange = (type: AssetType) => {
     setSelectedType(type);
     search.clearQuery();
     categories.clearCategories();
-  };
-
-  // Handle search
-  const handleSearch = (query: string) => {
-    search.setQuery(query);
-  };
-
-  // Handle pagination
-  const handlePageChange = (page: number) => {
-    pagination.setPage(page);
+    pagination.reset();
   };
 
   // Get limited assets for compact view
@@ -112,13 +85,13 @@ export function useAssetBrowser(options: UseAssetBrowserOptions = {}) {
     categories: categories.categories,
     selectedCategories: categories.selectedCategories,
 
-    // Pagination
+    // Pagination (derived + local state)
     pagination: {
       page: pagination.page,
       limit: pagination.limit,
-      totalPages: pagination.totalPages,
-      hasNext: pagination.hasNext,
-      hasPrev: pagination.hasPrev,
+      totalPages,
+      hasNext,
+      hasPrev,
     },
 
     // Selection
@@ -126,7 +99,7 @@ export function useAssetBrowser(options: UseAssetBrowserOptions = {}) {
 
     // Actions
     setType: handleTypeChange,
-    setSearch: handleSearch,
+    setSearch: search.setQuery,
     clearSearch: search.clearQuery,
 
     // Category actions
@@ -137,11 +110,11 @@ export function useAssetBrowser(options: UseAssetBrowserOptions = {}) {
     clearCategories: categories.clearCategories,
 
     // Pagination actions
-    setPage: handlePageChange,
-    nextPage: pagination.nextPage,
-    prevPage: pagination.prevPage,
+    setPage: pagination.setPage,
+    nextPage: hasNext ? pagination.nextPage : () => {},
+    prevPage: hasPrev ? pagination.prevPage : () => {},
     firstPage: pagination.firstPage,
-    lastPage: pagination.lastPage,
+    lastPage: () => pagination.lastPage(totalPages),
 
     // Selection actions
     selectAsset: selection.selectAsset,
@@ -149,10 +122,6 @@ export function useAssetBrowser(options: UseAssetBrowserOptions = {}) {
 
     // Utility actions
     refresh: assetData.refresh,
-    clearError: () => {
-      assetData.clearError();
-      categories.clearError();
-    },
 
     // Utility methods
     getLimitedAssets,
@@ -165,17 +134,3 @@ export { useAssetSearch } from "./useAssetSearch";
 export { useAssetPagination } from "./useAssetPagination";
 export { useAssetCategories } from "./useAssetCategories";
 export { useAssetSelection } from "./useAssetSelection";
-
-// Re-export types
-export type {
-  AssetDataState,
-  AssetDataOptions,
-  SearchState,
-  SearchOptions,
-  PaginationState,
-  PaginationOptions,
-  CategoriesState,
-  CategoriesOptions,
-  SelectionState,
-  SelectionOptions,
-} from "@/lib/types/assetBrowser";

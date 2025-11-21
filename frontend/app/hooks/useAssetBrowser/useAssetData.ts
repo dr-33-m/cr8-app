@@ -1,9 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
-import { polyhavenService } from "@/lib/services/polyhavenService";
-import {
-  AssetType,
+import { useQuery } from "@tanstack/react-query";
+import { createAssetsPaginatedQueryOptions } from "@/server/query-manager/polyhaven";
+import type {
   PolyHavenAsset,
-  AssetDataState,
   AssetDataOptions,
 } from "@/lib/types/assetBrowser";
 
@@ -17,64 +15,39 @@ export function useAssetData(options: AssetDataOptions = {}) {
     enabled = true,
   } = options;
 
-  const [state, setState] = useState<AssetDataState>({
-    assets: [],
-    totalCount: 0,
-    loading: false,
-    error: undefined,
-  });
-
-  const loadAssets = useCallback(async () => {
-    if (!enabled) return;
-
-    setState((prev) => ({ ...prev, loading: true, error: undefined }));
-
-    try {
-      const response = await polyhavenService.getAssetsPaginated({
+  // Use React Query for server state management
+  const { data, isLoading, error, refetch } = useQuery(
+    createAssetsPaginatedQueryOptions(
+      {
         assetType,
         categories:
           categories && categories.length > 0 ? categories : undefined,
         page,
         limit,
         search: search?.trim() || undefined,
-      });
+      },
+      { enabled }
+    )
+  );
 
-      const assetArray = polyhavenService.convertAssetsToArray(response.assets);
+  // Transform response to match existing interface
+  const assets: Array<PolyHavenAsset & { id: string }> = data?.assets
+    ? Object.entries(data.assets).map(([id, asset]) => ({
+        ...asset,
+        id,
+      }))
+    : [];
 
-      setState({
-        assets: assetArray,
-        totalCount: response.pagination.total_count,
-        loading: false,
-        error: undefined,
-      });
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to load assets";
-      setState({
-        assets: [],
-        totalCount: 0,
-        loading: false,
-        error: errorMessage,
-      });
-    }
-  }, [assetType, categories, page, limit, search, enabled]);
-
-  const refresh = useCallback(() => {
-    loadAssets();
-  }, [loadAssets]);
-
-  const clearError = useCallback(() => {
-    setState((prev) => ({ ...prev, error: undefined }));
-  }, []);
-
-  // Auto-load when dependencies change
-  useEffect(() => {
-    loadAssets();
-  }, [loadAssets]);
+  const totalCount = data?.pagination.total_count ?? 0;
 
   return {
-    ...state,
-    refresh,
-    clearError,
+    // State
+    assets,
+    totalCount,
+    loading: isLoading,
+    error: error instanceof Error ? error.message : null,
+
+    // Actions
+    refresh: refetch,
   };
 }

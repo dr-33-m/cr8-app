@@ -1,101 +1,66 @@
-import { useState, useCallback, useEffect } from "react";
-import { polyhavenService } from "@/lib/services/polyhavenService";
-import {
-  AssetType,
-  CategoriesResponse,
-  CategoriesState,
-  CategoriesOptions,
-} from "@/lib/types/assetBrowser";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { createCategoriesQueryOptions } from "@/server/query-manager/polyhaven";
+import type { AssetType, CategoriesOptions } from "@/lib/types/assetBrowser";
 
 export function useAssetCategories(options: CategoriesOptions = {}) {
   const { assetType, initialCategories = [], enabled = true } = options;
 
-  const [state, setState] = useState<CategoriesState>({
-    categories: {},
-    selectedCategories: initialCategories,
-    loading: false,
-    error: undefined,
-  });
+  // UI state for selected categories (managed locally)
+  const [selectedCategories, setSelectedCategories] =
+    useState<string[]>(initialCategories);
 
-  const loadCategories = useCallback(async () => {
-    if (!enabled || !assetType) return;
+  // Server state for available categories (managed by React Query)
+  // Only destructure what you need to avoid unnecessary re-renders
+  const {
+    data: categories = {},
+    isLoading,
+    error,
+    refetch,
+  } = useQuery(
+    createCategoriesQueryOptions(assetType as AssetType, undefined, {
+      enabled: enabled && !!assetType,
+    })
+  );
 
-    setState((prev) => ({ ...prev, loading: true, error: undefined }));
+  // These don't need useCallback since they don't depend on any props/state
+  // and setSelectedCategories is stable
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  };
 
-    try {
-      const categoriesData = await polyhavenService.getCategories(assetType);
-      setState((prev) => ({
-        ...prev,
-        categories: categoriesData,
-        loading: false,
-        error: undefined,
-      }));
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to load categories";
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: errorMessage,
-      }));
-    }
-  }, [assetType, enabled]);
+  const addCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category) ? prev : [...prev, category]
+    );
+  };
 
-  const toggleCategory = useCallback((category: string) => {
-    setState((prev) => ({
-      ...prev,
-      selectedCategories: prev.selectedCategories.includes(category)
-        ? prev.selectedCategories.filter((c) => c !== category)
-        : [...prev.selectedCategories, category],
-    }));
-  }, []);
+  const removeCategory = (category: string) => {
+    setSelectedCategories((prev) => prev.filter((c) => c !== category));
+  };
 
-  const addCategory = useCallback((category: string) => {
-    setState((prev) => ({
-      ...prev,
-      selectedCategories: prev.selectedCategories.includes(category)
-        ? prev.selectedCategories
-        : [...prev.selectedCategories, category],
-    }));
-  }, []);
+  const clearCategories = () => {
+    setSelectedCategories([]);
+  };
 
-  const removeCategory = useCallback((category: string) => {
-    setState((prev) => ({
-      ...prev,
-      selectedCategories: prev.selectedCategories.filter((c) => c !== category),
-    }));
-  }, []);
-
-  const setCategories = useCallback((categories: string[]) => {
-    setState((prev) => ({ ...prev, selectedCategories: categories }));
-  }, []);
-
-  const clearCategories = useCallback(() => {
-    setState((prev) => ({ ...prev, selectedCategories: [] }));
-  }, []);
-
-  const clearError = useCallback(() => {
-    setState((prev) => ({ ...prev, error: undefined }));
-  }, []);
-
-  // Auto-load categories when asset type changes
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
-
-  // Reset selected categories when asset type changes
-  useEffect(() => {
-    setState((prev) => ({ ...prev, selectedCategories: [] }));
-  }, [assetType]);
-
+  // Return a stable object structure
   return {
-    ...state,
+    // State
+    categories,
+    selectedCategories,
+    loading: isLoading,
+    error: error instanceof Error ? error.message : null,
+
+    // Actions
     toggleCategory,
     addCategory,
     removeCategory,
-    setCategories,
+    setCategories: setSelectedCategories,
     clearCategories,
-    clearError,
-    refresh: loadCategories,
+    refresh: refetch,
   };
 }
