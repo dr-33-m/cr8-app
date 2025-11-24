@@ -16,10 +16,11 @@ import {
   isSocketMessage,
   isResponsePayload,
 } from "@/lib/types/websocket";
-import useSceneContextStore from "@/store/sceneContextStore";
 import useInboxStore from "@/store/inboxStore";
 import { toast } from "sonner";
 import { Socket } from "socket.io-client";
+import { useQueryClient } from "@tanstack/react-query";
+import { sceneContextKeys } from "@/websocket/query-manager/scene-context";
 
 type ConnectionState =
   | "disconnected" // Not connected
@@ -53,6 +54,7 @@ export function WebSocketProvider({
   children,
   onMessage,
 }: WebSocketProviderProps) {
+  const queryClient = useQueryClient();
   const [blenderConnected, setBlenderConnected] = useState(false);
   const [contextUpdateSent, setContextUpdateSent] = useState(false);
   const [sessionCreated, setSessionCreated] = useState(false);
@@ -104,7 +106,7 @@ export function WebSocketProvider({
           setBlenderConnected(false);
           setConnectionState("blender_disconnected");
           // Clear scene context when Blender disconnects
-          useSceneContextStore.getState().clearSceneObjects();
+          queryClient.setQueryData(sceneContextKeys.objects(), null);
           // Reset context update flag so it triggers on next connection
           setContextUpdateSent(false);
           if (isResponsePayload(payload)) {
@@ -127,11 +129,18 @@ export function WebSocketProvider({
             const hasFirstName = payload.data?.data?.[0]?.name;
 
             if (hasData && isArray && hasLength && hasFirstName) {
-              const objects = payload.data.data;
-              const timestamp = Math.floor(Date.now() / 1000); // Store as seconds to match component expectations
-              useSceneContextStore
-                .getState()
-                .setSceneObjects(objects, timestamp);
+              // ✅ Scenario A: Command had refresh_context=true
+              // Use setQueryData (no refetch, immutable update)
+              queryClient.setQueryData(sceneContextKeys.objects(), {
+                objects: payload.data.data,
+                timestamp: Math.floor(Date.now() / 1000),
+              });
+            } else {
+              // ✅ Scenario B: Command didn't refresh context
+              // Use invalidateQueries (triggers refetch)
+              queryClient.invalidateQueries({
+                queryKey: sceneContextKeys.objects(),
+              });
             }
             // Remove toast.success completely - direct commands have visual feedback
             // Only agent commands should send success responses if needed
@@ -186,7 +195,7 @@ export function WebSocketProvider({
     console.log("Performing cleanup after 5 minutes of server downtime");
 
     // Clear application state
-    useSceneContextStore.getState().clearSceneObjects();
+    queryClient.setQueryData(sceneContextKeys.objects(), null);
     useInboxStore.getState().clearAll();
 
     // Update connection state
@@ -199,7 +208,7 @@ export function WebSocketProvider({
     toast.error("Server unavailable for 5+ minutes. Session cleared.", {
       duration: 10000,
     });
-  }, []);
+  }, [queryClient]);
 
   const wsHook = useSocketIO((data: any) => {
     // Process message first

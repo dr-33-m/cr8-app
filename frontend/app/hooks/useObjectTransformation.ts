@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { TransformValue, TransformMode } from "@/lib/types/transformation";
 import { hasValuesChanged } from "@/lib/utils";
-import useSceneContextStore from "@/store/sceneContextStore";
+import { useSceneContext } from "@/hooks/useSceneContext";
 
 import { UseObjectTransformationProps } from "@/lib/types/transformation";
 
@@ -12,10 +12,9 @@ export function useObjectTransformation({
   objectName,
   onTransformChange,
 }: UseObjectTransformationProps) {
-  // Get the current object from scene context store
-  const sceneObject = useSceneContextStore((state) =>
-    state.getObjectByName(objectName)
-  );
+  // Get the current object from scene context
+  const { getObjectByName } = useSceneContext();
+  const sceneObject = getObjectByName(objectName);
 
   // Initialize state with actual object transform values
   const [move, setMove] = useState<TransformValue>({

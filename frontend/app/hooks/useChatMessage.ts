@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import useInboxStore from "@/store/inboxStore";
-import useSceneContextStore from "@/store/sceneContextStore";
+import { useSceneContext } from "@/hooks/useSceneContext";
 
 import { MentionData } from "@/lib/types/bottomControls";
 
@@ -13,7 +13,7 @@ export function useChatMessage() {
   const { sendMessage: wsSendMessage, isFullyConnected } =
     useWebSocketContext();
   const inboxStore = useInboxStore();
-  const sceneObjects = useSceneContextStore((state) => state.objects);
+  const { objects: sceneObjects } = useSceneContext();
 
   // Parse mentions from react-mentions markup format
   const parseMentions = useCallback(

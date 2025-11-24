@@ -10,9 +10,9 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
-import useSceneContextStore from "@/store/sceneContextStore";
 import { ObjectTransformationPopover } from "@/components/creative-workspace/object-transformation";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
+import { useSceneContext } from "@/hooks/useSceneContext";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/placeholders/EmptyState";
@@ -22,7 +22,7 @@ export function SceneControls() {
   const toggleVisibility = useVisibilityStore(
     (state) => state.toggleSceneControls
   );
-  const { objects, timestamp } = useSceneContextStore();
+  const { objects, timestamp } = useSceneContext();
   const { sendMessage, isFullyConnected, connectionState } =
     useWebSocketContext();
 

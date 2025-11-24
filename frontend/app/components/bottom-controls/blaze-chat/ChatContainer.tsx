@@ -1,6 +1,6 @@
 import { useChatMessage } from "@/hooks/useChatMessage";
 import useInboxStore from "@/store/inboxStore";
-import useSceneContextStore from "@/store/sceneContextStore";
+import { useSceneContext } from "@/hooks/useSceneContext";
 import { ChatInput } from "./ChatInput";
 import { ChatActions } from "./ChatActions";
 import {
@@ -13,7 +13,7 @@ export function BlazeChat() {
     useChatMessage();
 
   const inboxItems = useInboxStore((state) => state.items);
-  const sceneObjects = useSceneContextStore((state) => state.objects);
+  const { objects: sceneObjects } = useSceneContext();
 
   // Prepare inbox mentions (primary color)
   const inboxMentions = inboxItems.map((item) => ({
