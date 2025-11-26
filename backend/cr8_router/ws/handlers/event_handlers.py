@@ -40,8 +40,44 @@ def register_event_handlers(handler):
 
                 # Send registry update
                 send_registry_update(handler.sio)
+                
+                # Start WebRTC streaming
+                start_streaming()
             except Exception as e:
                 logger.error(f"Error in on_connect: {e}")
+
+        def start_streaming():
+            """Start WebRTC viewport streaming with dynamic producer ID"""
+            try:
+                import bpy
+                import os
+                
+                username = os.environ.get("CR8_USERNAME")
+                signaller_uri = os.environ.get("CR8_SIGNALLER_URI", "ws://127.0.0.1:8443")
+                
+                if not username:
+                    logger.error("CR8_USERNAME not set, cannot start streaming")
+                    return
+                
+                producer_id = f"blender-{username}"
+                
+                logger.info(f"Starting WebRTC streaming with producer_id: {producer_id}")
+                
+                # Configure streaming
+                bpy.app.streaming.configure(
+                    producer_id=producer_id,
+                    signaller_uri=signaller_uri,
+                    width=1920,
+                    height=1080,
+                    fps=30
+                )
+                
+                # Start streaming
+                bpy.app.streaming.start()
+                
+                logger.info(f"WebRTC streaming started successfully for {username}")
+            except Exception as e:
+                logger.error(f"Failed to start WebRTC streaming: {e}")
 
         execute_in_main_thread(send_init_message, ())
 
@@ -51,6 +87,14 @@ def register_event_handlers(handler):
         logger.info(f"Disconnected from server: {reason}")
         handler.processing_complete.set()
         handler.processing_commands.clear()
+        
+        # Stop WebRTC streaming
+        try:
+            if bpy.app.streaming.is_active():
+                bpy.app.streaming.stop()
+                logger.info("WebRTC streaming stopped on disconnect")
+        except Exception as e:
+            logger.error(f"Failed to stop WebRTC streaming: {e}")
         
         # Start 5-minute cleanup timer when server disconnects
         # We use a Blender timer to check reconnection status instead of time.sleep()

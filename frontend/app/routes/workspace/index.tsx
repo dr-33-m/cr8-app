@@ -7,6 +7,7 @@ import { BottomControls } from "@/components/bottom-controls";
 import { SceneViewPort } from "@/components/creative-workspace/SceneViewPort";
 import { useWebRTCStream } from "@/hooks/useWebRTCStream";
 import { AssetBrowser } from "@/components/creative-workspace/asset-browser/AssetBrowser";
+import useUserStore from "@/store/userStore";
 
 export const Route = createFileRoute("/workspace/")({
   component: RouteComponent,
@@ -21,7 +22,9 @@ function RouteComponent() {
 }
 
 function WorkspaceContent() {
-  const { videoRef, isConnected } = useWebRTCStream();
+  const username = useUserStore((state) => state.username);
+  const producerId = username ? `blender-${username}` : null;
+  const { videoRef, isConnected } = useWebRTCStream(producerId);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">

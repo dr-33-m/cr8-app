@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
-const PRODUCER_ID = import.meta.env.VITE_WEBRTC_PRODUCER_ID;
 const SIGNALLING_SERVER_URL = import.meta.env.VITE_WEBRTC_SIGNALING_SERVER_URL;
 
 import { ConnectionListener, PeerListener, Peer } from "@/lib/types/websocket";
 
-export function useWebRTCStream() {
+export function useWebRTCStream(producerId: string | null) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -141,10 +140,10 @@ export function useWebRTCStream() {
         connected: (clientId: string) => {
           console.info("Connected to WebRTC signaling server");
 
-          if (webrtcApi.current) {
+          if (webrtcApi.current && producerId) {
             const producers = webrtcApi.current.getAvailableProducers();
             const producer = producers.find(
-              (p: Peer) => p.meta.name === PRODUCER_ID
+              (p: Peer) => p.meta.name === producerId
             );
             if (producer) {
               connectToProducer(producer.id);
@@ -160,12 +159,12 @@ export function useWebRTCStream() {
 
       const peerListener: PeerListener = {
         producerAdded: (producer: Peer) => {
-          if (producer.meta.name === PRODUCER_ID) {
+          if (producerId && producer.meta.name === producerId) {
             connectToProducer(producer.id);
           }
         },
         producerRemoved: (producer: Peer) => {
-          if (producer.meta.name === PRODUCER_ID) {
+          if (producerId && producer.meta.name === producerId) {
             setIsConnected(false);
           }
         },
@@ -188,7 +187,7 @@ export function useWebRTCStream() {
         webrtcApi.current = null;
       }
     };
-  }, [isClient, connectToProducer]); // Minimal dependencies
+  }, [isClient, producerId, connectToProducer]); // Include producerId in dependencies
 
   return { videoRef, isConnected, isConnecting };
 }

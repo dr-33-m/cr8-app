@@ -139,6 +139,7 @@ class BlenderService:
             env = os.environ.copy()
             env["WS_URL"] = "http://localhost:8000"
             env["CR8_USERNAME"] = username
+            env["CR8_SIGNALLER_URI"] = os.getenv("SIGNALLER_URI", "ws://127.0.0.1:8443")
 
             # Open log file to capture Blender's output
             log_file_path = Path.cwd() / "blender_instance.log"
