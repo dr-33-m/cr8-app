@@ -58,20 +58,32 @@ class SessionHandlersMixin:
             )
             await self.emit(MessageType.SESSION_READY.value, launching_msg.to_dict(), to=sid)
             
-            # Launch Blender instance
-            success = await BlenderService.launch_instance(username, blend_file)
-            
-            if not success:
-                self.logger.error(f"Failed to launch Blender for {username}")
-                error_msg = create_error_response(
-                    error_code='EXECUTION_FAILED',
-                    user_message='Failed to launch Blender instance',
-                    technical_message='BlenderService.launch_instance returned False',
-                    message_id=generate_message_id(),
-                    source='backend',
-                    route='direct'
+            # Create a callback that forwards VastAI instance status to the browser
+            async def instance_status_callback(status: str, elapsed: int):
+                status_msg = create_system_message(
+                    message_type=MessageType.INSTANCE_STATUS,
+                    status=status,
+                    message=f"GPU instance {status}",
+                    data={"elapsed": elapsed},
+                    source='backend'
                 )
-                await self.emit(MessageType.EXECUTION_ERROR.value, error_msg.to_dict(), to=sid)
+                await self.emit(MessageType.INSTANCE_STATUS.value, status_msg.to_dict(), to=sid)
+
+            # Launch Blender instance
+            result = await BlenderService.launch_instance(username, blend_file, status_callback=instance_status_callback)
+
+            if result != "success":
+                reason = result or "unknown"
+                self.logger.error(f"Failed to launch Blender for {username}: {reason}")
+                # Send typed INSTANCE_STATUS error so frontend can show specific message
+                error_status_msg = create_system_message(
+                    message_type=MessageType.INSTANCE_STATUS,
+                    status="error",
+                    message=f"Failed to launch: {reason}",
+                    data={"reason": reason, "recoverable": reason != "no_gpu"},
+                    source='backend'
+                )
+                await self.emit(MessageType.INSTANCE_STATUS.value, error_status_msg.to_dict(), to=sid)
                 session['state'] = 'error'
                 await self.save_session(sid, session)
                 return
@@ -84,12 +96,41 @@ class SessionHandlersMixin:
             
         except Exception as e:
             self.logger.error(f"Error in browser_ready: {str(e)}")
-            error_msg = create_error_response(
-                error_code='EXECUTION_FAILED',
-                user_message='Error launching Blender',
-                technical_message=str(e),
-                message_id=generate_message_id(),
-                source='backend',
-                route='direct'
+            # Send typed error status so frontend shows actionable UI
+            error_status_msg = create_system_message(
+                message_type=MessageType.INSTANCE_STATUS,
+                status="error",
+                message=str(e),
+                data={"reason": "unknown", "recoverable": True},
+                source='backend'
             )
-            await self.emit(MessageType.EXECUTION_ERROR.value, error_msg.to_dict(), to=sid)
+            await self.emit(MessageType.INSTANCE_STATUS.value, error_status_msg.to_dict(), to=sid)
+
+    async def on_cancel_launch(self, sid: str, data: Optional[Dict] = None):
+        """Handle cancel launch request from the browser."""
+        try:
+            session = await self.get_session(sid)
+            if not session:
+                return
+
+            username = session['username']
+            self.logger.info(f"Cancel launch requested by {username}")
+
+            # Release user assignment (kills Blender if running, removes from instance)
+            await BlenderService.terminate_instance(username)
+
+            # Send cancelled status to browser
+            cancelled_msg = create_system_message(
+                message_type=MessageType.INSTANCE_STATUS,
+                status="cancelled",
+                message="Launch cancelled",
+                data={"reason": "user_cancelled"},
+                source='backend'
+            )
+            await self.emit(MessageType.INSTANCE_STATUS.value, cancelled_msg.to_dict(), to=sid)
+
+            session['state'] = 'cancelled'
+            await self.save_session(sid, session)
+
+        except Exception as e:
+            self.logger.error(f"Error in cancel_launch: {str(e)}")

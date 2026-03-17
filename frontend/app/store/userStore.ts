@@ -9,11 +9,13 @@ const useUserStore = create<UserStoreState>()(
       blendFolderPath: "",
       selectedBlendFile: "",
       fullBlendFilePath: "",
+      isEmptyProject: false,
       _hasHydrated: false,
       setUsername: (username) => set({ username }),
       setBlendFolder: (path) => set({ blendFolderPath: path }),
       setSelectedBlendFile: (filename, fullPath) =>
         set({ selectedBlendFile: filename, fullBlendFilePath: fullPath }),
+      setEmptyProject: (value) => set({ isEmptyProject: value }),
       clearBlendSelection: () =>
         set({
           blendFolderPath: "",
@@ -26,6 +28,7 @@ const useUserStore = create<UserStoreState>()(
           blendFolderPath: "",
           selectedBlendFile: "",
           fullBlendFilePath: "",
+          isEmptyProject: false,
         }),
     }),
     {

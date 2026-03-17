@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+docker/
+dist/
+*.egg-info/
+.pytest_cache/
+TEMPLATE_SETUP.md

@@ -25,7 +25,7 @@ const WorkspaceIndexRoute = WorkspaceIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/workspace': typeof WorkspaceIndexRoute
+  '/workspace/': typeof WorkspaceIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -38,7 +38,7 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/workspace'
+  fullPaths: '/' | '/workspace/'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/workspace'
   id: '__root__' | '/' | '/workspace/'
@@ -61,7 +61,7 @@ declare module '@tanstack/react-router' {
     '/workspace/': {
       id: '/workspace/'
       path: '/workspace'
-      fullPath: '/workspace'
+      fullPath: '/workspace/'
       preLoaderRoute: typeof WorkspaceIndexRouteImport
       parentRoute: typeof rootRouteImport
     }

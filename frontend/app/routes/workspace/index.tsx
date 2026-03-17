@@ -8,6 +8,7 @@ import { SceneViewPort } from "@/components/creative-workspace/SceneViewPort";
 import { useWebRTCStream } from "@/hooks/useWebRTCStream";
 import { AssetBrowser } from "@/components/creative-workspace/asset-browser/AssetBrowser";
 import useUserStore from "@/store/userStore";
+import { useWebSocketContext } from "@/contexts/WebSocketContext";
 
 export const Route = createFileRoute("/workspace/")({
   component: RouteComponent,
@@ -25,11 +26,18 @@ function WorkspaceContent() {
   const username = useUserStore((state) => state.username);
   const producerId = username ? `blender-${username}` : null;
   const { videoRef, isConnected } = useWebRTCStream(producerId);
+  const { instanceStatus, cancelLaunch, reconnect } = useWebSocketContext();
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
       <PreviewWindow>
-        <SceneViewPort videoRef={videoRef} isConnected={isConnected} />
+        <SceneViewPort
+          videoRef={videoRef}
+          isConnected={isConnected}
+          instanceStatus={instanceStatus}
+          cancelLaunch={cancelLaunch}
+          onRetry={reconnect}
+        />
       </PreviewWindow>
 
       <ControlsOverlay>

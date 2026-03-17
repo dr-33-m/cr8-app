@@ -9,6 +9,8 @@ import { BlazeChat } from "./blaze-chat";
 import { AnimationControls } from "./AnimationControls";
 import { Navigation } from "./Navigation/Navigation";
 import { BottomControlsProps } from "@/lib/types/bottomControls";
+import { formatElapsed, ERROR_REASONS } from "@/lib/studioLoadingMessages";
+import { useLaunchTimerStore } from "@/store/launchTimerStore";
 
 export function BottomControls({ children }: BottomControlsProps) {
   const isVisible = useVisibilityStore(
@@ -17,6 +19,7 @@ export function BottomControls({ children }: BottomControlsProps) {
   const onToggleVisibility = useVisibilityStore(
     (state) => state.toggleBottomControls
   );
+  const elapsed = useLaunchTimerStore((state) => state.elapsed);
 
   const {
     status,
@@ -24,6 +27,8 @@ export function BottomControls({ children }: BottomControlsProps) {
     isFullyConnected,
     connectionState,
     isHealthCheckInProgress,
+    instanceStatus,
+    cancelLaunch,
   } = useWebSocketContext();
 
   return (
@@ -134,6 +139,47 @@ export function BottomControls({ children }: BottomControlsProps) {
               {/* Row 3: Animation Controls - Spans all 3 columns */}
               <AnimationControls />
             </>
+          ) : instanceStatus?.phase === "error" ? (
+            <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-3">
+              <div className="text-center">
+                <p className="text-destructive font-medium text-sm">
+                  {ERROR_REASONS[instanceStatus.error?.reason ?? "unknown"] ?? ERROR_REASONS.unknown}
+                </p>
+              </div>
+              {instanceStatus.error?.recoverable !== false && (
+                <Button variant="secondary" size="sm" onClick={reconnect}>
+                  Try Again
+                </Button>
+              )}
+            </div>
+          ) : instanceStatus?.phase === "cancelled" ? (
+            <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-3">
+              <p className="text-muted-foreground font-medium text-sm">
+                Launch cancelled
+              </p>
+              <Button variant="secondary" size="sm" onClick={reconnect}>
+                Relaunch
+              </Button>
+            </div>
+          ) : instanceStatus ? (
+            <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-3">
+              <div className="text-center">
+                <p className="text-muted-foreground font-medium text-sm">
+                  Setting up your studio...
+                </p>
+                <p className="text-muted-foreground text-xs mt-1">
+                  {formatElapsed(elapsed)} elapsed
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={cancelLaunch}
+              >
+                Cancel
+              </Button>
+            </div>
           ) : (
             <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-2">
               <p className="text-muted-foreground text-sm">

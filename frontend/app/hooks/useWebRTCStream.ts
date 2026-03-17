@@ -1,8 +1,54 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 const SIGNALLING_SERVER_URL = import.meta.env.VITE_WEBRTC_SIGNALING_SERVER_URL;
+const TURN_SERVER_URL = import.meta.env.VITE_TURN_SERVER;
 
 import { ConnectionListener, PeerListener, Peer } from "@/lib/types/websocket";
+
+/**
+ * Parse a TURN URL (turn://username:password@host:port) into RTCIceServer format.
+ * The password in the TURN URL is already URL-encoded, so we decode it for the browser.
+ */
+function parseTurnUrl(turnUrl: string): RTCIceServer | null {
+  try {
+    const parsed = new URL(turnUrl);
+    if (parsed.protocol !== "turn:") {
+      console.warn("Non-TURN URL provided, skipping:", parsed.protocol);
+      return null;
+    }
+
+    return {
+      urls: `turn:${parsed.hostname}:${parsed.port}`,
+      username: parsed.username,
+      credential: decodeURIComponent(parsed.password),
+    };
+  } catch (error) {
+    console.error("Failed to parse TURN URL:", error);
+    return null;
+  }
+}
+
+/**
+ * Build ICE servers config for WebRTC, including STUN and optional TURN.
+ */
+function buildIceServers(): RTCIceServer[] {
+  const iceServers: RTCIceServer[] = [
+    // Google's public STUN server - free and reliable for direct UDP connections
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ];
+
+  // Add TURN server if configured - needed for NAT traversal on VastAI
+  if (TURN_SERVER_URL) {
+    const turnServer = parseTurnUrl(TURN_SERVER_URL);
+    if (turnServer) {
+      iceServers.push(turnServer);
+      console.info("TURN server configured for ICE relay");
+    }
+  }
+
+  return iceServers;
+}
 
 export function useWebRTCStream(producerId: string | null) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -129,11 +175,17 @@ export function useWebRTCStream(producerId: string | null) {
     const setupWebRTC = () => {
       if (!GstWebRTCAPIRef.current || webrtcApi.current) return;
 
+      const iceServers = buildIceServers();
+      console.info(
+        "Initializing WebRTC with ICE servers:",
+        iceServers.map((s) => s.urls),
+      );
+
       webrtcApi.current = new GstWebRTCAPIRef.current({
         meta: {},
         signalingServerUrl: SIGNALLING_SERVER_URL,
         reconnectionTimeout: 5000,
-        webrtcConfig: {},
+        webrtcConfig: { iceServers },
       });
 
       const connectionListener: ConnectionListener = {
@@ -143,7 +195,7 @@ export function useWebRTCStream(producerId: string | null) {
           if (webrtcApi.current && producerId) {
             const producers = webrtcApi.current.getAvailableProducers();
             const producer = producers.find(
-              (p: Peer) => p.meta.name === producerId
+              (p: Peer) => p.meta.name === producerId,
             );
             if (producer) {
               connectToProducer(producer.id);

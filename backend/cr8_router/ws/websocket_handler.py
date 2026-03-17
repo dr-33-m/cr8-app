@@ -79,6 +79,8 @@ class WebSocketHandler:
             )
 
         # Create Socket.IO client
+        # request_timeout=30 overrides the 5s default — Cloudflare/reverse proxies
+        # can add latency on the initial polling handshake from VastAI instances.
         self.sio = socketio.Client(
             logger=True,
             engineio_logger=True,
@@ -86,7 +88,8 @@ class WebSocketHandler:
             reconnection_attempts=5,
             reconnection_delay=2,
             reconnection_delay_max=10,
-            handle_sigint=False
+            handle_sigint=False,
+            request_timeout=30
         )
 
         # Register event handlers
@@ -105,6 +108,7 @@ class WebSocketHandler:
                 connection_url,
                 namespaces=['/blender'],
                 socketio_path='/ws/socket.io/',
+                transports=['websocket'],
                 auth={
                     'username': self.username,
                     'blend_file_path': bpy.data.filepath

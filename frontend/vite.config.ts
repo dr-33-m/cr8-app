@@ -4,6 +4,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
 import viteReact from "@vitejs/plugin-react";
 import { devtools } from "@tanstack/devtools-vite";
+import { nitro } from "nitro/vite";
 
 export default defineConfig({
   server: {
@@ -14,6 +15,7 @@ export default defineConfig({
       projects: ["./tsconfig.json"],
     }),
     tanstackStart({ srcDirectory: "./app" }),
+    nitro(),
     viteReact(),
     tailwindcss(),
     devtools(),

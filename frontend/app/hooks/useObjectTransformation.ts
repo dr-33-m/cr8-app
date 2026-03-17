@@ -46,6 +46,11 @@ export function useObjectTransformation({
     scale: { x: 1, y: 1, z: 1 },
   });
 
+  // RAF ref for throttling — collapses rapid slider events into one command per
+  // animation frame (~16ms). No useEffect needed: cancelAnimationFrame on an
+  // already-fired or null RAF is a safe no-op.
+  const rafRef = useRef<number | null>(null);
+
   // Reinitialize state when objectName changes
   useEffect(() => {
     if (sceneObject) {
@@ -107,37 +112,46 @@ export function useObjectTransformation({
     switch (mode) {
       case "move":
         setMove(values);
-        // Only send command if values actually changed
         if (hasValuesChanged(values, lastSentValues.current.move)) {
           lastSentValues.current.move = { ...values };
-          sendTransformCommand("transform_translate", {
-            value_x: values.x,
-            value_y: values.y,
-            value_z: values.z,
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = null;
+            sendTransformCommand("transform_translate", {
+              value_x: values.x,
+              value_y: values.y,
+              value_z: values.z,
+            });
           });
         }
         break;
       case "rotate":
         setRotate(values);
-        // Only send command if values actually changed
         if (hasValuesChanged(values, lastSentValues.current.rotate)) {
           lastSentValues.current.rotate = { ...values };
-          sendTransformCommand("transform_rotate", {
-            value_x: values.x,
-            value_y: values.y,
-            value_z: values.z,
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = null;
+            sendTransformCommand("transform_rotate", {
+              value_x: values.x,
+              value_y: values.y,
+              value_z: values.z,
+            });
           });
         }
         break;
       case "scale":
         setScale(values);
-        // Only send command if values actually changed
         if (hasValuesChanged(values, lastSentValues.current.scale)) {
           lastSentValues.current.scale = { ...values };
-          sendTransformCommand("transform_resize", {
-            value_x: values.x,
-            value_y: values.y,
-            value_z: values.z,
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = null;
+            sendTransformCommand("transform_resize", {
+              value_x: values.x,
+              value_y: values.y,
+              value_z: values.z,
+            });
           });
         }
         break;

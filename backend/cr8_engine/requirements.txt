@@ -14,3 +14,6 @@ psutil
 # B.L.A.Z.E Agent dependencies
 pydantic-ai
 mcp
+
+# VastAI GPU instance management (via REST API)
+asyncssh

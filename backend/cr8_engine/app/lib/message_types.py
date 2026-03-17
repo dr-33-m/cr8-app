@@ -36,6 +36,7 @@ class MessageType(str, Enum):
     REGISTRY_UPDATED = "registry_updated"
     SCENE_CONTEXT_UPDATED = "scene_context_updated"
     INBOX_CLEARED = "inbox_cleared"
+    INSTANCE_STATUS = "instance_status"
     
     # Errors
     CONNECTION_ERROR = "connection_error"

@@ -209,6 +209,7 @@ export const useSocketIO = (
       const eventTypes = [
         MessageType.SESSION_CREATED,
         MessageType.SESSION_READY,
+        MessageType.INSTANCE_STATUS,
         MessageType.BLENDER_CONNECTED,
         MessageType.BLENDER_DISCONNECTED,
         MessageType.COMMAND_COMPLETED,

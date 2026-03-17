@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Socket } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { sceneContextKeys } from "@/websocket/query-manager/scene-context";
+import { useLaunchTimerStore } from "@/store/launchTimerStore";
 
 type ConnectionState =
   | "disconnected" // Not connected
@@ -30,6 +31,17 @@ type ConnectionState =
   | "server_unavailable" // Server down for 5+ minutes
   | "reconnecting"; // Attempting reconnect
 
+export interface InstanceStatusError {
+  reason: string;      // "timeout" | "ssh_failed" | "blender_failed" | "no_gpu" | "unknown"
+  recoverable: boolean;
+}
+
+export interface InstanceStatus {
+  phase: string;   // "created" | "loading" | "running" | "error" | "cancelled"
+  elapsed: number; // seconds since launch started
+  error?: InstanceStatusError; // present when phase === "error"
+}
+
 interface WebSocketContextType {
   status: WebSocketStatus;
   socket: Socket | null;
@@ -38,6 +50,8 @@ interface WebSocketContextType {
   isFullyConnected: boolean;
   connectionState: ConnectionState;
   isHealthCheckInProgress: boolean;
+  instanceStatus: InstanceStatus | null;
+  cancelLaunch: () => void;
   reconnect: () => void;
   disconnect: () => void;
   sendMessage: (message: WebSocketMessage) => void;
@@ -61,6 +75,7 @@ export function WebSocketProvider({
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
   const [isHealthCheckInProgress, setIsHealthCheckInProgress] = useState(false);
+  const [instanceStatus, setInstanceStatus] = useState<InstanceStatus | null>(null);
 
   // Use refs for immediate state tracking to avoid race conditions
   const isReconnectionRef = useRef(false);
@@ -89,7 +104,47 @@ export function WebSocketProvider({
           }
           break;
 
+        case MessageType.INSTANCE_STATUS: {
+          const p = payload as any;
+          const phase: string = p.status ?? null;
+          const backendElapsed: number = p.data?.elapsed ?? 0;
+
+          if (phase) {
+            const newStatus: InstanceStatus = { phase, elapsed: backendElapsed };
+            if (phase === "error" && p.data?.reason) {
+              newStatus.error = {
+                reason: p.data.reason,
+                recoverable: p.data.recoverable ?? true,
+              };
+            }
+            setInstanceStatus(newStatus);
+
+            if (phase === "error" || phase === "cancelled") {
+              // Terminal — freeze and stop the timer.
+              useLaunchTimerStore.getState().stop();
+            } else if (phase === "retrying") {
+              // New instance about to start — reset anchor so elapsed restarts from 0.
+              useLaunchTimerStore.getState().stop();
+            } else {
+              useLaunchTimerStore.getState().seed(backendElapsed, phase);
+            }
+          } else if (p.data?.elapsed !== undefined) {
+            // Backend omits 'status' when actual_status is null (new instance first polls).
+            // Keep the timer running — backend fix handles this, but guard defensively.
+            useLaunchTimerStore.getState().seed(backendElapsed, "loading");
+          }
+          break;
+        }
+
         case MessageType.BLENDER_CONNECTED:
+          useLaunchTimerStore.getState().stop();
+          // Restart the message cycle for the blender_connected phase so the
+          // "connecting camera" messages animate. Elapsed is hidden for this phase.
+          useLaunchTimerStore.getState().seed(0, "blender_connected");
+          setInstanceStatus({
+            phase: "blender_connected",
+            elapsed: instanceStatus?.elapsed ?? 0,
+          });
           setBlenderConnected(true);
           setConnectionState("fully_connected");
           if (
@@ -103,6 +158,7 @@ export function WebSocketProvider({
           break;
 
         case MessageType.BLENDER_DISCONNECTED:
+          useLaunchTimerStore.getState().stop();
           setBlenderConnected(false);
           setConnectionState("blender_disconnected");
           // Clear scene context when Blender disconnects
@@ -129,19 +185,16 @@ export function WebSocketProvider({
             const hasFirstName = payload.data?.data?.[0]?.name;
 
             if (hasData && isArray && hasLength && hasFirstName) {
-              // ✅ Scenario A: Command had refresh_context=true
-              // Use setQueryData (no refetch, immutable update)
+              // Scenario A: response IS scene data — update cache directly, no refetch
               queryClient.setQueryData(sceneContextKeys.objects(), {
                 objects: payload.data.data,
                 timestamp: Math.floor(Date.now() / 1000),
               });
-            } else {
-              // ✅ Scenario B: Command didn't refresh context
-              // Use invalidateQueries (triggers refetch)
-              queryClient.invalidateQueries({
-                queryKey: sceneContextKeys.objects(),
-              });
             }
+            // Scenario B: non-scene commands (transforms, viewport changes, etc.)
+            // — do NOT invalidate. The 2-second polling handles scene sync.
+            // Calling invalidateQueries here caused burst-firing of list_scene_objects
+            // after every command, overwhelming the Blender socket.io client.
             // Remove toast.success completely - direct commands have visual feedback
             // Only agent commands should send success responses if needed
           }
@@ -195,6 +248,7 @@ export function WebSocketProvider({
     console.log("Performing cleanup after 5 minutes of server downtime");
 
     // Clear application state
+    useLaunchTimerStore.getState().stop();
     queryClient.setQueryData(sceneContextKeys.objects(), null);
     useInboxStore.getState().clearAll();
 
@@ -341,6 +395,13 @@ export function WebSocketProvider({
     wsHook.sendMessage,
   ]);
 
+  // Stop the launch timer when the workspace unmounts (navigation away).
+  useEffect(() => {
+    return () => {
+      useLaunchTimerStore.getState().stop();
+    };
+  }, []);
+
   // Handle logout disconnection
   useEffect(() => {
     const handleLogoutDisconnect = () => {
@@ -380,12 +441,24 @@ export function WebSocketProvider({
     }
   }, [wsHook.status, connectionState, checkServerHealth]);
 
+  const cancelLaunch = useCallback(() => {
+    if (wsHook.socket?.connected) {
+      wsHook.socket.emit("cancel_launch");
+      setInstanceStatus({
+        phase: "cancelled",
+        elapsed: instanceStatus?.elapsed ?? 0,
+      });
+    }
+  }, [wsHook.socket, instanceStatus]);
+
   const contextValue = {
     ...wsHook,
     blenderConnected,
     isFullyConnected: wsHook.isConnected && blenderConnected,
     connectionState,
     isHealthCheckInProgress,
+    instanceStatus,
+    cancelLaunch,
     reconnect,
   };
 
