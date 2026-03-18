@@ -4,6 +4,7 @@ import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { routeTree } from "./routeTree.gen";
 import { NotFound } from "@/components/NotFound";
+import type { AuthContext } from "@/lib/types/auth";
 
 export function getRouter() {
   const queryClient = new QueryClient();
@@ -31,5 +32,6 @@ declare module "@tanstack/react-router" {
 
   interface RouteContext {
     queryClient: QueryClient;
+    auth: AuthContext;
   }
 }

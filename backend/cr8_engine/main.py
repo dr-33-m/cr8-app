@@ -64,16 +64,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS settings
-class Settings:
-    ALLOWED_HOSTS = ["*"]
+# CORS settings — restrict to known origins
+import os
+_cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
 
-settings = Settings()
-
-# Set up CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_HOSTS,
+    allow_origins=[o.strip() for o in _cors_origins],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

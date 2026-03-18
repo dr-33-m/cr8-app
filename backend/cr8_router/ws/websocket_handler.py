@@ -110,6 +110,7 @@ class WebSocketHandler:
                 socketio_path='/ws/socket.io/',
                 transports=['websocket'],
                 auth={
+                    'token': os.environ.get('CR8_AUTH_TOKEN'),
                     'username': self.username,
                     'blend_file_path': bpy.data.filepath
                 },

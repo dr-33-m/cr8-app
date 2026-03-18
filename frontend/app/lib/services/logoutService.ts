@@ -1,7 +1,10 @@
-import { useNavigate } from "@tanstack/react-router";
 import useUserStore from "@/store/userStore";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import { toast } from "sonner";
+import { signOutFn } from "@/server/auth/functions";
+import { useNavigate } from "@tanstack/react-router";
+
+const isRemoteMode = import.meta.env.VITE_LAUNCH_MODE === "remote";
 
 /**
  * Comprehensive logout service that clears all persisted states
@@ -24,47 +27,34 @@ export class LogoutService {
    * - Resetting all Zustand stores
    * - Clearing localStorage entries
    * - Disconnecting WebSocket connections
-   * - Navigating to home page
+   * - Redirecting (Logto sign-out in remote mode, navigate home in local mode)
+   *
+   * Note: For local mode, use the useLogout hook instead (it has access to navigate).
    */
   public async performLogout(): Promise<void> {
     try {
-      // Reset all Zustand stores
       this.resetStores();
-
-      // Clear any additional localStorage entries
       this.clearLocalStorage();
-
-      // Disconnect any active WebSocket connections
       await this.disconnectWebSockets();
 
-      // Navigate to home page
-      this.navigateToHome();
-
-      // Show success message
-      toast.success("Successfully logged out");
+      if (isRemoteMode) {
+        const { redirectUrl } = await signOutFn();
+        window.location.href = redirectUrl;
+      }
+      // In local mode, caller is responsible for navigation
     } catch (error) {
       console.error("Error during logout:", error);
       toast.error("Error during logout. Please refresh the page.");
     }
   }
 
-  /**
-   * Reset all Zustand stores to their initial state
-   */
   private resetStores(): void {
-    // Reset User Store
     useUserStore.getState().reset();
-
-    // Reset Visibility Store
     useVisibilityStore.getState().reset();
   }
 
-  /**
-   * Clear any additional localStorage entries that might not be handled by Zustand
-   */
   private clearLocalStorage(): void {
     const keysToRemove = ["user-storage"];
-
     keysToRemove.forEach((key) => {
       try {
         localStorage.removeItem(key);
@@ -74,28 +64,15 @@ export class LogoutService {
     });
   }
 
-  /**
-   * Disconnect any active WebSocket connections
-   */
   private async disconnectWebSockets(): Promise<void> {
-    // WebSocket is now only available in workspace context
-    // Disconnection happens automatically when navigating away from workspace
-    // We can still dispatch the event for any cleanup listeners
     window.dispatchEvent(new CustomEvent("logout-disconnect"));
-  }
-
-  /**
-   * Navigate to home page
-   */
-  private navigateToHome(): void {
-    // Since we can't use useNavigate hook in a class, we'll use window.location
-    // or emit an event that components can listen to
-    window.location.href = "/";
   }
 }
 
 /**
- * Hook-based logout function for use in React components
+ * Hook-based logout function for use in React components.
+ * Clears local state, then either redirects to Logto sign-out (remote)
+ * or navigates home (local).
  */
 export const useLogout = () => {
   const navigate = useNavigate();
@@ -108,7 +85,6 @@ export const useLogout = () => {
 
       // Clear localStorage entries
       const keysToRemove = ["user-storage"];
-
       keysToRemove.forEach((key) => {
         try {
           localStorage.removeItem(key);
@@ -120,12 +96,15 @@ export const useLogout = () => {
       // Disconnect WebSocket connections
       window.dispatchEvent(new CustomEvent("logout-disconnect"));
 
-      // Navigate to home
-      navigate({ to: "/" });
-
-      // Show success message
-      toast.success("Successfully logged out");
+      if (isRemoteMode) {
+        // Redirect to Logto sign-out (clears server session + Logto session)
+        await signOutFn();
+      } else {
+        // Local mode: navigate home (stores already cleared)
+        navigate({ to: "/" });
+      }
     } catch (error) {
+      // signOutFn throws a redirect on success — only real errors reach here
       console.error("Error during logout:", error);
       toast.error("Error during logout. Please refresh the page.");
     }

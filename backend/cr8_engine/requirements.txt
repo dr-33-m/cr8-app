@@ -15,5 +15,9 @@ psutil
 pydantic-ai
 mcp
 
+# Authentication (JWT validation)
+PyJWT
+cryptography
+
 # VastAI GPU instance management (via REST API)
 asyncssh

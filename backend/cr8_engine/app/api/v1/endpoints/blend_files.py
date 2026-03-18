@@ -18,7 +18,9 @@ class ScanBlendFolderResponse(BaseModel):
 
 
 @router.get("/scan-blend-folder", response_model=ScanBlendFolderResponse)
-async def scan_blend_folder(folder_path: str = Query(...)):
+async def scan_blend_folder(
+    folder_path: str = Query(...),
+):
     """
     Scan a folder for .blend files and return the list
     """

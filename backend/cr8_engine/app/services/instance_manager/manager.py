@@ -318,7 +318,9 @@ class InstanceManager:
                 await status_callback(f"blender:{status}", int(time.time() - _start))
 
         try:
-            pid = await self.ssh.launch_blender(record.vastai_id, username, status_callback=ssh_cb)
+            from app.auth.internal_token import generate_blender_token
+            auth_token = generate_blender_token(username)
+            pid = await self.ssh.launch_blender(record.vastai_id, username, status_callback=ssh_cb, auth_token=auth_token)
         except LaunchError as e:
             logger.error(f"Blender launch failed for {username} on instance {record.vastai_id}: {e}")
             if any(p in e.error_code for p in INSTANCE_FATAL_PATTERNS):

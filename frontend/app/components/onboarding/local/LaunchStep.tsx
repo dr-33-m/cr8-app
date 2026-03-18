@@ -1,11 +1,18 @@
 import { ConfirmationCard } from "@/components/confirmation-card";
-import { LaunchStepProps } from "@/lib/types/onboarding";
+import useUserStore from "@/store/userStore";
+import { BlendFileInfo } from "@/lib/types/onboarding";
+
+interface LaunchStepProps {
+  folderPath: string;
+  selectedBlendFile: BlendFileInfo | null;
+}
 
 export function LaunchStep({
-  username,
   folderPath,
   selectedBlendFile,
 }: LaunchStepProps) {
+  const { username } = useUserStore();
+
   return (
     <div className="space-y-4">
       {selectedBlendFile && (

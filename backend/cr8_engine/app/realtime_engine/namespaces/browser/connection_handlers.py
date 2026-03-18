@@ -11,6 +11,8 @@ from app.lib import (
     MessageType,
     create_system_message,
 )
+from app.auth.jwt_validator import get_jwt_validator
+from app.services.config import DeploymentConfig
 from .singleton import get_cleanup_timers
 
 
@@ -60,15 +62,34 @@ class ConnectionHandlersMixin:
                 self.logger.error("No authentication data provided")
                 return False
 
-            username = auth.get('username')
+            token = auth.get('token')
             blend_file_path = auth.get('blend_file_path')
+            config = DeploymentConfig.get()
 
-            self.logger.info(f"Extracted username: {username}")
+            if config.LAUNCH_MODE == "remote":
+                # Remote mode: require and validate Logto JWT
+                if not token:
+                    self.logger.error("No token provided in auth (remote mode)")
+                    return False
+
+                try:
+                    validator = get_jwt_validator()
+                    claims = validator.validate(token)
+                    user_id = claims["sub"]
+                    username = auth.get('username') or claims.get("name") or claims.get("username") or user_id
+                    self.logger.info(f"JWT validated for user_id={user_id}, username={username}")
+                except Exception as e:
+                    self.logger.error(f"JWT validation failed: {e}")
+                    return False
+            else:
+                # Local mode: accept plain username auth (no JWT required)
+                username = auth.get('username')
+                if not username:
+                    self.logger.error("No username provided in auth (local mode)")
+                    return False
+                self.logger.info(f"Local mode connection: {username}")
+
             self.logger.info(f"Extracted blend_file_path: {blend_file_path}")
-
-            if not username:
-                self.logger.error("No username provided in auth")
-                return False
 
             self.logger.info(f"Browser connecting: {username} (sid: {sid})")
 

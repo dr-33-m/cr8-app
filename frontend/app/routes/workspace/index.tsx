@@ -10,20 +10,27 @@ import { AssetBrowser } from "@/components/creative-workspace/asset-browser/Asse
 import useUserStore from "@/store/userStore";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 
+const isRemoteMode = import.meta.env.VITE_LAUNCH_MODE === "remote";
+
 export const Route = createFileRoute("/workspace/")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
+  const { auth } = Route.useRouteContext();
+  const remoteUser =
+    isRemoteMode && auth.isAuthenticated ? auth.user.name : undefined;
+
   return (
-    <WebSocketProvider>
-      <WorkspaceContent />
+    <WebSocketProvider remoteUser={remoteUser}>
+      <WorkspaceContent remoteUser={remoteUser} />
     </WebSocketProvider>
   );
 }
 
-function WorkspaceContent() {
-  const username = useUserStore((state) => state.username);
+function WorkspaceContent({ remoteUser }: { remoteUser?: string }) {
+  const storeUsername = useUserStore((state) => state.username);
+  const username = remoteUser || storeUsername;
   const producerId = username ? `blender-${username}` : null;
   const { videoRef, isConnected } = useWebRTCStream(producerId);
   const { instanceStatus, cancelLaunch, reconnect } = useWebSocketContext();

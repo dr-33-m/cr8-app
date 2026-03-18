@@ -242,6 +242,13 @@ class BlenderService:
             env = os.environ.copy()
             env["WS_URL"] = "http://localhost:8000"
             env["CR8_USERNAME"] = username
+
+            # Generate internal auth token in remote mode
+            config = DeploymentConfig.get()
+            if config.LAUNCH_MODE == "remote":
+                from app.auth.internal_token import generate_blender_token
+                env["CR8_AUTH_TOKEN"] = generate_blender_token(username)
+
             env["CR8_SIGNALLER_URI"] = os.getenv("SIGNALLER_URI", "ws://127.0.0.1:8443")
             # Use headless X server on display :2 (GPU-accelerated, no physical display)
             env["DISPLAY"] = os.getenv("BLENDER_DISPLAY", ":2")

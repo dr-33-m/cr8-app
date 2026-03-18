@@ -15,7 +15,6 @@ import {
 import cr8 from "@/assets/cr8.jpeg";
 import { Link } from "@tanstack/react-router";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
-import useUserStore from "@/store/userStore";
 import {
   Popover,
   PopoverContent,
@@ -25,16 +24,33 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useLogout } from "@/lib/services/logoutService";
+import { signOutFn } from "@/server/auth/functions";
 import { useTheme } from "next-themes";
+import type { AuthContext } from "@/lib/types/auth";
+import useUserStore from "@/store/userStore";
+import { useLogout } from "@/lib/services/logoutService";
 
-const Navbar = () => {
+const isRemoteMode = import.meta.env.VITE_LAUNCH_MODE === "remote";
+
+interface NavbarProps {
+  auth: AuthContext;
+}
+
+const Navbar = ({ auth }: NavbarProps) => {
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const logout = useLogout();
-  const { username } = useUserStore();
   const { setTheme } = useTheme();
+  const localUsername = useUserStore((s) => s.username);
+  const localLogout = useLogout();
+
+  // Remote mode: username from auth context; Local mode: username from store
+  const username = isRemoteMode
+    ? (auth.isAuthenticated ? auth.user.name : null)
+    : (localUsername || null);
+
+  // In local mode, show navbar when username is set; in remote mode, when authenticated
+  const showNavbar = isRemoteMode ? auth.isAuthenticated : !!localUsername;
 
   const handleSubmitFeedback = async () => {
     if (!feedback.trim()) return;
@@ -67,10 +83,18 @@ const Navbar = () => {
   const isVisible = useVisibilityStore((state) => !state.isFullscreen);
 
   const handleSignOut = async () => {
-    await logout();
+    if (isRemoteMode) {
+      // Clear local stores, then redirect to Logto sign-out
+      window.dispatchEvent(new CustomEvent("logout-disconnect"));
+      const { redirectUrl } = await signOutFn();
+      window.location.href = redirectUrl;
+    } else {
+      // Local mode: clear stores and navigate home
+      await localLogout();
+    }
   };
 
-  return username ? (
+  return showNavbar ? (
     <nav
       className={`fixed top-4 left-4 right-4 z-50 transition-all transform -translate-y-1/2 duration-300  ${isVisible ? "translate-y-0" : "-translate-y-full"} `}
     >

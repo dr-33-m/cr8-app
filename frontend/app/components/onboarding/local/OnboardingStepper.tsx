@@ -184,7 +184,6 @@ export function OnboardingStepper() {
             ),
             launch: () => (
               <LaunchStep
-                username={username}
                 folderPath={folderPath}
                 selectedBlendFile={selectedBlendFile}
               />

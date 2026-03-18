@@ -15,6 +15,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # VITE_ vars are inlined at build time — pass via --build-arg
+ARG VITE_LAUNCH_MODE
 ARG VITE_WEBSOCKET_URL
 ARG VITE_DISCORD_WEBHOOK_URL
 ARG VITE_WEBRTC_SIGNALING_SERVER_URL

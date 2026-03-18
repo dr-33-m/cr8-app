@@ -25,7 +25,7 @@ export function LocalOnboardingStepper() {
     } else if (storedUsername) {
       return "folder";
     }
-    return "username"; // default
+    return "username";
   };
 
   // Show loading state while store is hydrating

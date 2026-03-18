@@ -22,17 +22,21 @@ def create_socketio_server() -> socketio.AsyncServer:
     logger.info("=== CREATING SOCKET.IO SERVER ===")
     
     # Create AsyncServer with ASGI support
+    import os
+    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173")
+    cors_list = [o.strip() for o in cors_origins.split(",")]
+
     sio = socketio.AsyncServer(
         async_mode='asgi',
-        cors_allowed_origins='*',
+        cors_allowed_origins=cors_list,
         logger=True,
         engineio_logger=True,
         ping_timeout=120,
         ping_interval=90
     )
-    
+
     logger.info(f"Socket.IO server instance created: {sio}")
-    logger.info(f"CORS origins: *")
+    logger.info(f"CORS origins: {cors_list}")
     logger.info(f"Logger enabled: True")
     logger.info(f"EngineIO logger enabled: True")
     

@@ -11,8 +11,12 @@ import {
   CommandPayload,
   AgentQueryPayload,
 } from "@/lib/types/websocket";
+import { getAccessTokenFn } from "@/server/auth/functions";
+
+const isRemoteMode = import.meta.env.VITE_LAUNCH_MODE === "remote";
 
 export const useSocketIO = (
+  remoteUser: string | undefined,
   onMessage?: (data: any) => void,
   onServerCleanup?: () => void
 ) => {
@@ -24,7 +28,8 @@ export const useSocketIO = (
     null
   );
 
-  const { username } = useUserStore();
+  const storeUsername = useUserStore((s) => s.username);
+  const username = remoteUser || storeUsername;
   const serverUrl =
     import.meta.env.VITE_WEBSOCKET_URL?.replace(/^ws/, "http") ||
     "http://localhost:8000";
@@ -135,7 +140,7 @@ export const useSocketIO = (
     setStatus("disconnected");
   }, [cancelServerCleanupTimer]);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!username) {
       toast.error("Missing username");
       return;
@@ -147,12 +152,25 @@ export const useSocketIO = (
     setStatus("connecting");
 
     try {
-      const socket = io(`${serverUrl}/browser`, {
-        path: "/ws/socket.io/",
-        auth: {
+      // Build auth payload — remote mode uses JWT, local mode uses plain username
+      let authPayload: Record<string, string | undefined | null>;
+      if (isRemoteMode) {
+        const { token } = await getAccessTokenFn();
+        authPayload = {
+          token,
           username,
           blend_file_path: fullBlendFilePath || undefined,
-        },
+        };
+      } else {
+        authPayload = {
+          username,
+          blend_file_path: fullBlendFilePath || undefined,
+        };
+      }
+
+      const socket = io(`${serverUrl}/browser`, {
+        path: "/ws/socket.io/",
+        auth: authPayload,
         reconnection: true,
         reconnectionDelay: 2000,
         reconnectionDelayMax: 30000,

@@ -2,12 +2,15 @@
 
 // User Store Types
 export interface UserStoreState {
+  userId: string;
   username: string;
+  email: string;
   blendFolderPath: string;
   selectedBlendFile: string;
   fullBlendFilePath: string;
   isEmptyProject: boolean;
   _hasHydrated: boolean;
+  setUser: (user: { id: string; name: string; email?: string | null }) => void;
   setUsername: (username: string) => void;
   setBlendFolder: (path: string) => void;
   setSelectedBlendFile: (filename: string, fullPath: string) => void;

@@ -8,6 +8,8 @@ from app.lib import (
     MessageType,
     create_system_message,
 )
+from app.auth.internal_token import validate_internal_token
+from app.services.config import DeploymentConfig
 
 
 logger = logging.getLogger(__name__)
@@ -29,14 +31,33 @@ class ConnectionHandlersMixin:
             True to accept connection, False to reject
         """
         try:
-            # Extract username from auth
+            # Extract and validate auth token
             if not auth:
                 self.logger.error("No authentication data provided from Blender")
                 return False
 
-            username = auth.get('username')
-            if not username:
-                self.logger.error("No username provided in Blender auth")
+            token = auth.get('token')
+            config = DeploymentConfig.get()
+
+            if token:
+                # Validate internal HMAC token (remote mode, or local mode with token)
+                try:
+                    claims = validate_internal_token(token)
+                    username = claims["sub"]
+                    self.logger.info(f"Internal token validated for Blender user: {username}")
+                except Exception as e:
+                    self.logger.error(f"Blender token validation failed: {e}")
+                    return False
+            elif config.LAUNCH_MODE == "local":
+                # Local mode: accept plain username auth
+                username = auth.get('username')
+                if not username:
+                    self.logger.error("No username provided in Blender auth (local mode)")
+                    return False
+                self.logger.info(f"Local mode Blender connection: {username}")
+            else:
+                # Remote mode without token — reject
+                self.logger.error("No token provided in Blender auth (remote mode)")
                 return False
 
             self.logger.info(f"Blender connecting: {username} (sid: {sid})")

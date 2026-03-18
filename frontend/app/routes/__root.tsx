@@ -14,9 +14,26 @@ import type { QueryClient } from "@tanstack/react-query";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { getAuthContextFn } from "@/server/auth/functions";
+import type { AuthContext } from "@/lib/types/auth";
+
+const isRemoteMode = import.meta.env.VITE_LAUNCH_MODE === "remote";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
+    beforeLoad: async () => {
+      // In local mode, skip Logto auth entirely — local uses username/localStorage
+      if (!isRemoteMode) {
+        const localAuth: AuthContext = {
+          isAuthenticated: false,
+          user: null,
+          accessToken: null,
+        };
+        return { auth: localAuth };
+      }
+      const auth = await getAuthContextFn();
+      return { auth };
+    },
     head: () => ({
       meta: [
         {
@@ -38,10 +55,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       ],
     }),
     component: RootComponent,
-  }
+  },
 );
 
 function RootComponent() {
+  const { auth } = Route.useRouteContext();
+
   return (
     <RootDocument>
       <ThemeProvider
@@ -50,7 +69,7 @@ function RootComponent() {
         enableSystem
         disableTransitionOnChange
       >
-        <Navbar />
+        <Navbar auth={auth} />
         <Outlet />
         <Toaster position="top-right" />
       </ThemeProvider>

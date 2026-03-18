@@ -84,7 +84,7 @@ class SSHService:
                     logger.error(f"SSH connection failed to instance {instance_id} ({host}:{port}): {e}")
         raise last_error
 
-    async def launch_blender(self, instance_id: int, username: str, status_callback=None) -> int:
+    async def launch_blender(self, instance_id: int, username: str, status_callback=None, auth_token: str = None) -> int:
         """
         Launch a headless Blender process on a VastAI instance via SSH.
 
@@ -125,7 +125,9 @@ class SSHService:
         DEFAULT_PHASE_TIMEOUT = 30
 
         try:
-            async with conn.create_process(f"/opt/cr8/launch-blender.sh {username}") as process:
+            # Pass auth token as environment variable if available
+            env_prefix = f"CR8_AUTH_TOKEN={auth_token} " if auth_token else ""
+            async with conn.create_process(f"{env_prefix}/opt/cr8/launch-blender.sh {username}") as process:
                 pid = None
                 error = None
                 current_phase = "startup"

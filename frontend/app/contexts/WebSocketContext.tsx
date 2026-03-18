@@ -22,6 +22,7 @@ import { Socket } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { sceneContextKeys } from "@/websocket/query-manager/scene-context";
 import { useLaunchTimerStore } from "@/store/launchTimerStore";
+import { checkEngineHealthFn } from "@/server/engine/functions";
 
 type ConnectionState =
   | "disconnected" // Not connected
@@ -61,11 +62,13 @@ const WebSocketContext = createContext<WebSocketContextType | null>(null);
 
 interface WebSocketProviderProps {
   children: ReactNode;
+  remoteUser?: string;
   onMessage?: (data: any) => void;
 }
 
 export function WebSocketProvider({
   children,
+  remoteUser,
   onMessage,
 }: WebSocketProviderProps) {
   const queryClient = useQueryClient();
@@ -264,7 +267,7 @@ export function WebSocketProvider({
     });
   }, [queryClient]);
 
-  const wsHook = useSocketIO((data: any) => {
+  const wsHook = useSocketIO(remoteUser, (data: any) => {
     // Process message first
     processMessage(data);
 
@@ -280,19 +283,11 @@ export function WebSocketProvider({
     }
   }, performServerCleanup);
 
-  // Check server health endpoint
+  // Check server health endpoint via server function to avoid CORS
   const checkServerHealth = useCallback(async (): Promise<boolean> => {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch("http://localhost:8000/health", {
-        method: "GET",
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-      return response.ok;
+      const { healthy } = await checkEngineHealthFn();
+      return healthy;
     } catch (error) {
       console.error("Health check failed:", error);
       return false;
