@@ -80,7 +80,8 @@ class ResponseManager:
             }
         }
 
-        logger.info(f"Sending standardized Socket.IO response: {response}")
+        logger.info(f"Sending {response.get('type')} for message_id={response.get('message_id')}")
+        logger.debug(f"Full response payload: {response}")
 
         # Send the response via Socket.IO emit
         try:

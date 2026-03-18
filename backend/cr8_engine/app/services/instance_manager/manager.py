@@ -172,7 +172,11 @@ class InstanceManager:
                         f"Instance {record.vastai_id} incompatible ({e}), "
                         f"destroying and launching new instance"
                     )
-                    await self._destroy_instance(record.vastai_id)
+                    try:
+                        await self._destroy_instance(record.vastai_id)
+                    except Exception as destroy_err:
+                        logger.warning(f"Failed to destroy incompatible instance {record.vastai_id}: {destroy_err}")
+                        self.state.remove_instance(record.vastai_id)
                     return await self._launch_and_assign(username, gpu_name, status_callback=status_callback)
                 raise
 

@@ -77,7 +77,7 @@ class CommandExecutor:
             if not isinstance(result, dict):
                 result = {
                     "status": "success",
-                    "message": str(result),
+                    "message": f"Command '{command}' executed successfully",
                     "data": result
                 }
 

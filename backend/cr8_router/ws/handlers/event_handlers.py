@@ -38,7 +38,7 @@ def _drain_command_queue():
         pass
     except Exception as e:
         logger.error(f"Error processing queued command: {e}")
-    return 0.016  # re-register at ~60fps cadence
+    return 0.1  # re-register at 10/s — reduces _send_lock contention with heartbeat frames
 
 
 def encode_turn_url(turn_url: str) -> str:
@@ -226,15 +226,15 @@ def register_event_handlers(handler):
             
             return None  # Unregister the timer after execution
         
-        # Register a Blender timer to check reconnection status after ~40 seconds
-        # This gives Socket.IO time to exhaust all 5 reconnection attempts
-        # (delays: 2.25s, 3.83s, 8.16s, 9.95s, 10.41s = ~34 seconds total)
+        # Register a Blender timer to check reconnection status after ~80 seconds
+        # This gives Socket.IO time to exhaust all 10 reconnection attempts
+        # (10 attempts × max 10s delay = ~80 seconds total)
         try:
             bpy.app.timers.register(
                 check_and_start_cleanup,
-                first_interval=40.0
+                first_interval=80.0
             )
-            logger.info("Registered reconnection check timer for 40 seconds")
+            logger.info("Registered reconnection check timer for 80 seconds")
         except Exception as e:
             logger.error(f"Failed to register reconnection check timer: {e}", exc_info=True)
             # Fallback: try to start cleanup immediately if timer registration fails

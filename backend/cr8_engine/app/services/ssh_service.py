@@ -114,54 +114,72 @@ class SSHService:
 
         logger.info(f"Launching Blender on instance {instance_id} for user {username}")
 
+        # Per-phase inactivity timeouts (seconds). The script emits a CR8:STATUS line
+        # at the start of each phase, so "no output for N seconds" means that phase hung.
+        # Phases that do heavy I/O get more headroom.
+        PHASE_TIMEOUTS: dict[str, int] = {
+            "nvidia_downloading": 180,  # driver download can be slow on cold instances
+            "nvidia_installing":  120,  # kernel module build/install
+            "xorg_setup":          60,
+        }
+        DEFAULT_PHASE_TIMEOUT = 30
+
         try:
-            # launch-blender.sh handles nvidia driver, Xorg, and Blender startup.
-            # Timeout is generous: nvidia driver download can take 30-60s on first run.
-            result = await asyncio.wait_for(
-                conn.run(f"/opt/cr8/launch-blender.sh {username}"),
-                timeout=120,
-            )
+            async with conn.create_process(f"/opt/cr8/launch-blender.sh {username}") as process:
+                pid = None
+                error = None
+                current_phase = "startup"
+                phase_timeout = DEFAULT_PHASE_TIMEOUT
 
-            stdout = result.stdout.strip() if result.stdout else ""
-            stderr = result.stderr.strip() if result.stderr else ""
+                while True:
+                    try:
+                        line = await asyncio.wait_for(process.stdout.readline(), timeout=phase_timeout)
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            f"launch-blender.sh hung for {phase_timeout}s during '{current_phase}' "
+                            f"on instance {instance_id}"
+                        )
+                        raise LaunchError(
+                            "timeout",
+                            f"launch-blender.sh timed out during '{current_phase}' on instance {instance_id}",
+                        )
 
-            # Parse structured output lines
-            pid = None
-            error = None
-            for line in stdout.splitlines():
-                line = line.strip()
-                if line.startswith("CR8:PID:"):
-                    pid_str = line[len("CR8:PID:"):]
-                    if pid_str.isdigit():
-                        pid = int(pid_str)
-                elif line.startswith("CR8:ERROR:"):
-                    error = line[len("CR8:ERROR:"):]
-                elif line.startswith("CR8:STATUS:"):
-                    status = line[len("CR8:STATUS:"):]
-                    logger.info(f"[instance {instance_id}] {status}")
-                    if status_callback:
-                        try:
-                            await status_callback(status)
-                        except Exception:
-                            pass
+                    if not line:  # EOF — script exited
+                        break
 
-            if pid is not None:
-                logger.info(f"Blender launched on instance {instance_id} for {username} with PID {pid}")
-                return pid
+                    line = line.strip()
+                    if line.startswith("CR8:PID:"):
+                        pid_str = line[len("CR8:PID:"):]
+                        if pid_str.isdigit():
+                            pid = int(pid_str)
+                    elif line.startswith("CR8:ERROR:"):
+                        error = line[len("CR8:ERROR:"):]
+                    elif line.startswith("CR8:STATUS:"):
+                        status = line[len("CR8:STATUS:"):]
+                        current_phase = status
+                        # Bump timeout for the next phase based on what was just announced
+                        phase_timeout = next(
+                            (t for k, t in PHASE_TIMEOUTS.items() if k in status),
+                            DEFAULT_PHASE_TIMEOUT,
+                        )
+                        logger.info(f"[instance {instance_id}] {status}")
+                        if status_callback:
+                            try:
+                                await status_callback(status)
+                            except Exception:
+                                pass
 
-            if error:
-                logger.error(f"launch-blender.sh failed on instance {instance_id}: {error}")
-                raise LaunchError(error, f"launch-blender.sh failed on instance {instance_id}: {error}")
-            else:
-                logger.error(
-                    f"launch-blender.sh returned no PID on instance {instance_id}: "
-                    f"stdout='{stdout}', stderr='{stderr}'"
-                )
+                if pid is not None:
+                    logger.info(f"Blender launched on instance {instance_id} for {username} with PID {pid}")
+                    return pid
+
+                if error:
+                    logger.error(f"launch-blender.sh failed on instance {instance_id}: {error}")
+                    raise LaunchError(error, f"launch-blender.sh failed on instance {instance_id}: {error}")
+
+                logger.error(f"launch-blender.sh exited with no PID on instance {instance_id}")
                 raise LaunchError("unknown", f"Blender returned no PID on instance {instance_id}")
 
-        except asyncio.TimeoutError:
-            logger.error(f"launch-blender.sh timed out (120s) on instance {instance_id} for {username}")
-            raise LaunchError("timeout", f"launch-blender.sh timed out on instance {instance_id}")
         except LaunchError:
             raise
         except Exception as e:

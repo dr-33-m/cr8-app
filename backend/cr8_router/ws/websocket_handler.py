@@ -85,7 +85,7 @@ class WebSocketHandler:
             logger=True,
             engineio_logger=True,
             reconnection=True,
-            reconnection_attempts=5,
+            reconnection_attempts=10,
             reconnection_delay=2,
             reconnection_delay_max=10,
             handle_sigint=False,

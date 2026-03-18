@@ -27,8 +27,8 @@ def create_socketio_server() -> socketio.AsyncServer:
         cors_allowed_origins='*',
         logger=True,
         engineio_logger=True,
-        ping_timeout=60,
-        ping_interval=25
+        ping_timeout=120,
+        ping_interval=90
     )
     
     logger.info(f"Socket.IO server instance created: {sio}")
