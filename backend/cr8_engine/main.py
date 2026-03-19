@@ -28,6 +28,11 @@ async def lifespan(app: FastAPI):
     config = DeploymentConfig.get()
 
     if config.LAUNCH_MODE == "remote":
+        # Initialize database connection pool
+        from app.db.engine import get_engine
+        db_engine = get_engine()
+        logger.info("Database connection pool initialized")
+
         logger.info("Remote mode detected — initializing VastAI instance manager")
         errors = config.validate_remote_config()
         if errors:
@@ -50,6 +55,10 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
     if config.LAUNCH_MODE == "remote":
+        from app.db.engine import get_engine as _get_db_engine
+        await _get_db_engine().dispose()
+        logger.info("Database connection pool closed")
+
         from app.services.blender_service import BlenderService
         if BlenderService._instance_manager:
             await BlenderService._instance_manager.shutdown()
@@ -84,6 +93,12 @@ async def health_check():
 # Include API routers
 app.include_router(blend_files.router, prefix="/api/v1", tags=["blend-files"])
 app.include_router(polyhaven.router, prefix="/api/v1/polyhaven", tags=["polyhaven"])
+
+# Invite-gate endpoints (remote mode only — requires database)
+if DeploymentConfig.get().LAUNCH_MODE == "remote":
+    from app.api.v1.endpoints import users, invitations
+    app.include_router(users.router, prefix="/api/v1", tags=["users"])
+    app.include_router(invitations.router, prefix="/api/v1", tags=["invitations"])
 
 # Create Socket.IO server
 sio = create_socketio_server()

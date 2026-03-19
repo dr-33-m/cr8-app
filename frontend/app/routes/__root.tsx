@@ -15,7 +15,9 @@ import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { getAuthContextFn } from "@/server/auth/functions";
-import type { AuthContext } from "@/lib/types/auth";
+import { syncUserFn } from "@/server/api/users/functions";
+import type { AuthContext, UserProfile } from "@/lib/types/auth";
+import { RouteLoader } from "@/components/placeholders/RouteLoader";
 
 const isRemoteMode = import.meta.env.VITE_LAUNCH_MODE === "remote";
 
@@ -34,6 +36,30 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       const auth = await getAuthContextFn();
       return { auth };
     },
+    loader: async ({ context: { auth } }) => {
+      // Sync user to DB in remote mode (runs in parallel, non-blocking)
+      if (!isRemoteMode || !auth.isAuthenticated || !auth.accessToken) {
+        return { userProfile: null as UserProfile | null };
+      }
+
+      try {
+        const userProfile = await syncUserFn({
+          data: {
+            accessToken: auth.accessToken,
+            email: auth.user.email,
+            name: auth.user.name,
+            picture: auth.user.picture,
+          },
+        });
+        return { userProfile: userProfile as UserProfile | null };
+      } catch (e) {
+        console.error("Failed to sync user:", e);
+        return { userProfile: null as UserProfile | null };
+      }
+    },
+    pendingComponent: () => (
+      <RouteLoader title="Cr8-xyz" message="Setting things up..." />
+    ),
     head: () => ({
       meta: [
         {

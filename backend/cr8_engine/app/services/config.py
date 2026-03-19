@@ -34,6 +34,9 @@ class DeploymentConfig:
         self.MAX_USERS_PER_INSTANCE: int = int(os.getenv("MAX_USERS_PER_INSTANCE", "3"))
         self.INSTANCE_IDLE_TIMEOUT: int = int(os.getenv("INSTANCE_IDLE_TIMEOUT", "300"))
 
+        # Database (required for remote mode)
+        self.DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+
     @classmethod
     def get(cls) -> "DeploymentConfig":
         """Get singleton config instance."""
@@ -54,6 +57,7 @@ class DeploymentConfig:
             logger.info(f"  VASTAI_API_KEY={'set' if self.VASTAI_API_KEY else 'NOT SET'}")
             logger.info(f"  MAX_USERS_PER_INSTANCE={self.MAX_USERS_PER_INSTANCE}")
             logger.info(f"  INSTANCE_IDLE_TIMEOUT={self.INSTANCE_IDLE_TIMEOUT}s")
+            logger.info(f"  DATABASE_URL={'set' if self.DATABASE_URL else 'NOT SET'}")
 
     def validate_remote_config(self) -> list[str]:
         """Validate that all required remote config is set. Returns list of errors."""
@@ -62,4 +66,6 @@ class DeploymentConfig:
             errors.append("VASTAI_API_KEY is required for remote mode")
         if not self.VASTAI_TEMPLATE_HASH_ID:
             errors.append("VASTAI_TEMPLATE_HASH_ID is required for remote mode")
+        if not self.DATABASE_URL:
+            errors.append("DATABASE_URL is required for remote mode")
         return errors

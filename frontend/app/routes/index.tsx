@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, getRouteApi } from "@tanstack/react-router";
 import { LocalOnboardingStepper } from "@/components/onboarding/local";
 import { NewProjectStepper } from "@/components/onboarding/NewProjectStepper";
 import useUserStore from "@/store/userStore";
@@ -12,7 +12,11 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { signInFn } from "@/server/auth/functions";
+import { InviteDialog } from "@/components/invite/InviteDialog";
+import { Lock } from "lucide-react";
 import cr8 from "@/assets/cr8.jpeg";
+
+const rootRoute = getRouteApi("__root__");
 
 const isRemoteMode = import.meta.env.VITE_LAUNCH_MODE === "remote";
 
@@ -35,16 +39,29 @@ type RemoteChoice = "none" | "empty";
 
 function RemoteHome() {
   const { auth } = Route.useRouteContext();
+  const { userProfile } = rootRoute.useLoaderData();
 
   if (!auth.isAuthenticated) {
     return <SignInPage />;
   }
 
   const [choice, setChoice] = useState<RemoteChoice>("none");
+  const [isApproved, setIsApproved] = useState(
+    userProfile?.is_approved ?? false
+  );
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
 
   if (choice === "empty") {
     return <RemoteNewProjectLauncher onBack={() => setChoice("none")} />;
   }
+
+  const handleNewProject = () => {
+    if (isApproved) {
+      setChoice("empty");
+    } else {
+      setShowInviteDialog(true);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -56,12 +73,17 @@ function RemoteHome() {
         <CardContent className="space-y-3">
           <Button
             variant="outline"
-            className="w-full h-20 flex flex-col items-center justify-center gap-1"
-            onClick={() => setChoice("empty")}
+            className="w-full h-20 flex flex-col items-center justify-center gap-1 relative"
+            onClick={handleNewProject}
           >
+            {!isApproved && (
+              <Lock className="absolute top-3 right-3 h-4 w-4 text-muted-foreground" />
+            )}
             <span className="text-base font-medium">New Empty Project</span>
             <span className="text-xs text-muted-foreground">
-              Start with a fresh Blender scene
+              {isApproved
+                ? "Start with a fresh Blender scene"
+                : "Requires invite token to unlock"}
             </span>
           </Button>
           <Button
@@ -78,6 +100,13 @@ function RemoteHome() {
           </Button>
         </CardContent>
       </Card>
+
+      <InviteDialog
+        open={showInviteDialog}
+        onOpenChange={setShowInviteDialog}
+        accessToken={auth.accessToken!}
+        onSuccess={() => setIsApproved(true)}
+      />
     </div>
   );
 }

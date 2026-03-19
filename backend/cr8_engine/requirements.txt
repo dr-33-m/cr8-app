@@ -21,3 +21,9 @@ cryptography
 
 # VastAI GPU instance management (via REST API)
 asyncssh
+
+# Database (PostgreSQL)
+sqlalchemy[asyncio]
+asyncpg
+psycopg2-binary
+alembic
