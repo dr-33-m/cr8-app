@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils";
 import { ConnectionStatusProps } from "@/lib/types/components";
 
-export function ConnectionStatus({ status }: ConnectionStatusProps) {
+export function ConnectionStatus({ status, isBlenderReconnecting }: ConnectionStatusProps & { isBlenderReconnecting?: boolean }) {
   const getStatusColor = () => {
+    if (isBlenderReconnecting) return "bg-yellow-500 animate-pulse";
     switch (status) {
       case "connected":
         return "bg-green-500";
@@ -16,6 +17,7 @@ export function ConnectionStatus({ status }: ConnectionStatusProps) {
   };
 
   const getStatusText = () => {
+    if (isBlenderReconnecting) return "Reconnecting...";
     switch (status) {
       case "connected":
         return "Connected";

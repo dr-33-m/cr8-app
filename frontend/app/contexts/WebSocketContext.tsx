@@ -28,7 +28,8 @@ type ConnectionState =
   | "disconnected" // Not connected
   | "browser_connected" // Browser connected, waiting for Blender
   | "fully_connected" // Both connected
-  | "blender_disconnected" // Blender crashed/closed
+  | "blender_reconnecting" // Blender dropped (network blip), auto-reconnecting
+  | "blender_disconnected" // Blender crashed/closed (after grace period)
   | "server_unavailable" // Server down for 5+ minutes
   | "reconnecting"; // Attempting reconnect
 
@@ -83,6 +84,7 @@ export function WebSocketProvider({
   // Use refs for immediate state tracking to avoid race conditions
   const isReconnectionRef = useRef(false);
   const shouldSendBrowserReadyRef = useRef(false);
+  const blenderReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const processMessage = useCallback(
     (data: any) => {
@@ -140,6 +142,11 @@ export function WebSocketProvider({
         }
 
         case MessageType.BLENDER_CONNECTED:
+          // Clear any pending reconnect grace timer
+          if (blenderReconnectTimerRef.current) {
+            clearTimeout(blenderReconnectTimerRef.current);
+            blenderReconnectTimerRef.current = null;
+          }
           useLaunchTimerStore.getState().stop();
           // Restart the message cycle for the blender_connected phase so the
           // "connecting camera" messages animate. Elapsed is hidden for this phase.
@@ -160,18 +167,43 @@ export function WebSocketProvider({
           }
           break;
 
-        case MessageType.BLENDER_DISCONNECTED:
-          useLaunchTimerStore.getState().stop();
-          setBlenderConnected(false);
-          setConnectionState("blender_disconnected");
-          // Clear scene context when Blender disconnects
-          queryClient.setQueryData(sceneContextKeys.objects(), null);
-          // Reset context update flag so it triggers on next connection
-          setContextUpdateSent(false);
-          if (isResponsePayload(payload)) {
-            toast.info(payload.data?.message || "Blender disconnected");
+        case MessageType.BLENDER_DISCONNECTED: {
+          const disconnectReason = isResponsePayload(payload)
+            ? payload.data?.reason ?? ""
+            : "";
+          const isTransportDrop = disconnectReason === "transport close";
+
+          if (isTransportDrop) {
+            // Network blip — Blender client will auto-reconnect in ~2s.
+            // Keep scene data intact, disable controls, show subtle indicator.
+            setBlenderConnected(false);
+            setConnectionState("blender_reconnecting");
+
+            // Escalate to full disconnect after 15s if Blender doesn't come back
+            blenderReconnectTimerRef.current = setTimeout(() => {
+              blenderReconnectTimerRef.current = null;
+              setConnectionState((prev) => {
+                if (prev !== "blender_reconnecting") return prev;
+                // Now it's a real disconnect — flush scene data
+                queryClient.setQueryData(sceneContextKeys.objects(), null);
+                setContextUpdateSent(false);
+                toast.info("Blender disconnected");
+                return "blender_disconnected";
+              });
+            }, 15_000);
+          } else {
+            // Intentional disconnect or crash — show full disconnect UI immediately
+            useLaunchTimerStore.getState().stop();
+            setBlenderConnected(false);
+            setConnectionState("blender_disconnected");
+            queryClient.setQueryData(sceneContextKeys.objects(), null);
+            setContextUpdateSent(false);
+            if (isResponsePayload(payload)) {
+              toast.info(payload.data?.message || "Blender disconnected");
+            }
           }
           break;
+        }
 
         case MessageType.INBOX_CLEARED:
           useInboxStore.getState().clearAll();
@@ -299,7 +331,7 @@ export function WebSocketProvider({
     // If socket is connected but Blender is not, send browser_ready signal to relaunch Blender
     if (
       wsHook.socket?.connected &&
-      connectionState === "blender_disconnected"
+      (connectionState === "blender_disconnected" || connectionState === "blender_reconnecting")
     ) {
       setConnectionState("reconnecting");
       console.log("Sending browser_ready signal to relaunch Blender");
@@ -390,10 +422,14 @@ export function WebSocketProvider({
     wsHook.sendMessage,
   ]);
 
-  // Stop the launch timer when the workspace unmounts (navigation away).
+  // Stop the launch timer and reconnect grace timer when the workspace unmounts.
   useEffect(() => {
     return () => {
       useLaunchTimerStore.getState().stop();
+      if (blenderReconnectTimerRef.current) {
+        clearTimeout(blenderReconnectTimerRef.current);
+        blenderReconnectTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -401,6 +437,10 @@ export function WebSocketProvider({
   useEffect(() => {
     const handleLogoutDisconnect = () => {
       console.log("Logout event received, disconnecting Socket.IO");
+      if (blenderReconnectTimerRef.current) {
+        clearTimeout(blenderReconnectTimerRef.current);
+        blenderReconnectTimerRef.current = null;
+      }
       if (wsHook.socket) {
         wsHook.disconnect();
         setBlenderConnected(false);

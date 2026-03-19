@@ -120,8 +120,8 @@ export function BottomControls({ children }: BottomControlsProps) {
             <div className="col-span-3 row-span-3 flex items-center justify-center">
               <p className="text-muted-foreground text-sm">Reconnecting...</p>
             </div>
-          ) : isFullyConnected ? (
-            <>
+          ) : isFullyConnected || connectionState === "blender_reconnecting" ? (
+            <div className={connectionState === "blender_reconnecting" ? "contents pointer-events-none opacity-60" : "contents"}>
               {/* Row 1 Left: Viewport Controls */}
               <ViewportControls />
 
@@ -130,7 +130,7 @@ export function BottomControls({ children }: BottomControlsProps) {
 
               {/* Row 1 Right: Connection Status */}
               <div className="flex items-center justify-end">
-                <ConnectionStatus status={status} />
+                <ConnectionStatus status={status} isBlenderReconnecting={connectionState === "blender_reconnecting"} />
               </div>
 
               {/* Row 2: Chat Interface - Spans all 3 columns */}
@@ -138,7 +138,7 @@ export function BottomControls({ children }: BottomControlsProps) {
 
               {/* Row 3: Animation Controls - Spans all 3 columns */}
               <AnimationControls />
-            </>
+            </div>
           ) : instanceStatus?.phase === "error" ? (
             <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-3">
               <div className="text-center">
@@ -194,7 +194,7 @@ export function BottomControls({ children }: BottomControlsProps) {
       </Card>
 
       {/* Separate 3D Navigation Panel - Positioned to the right */}
-      {isFullyConnected && (
+      {(isFullyConnected || connectionState === "blender_reconnecting") && (
         <div
           className={`absolute bottom-0 left-[calc(50%+280px)] transition-all duration-300 
     ${isVisible ? "translate-y-0" : "translate-y-full"}`}

@@ -22,13 +22,15 @@ def create_socketio_server() -> socketio.AsyncServer:
     logger.info("=== CREATING SOCKET.IO SERVER ===")
     
     # Create AsyncServer with ASGI support
-    import os
-    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173")
-    cors_list = [o.strip() for o in cors_origins.split(",")]
-
+    # CORS is set to '*' here because Socket.IO connections are already
+    # secured by JWT/HMAC token validation in the namespace handlers.
+    # FastAPI's CORSMiddleware handles CORS for REST API endpoints.
+    # Using a specific origins list here causes python-engineio to install
+    # active CORS checking that interferes with WebSocket PING/PONG frames,
+    # leading to disconnections on every first ping cycle.
     sio = socketio.AsyncServer(
         async_mode='asgi',
-        cors_allowed_origins=cors_list,
+        cors_allowed_origins='*',
         logger=True,
         engineio_logger=True,
         ping_timeout=120,
@@ -36,7 +38,6 @@ def create_socketio_server() -> socketio.AsyncServer:
     )
 
     logger.info(f"Socket.IO server instance created: {sio}")
-    logger.info(f"CORS origins: {cors_list}")
     logger.info(f"Logger enabled: True")
     logger.info(f"EngineIO logger enabled: True")
     

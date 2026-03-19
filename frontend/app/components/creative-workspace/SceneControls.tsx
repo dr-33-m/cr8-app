@@ -51,6 +51,8 @@ export function SceneControls() {
     }
   };
 
+  const isReconnecting = connectionState === "blender_reconnecting";
+
   // Determine what to show based on connection state
   const renderContent = () => {
     if (
@@ -66,7 +68,7 @@ export function SceneControls() {
       );
     }
 
-    if (objects.length === 0) {
+    if (!isReconnecting && objects.length === 0) {
       return (
         <EmptyState
           title="No Objects"
@@ -87,16 +89,19 @@ export function SceneControls() {
           )}
         </div>
 
-        <div className="space-y-2 max-h-96 overflow-y-auto">
+        <div className={`space-y-2 max-h-96 overflow-y-auto ${isReconnecting ? "opacity-60" : ""}`}>
           {objects.map((obj, index) => (
             <Card
               key={`${obj.name}-${index}`}
-              className={`cursor-pointer transition-colors ${
+              className={`transition-colors ${
+                isReconnecting ? "cursor-default" : "cursor-pointer"
+              } ${
                 obj.active
                   ? "bg-primary/30 border-primary/80"
-                  : "hover:bg-secondary/10"
+                  : isReconnecting ? "" : "hover:bg-secondary/10"
               }`}
               onClick={() => {
+                if (isReconnecting) return;
                 sendSceneCommand(
                   "set_active_object",
                   {
@@ -134,6 +139,7 @@ export function SceneControls() {
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
+                    disabled={isReconnecting}
                     onClick={(e) => {
                       e.stopPropagation();
                       sendSceneCommand("focus_on_active_object", {}, true);
@@ -146,6 +152,7 @@ export function SceneControls() {
                     variant="destructive"
                     size="icon"
                     className="h-6 w-6"
+                    disabled={isReconnecting}
                     onClick={(e) => {
                       e.stopPropagation();
                       sendSceneCommand(
