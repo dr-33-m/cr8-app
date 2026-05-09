@@ -5,7 +5,6 @@ import { useLogtoSession } from "./session";
 const logtoConfig = {
   endpoint: process.env.LOGTO_ENDPOINT!,
   appId: process.env.LOGTO_APP_ID!,
-  appSecret: process.env.LOGTO_APP_SECRET!,
   scopes: ["openid", "profile", "email", "offline_access"],
   resources: process.env.LOGTO_API_RESOURCE
     ? [process.env.LOGTO_API_RESOURCE]
