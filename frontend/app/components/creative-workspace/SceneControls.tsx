@@ -183,7 +183,7 @@ export function SceneControls() {
       <Button
         variant="ghost"
         size="icon"
-        className="absolute -right-12 top-0"
+        className="absolute -right-12 top-1/2 -translate-y-1/2"
         onClick={toggleVisibility}
       >
         {isVisible ? (

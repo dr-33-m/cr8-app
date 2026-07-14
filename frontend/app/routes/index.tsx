@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate, getRouteApi } from "@tanstack/react-route
 import { LocalOnboardingStepper } from "@/components/onboarding/local";
 import { NewProjectStepper } from "@/components/onboarding/NewProjectStepper";
 import useUserStore from "@/store/userStore";
+import useInboxStore from "@/store/inboxStore";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -119,6 +120,7 @@ function RemoteNewProjectLauncher({ onBack }: { onBack: () => void }) {
 
   const handleLaunch = () => {
     setEmptyProject(true);
+    useInboxStore.getState().clearAll();
     navigate({ to: "/workspace" });
   };
 

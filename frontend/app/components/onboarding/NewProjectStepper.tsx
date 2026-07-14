@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { defineStepper } from "@/components/stepper";
 import useUserStore from "@/store/userStore";
+import useInboxStore from "@/store/inboxStore";
 import { toast } from "sonner";
 import { UsernameStep } from "./local/UsernameStep";
 import { ConfirmationCard } from "@/components/confirmation-card";
@@ -48,6 +49,7 @@ function NewProjectStepperContent({ onBack }: { onBack: () => void }) {
 
   const handleLaunchWorkspace = () => {
     setEmptyProject(true);
+    useInboxStore.getState().clearAll();
     navigate({ to: "/workspace" });
   };
 

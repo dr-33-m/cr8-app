@@ -30,7 +30,7 @@ function RouteComponent() {
 
 function WorkspaceContent({ remoteUser }: { remoteUser?: string }) {
   const storeUsername = useUserStore((state) => state.username);
-  const username = remoteUser || storeUsername;
+  const username = (remoteUser || storeUsername)?.split(" ")[0];
   const producerId = username ? `blender-${username}` : null;
   const { videoRef, isConnected } = useWebRTCStream(producerId);
   const { instanceStatus, cancelLaunch, reconnect } = useWebSocketContext();

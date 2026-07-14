@@ -87,6 +87,27 @@ For detailed configuration options, see `.env.example`.
 
 - `/api/v1/...` - Additional HTTP endpoints
 
+## Invite Token Generation
+
+Run from `backend/cr8_engine/` with the venv activated:
+
+```bash
+# Generate 1 token (7-day expiry, default)
+python -m scripts.generate_invite
+
+# Generate multiple tokens
+python -m scripts.generate_invite --count 5
+
+# Set a custom expiry and label who created them
+python -m scripts.generate_invite --count 3 --created-by "thamsanqa" --expiry-days 14
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--count` | `1` | Number of tokens to generate |
+| `--created-by` | `None` | Admin note for who created the tokens |
+| `--expiry-days` | `7` | Days until the token expires |
+
 ## Troubleshooting
 
 - Connection issues: Check firewall and port settings

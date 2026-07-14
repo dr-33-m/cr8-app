@@ -8,6 +8,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import useInboxStore from "@/store/inboxStore";
+import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { toast } from "sonner";
 import { formatDownloads, getAssetTypeName } from "@/lib/utils";
 import { AssetCardProps } from "@/lib/types/assetBrowser";
@@ -22,8 +23,14 @@ export function AssetCard({
 
   const inboxStore = useInboxStore();
   const isInInbox = inboxStore.hasItem(asset.id);
+  const { isFullyConnected } = useWebSocketContext();
 
   const handleCardClick = () => {
+    if (!isFullyConnected) {
+      toast.error("Connect to Blender before adding assets");
+      return;
+    }
+
     const wasInInbox = inboxStore.hasItem(asset.id);
     inboxStore.toggleItem(asset);
 
@@ -38,53 +45,55 @@ export function AssetCard({
   };
 
   return (
-    <HoverCard>
-      <Card
-        className={`
-          group relative overflow-hidden cursor-pointer
-          ${isInInbox ? "border-primary/50 bg-primary/10 shadow-lg shadow-primary/20" : ""}
-          ${compact ? "h-32" : "h-48"}
-        `}
-        onClick={handleCardClick}
-      >
-        <div className="relative overflow-hidden h-full">
-          {!imageLoaded && !imageError && (
-            <div className="absolute inset-0 bg-secondary animate-pulse flex items-center justify-center">
-              <div className="w-8 h-8 border-2 border-t-secondary rounded-full animate-spin" />
-            </div>
-          )}
+    <Card
+      className={`
+        group relative overflow-hidden
+        ${isFullyConnected ? "cursor-pointer" : "opacity-60 cursor-not-allowed"}
+        ${isInInbox ? "border-primary/50 bg-primary/10 shadow-lg shadow-primary/20" : ""}
+        ${compact ? "h-32" : "h-48"}
+      `}
+      onClick={handleCardClick}
+    >
+      <div className="relative overflow-hidden h-full">
+        {!imageLoaded && !imageError && (
+          <div className="absolute inset-0 bg-secondary animate-pulse flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-t-secondary rounded-full animate-spin" />
+          </div>
+        )}
 
-          {imageError ? (
-            <div className="absolute inset-0 bg-secondary flex items-center justify-center">
-              <div className="text-muted-foreground text-sm">No preview</div>
-            </div>
-          ) : (
-            <img
-              src={asset.thumbnail_url}
-              alt={asset.name}
-              className={`
-                w-full h-full object-contain
-                group-hover:scale-105
-                ${imageLoaded ? "opacity-100" : "opacity-0"}
-              `}
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
-            />
-          )}
+        {imageError ? (
+          <div className="absolute inset-0 bg-secondary flex items-center justify-center">
+            <div className="text-muted-foreground text-sm">No preview</div>
+          </div>
+        ) : (
+          <img
+            src={asset.thumbnail_url}
+            alt={asset.name}
+            className={`
+              w-full h-full object-contain
+              group-hover:scale-105
+              ${imageLoaded ? "opacity-100" : "opacity-0"}
+            `}
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageError(true)}
+          />
+        )}
 
-          {!compact && (
+        {!compact && (
+          <HoverCard openDelay={200} closeDelay={100}>
             <HoverCardTrigger asChild>
-              <Info
-                className="w-4 h-4 top-2 right-2 absolute text-muted-foreground hover:text-primary"
+              <button
+                type="button"
+                aria-label="Asset details"
+                className="absolute top-2 right-2 z-10"
                 onClick={(e) => e.stopPropagation()}
-              />
+              >
+                <Info className="w-4 h-4 text-muted-foreground hover:text-primary" />
+              </button>
             </HoverCardTrigger>
-          )}
-        </div>
-      </Card>
 
-      <HoverCardContent className="w-80" side="top">
-        <div className="space-y-3">
+            <HoverCardContent className="w-80" side="top">
+              <div className="space-y-3">
           <div>
             <h4 className="font-medium text-lg">{asset.name}</h4>
             <div className="flex items-center gap-2 mt-1">
@@ -125,8 +134,11 @@ export function AssetCard({
               ))}
             </div>
           </div>
-        </div>
-      </HoverCardContent>
-    </HoverCard>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+        )}
+      </div>
+    </Card>
   );
 }

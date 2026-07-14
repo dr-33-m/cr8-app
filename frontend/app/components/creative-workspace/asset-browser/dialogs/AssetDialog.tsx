@@ -33,7 +33,7 @@ export function AssetDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-7xl! h-[90vh]!">
+      <DialogContent className="max-w-7xl! h-[90vh]! flex flex-col overflow-hidden">
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-2">
             <img src={polyhaveLogo} alt="Poly Haven" className="w-8 h-8" />

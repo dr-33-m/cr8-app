@@ -63,7 +63,7 @@ export function AssetDialogView({
   };
 
   return (
-    <div className="relative min-h-0">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Filters Row */}
       <div className="shrink-0 flex items-center justify-between gap-4 mb-6">
         <AssetTypeTabs selectedType={selectedType} onTypeChange={setType} />
@@ -95,7 +95,7 @@ export function AssetDialogView({
       )}
 
       {/* Asset Grid */}
-      <div className="flex-1 min-h-0 pb-20">
+      <div className="flex-1 min-h-0 overflow-y-auto pb-2">
         <div className="w-full max-w-6xl mx-auto">
           <AssetGrid
             assets={assets}
@@ -108,7 +108,7 @@ export function AssetDialogView({
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div className="absolute bottom-0 left-0 right-0 shrink-0 flex justify-center mt-6">
+        <div className="shrink-0 flex justify-center pt-4">
           <Pagination>
             <PaginationContent>
               <PaginationItem>

@@ -19,7 +19,7 @@ export function AssetBrowser() {
       <Button
         variant="ghost"
         size="icon"
-        className="absolute -left-12 top-0"
+        className="absolute -left-12 top-1/2 -translate-y-1/2"
         onClick={onToggleVisibility}
       >
         {isVisible ? (

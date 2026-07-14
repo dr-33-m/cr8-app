@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { defineStepper } from "@/components/stepper";
 import useUserStore from "@/store/userStore";
+import useInboxStore from "@/store/inboxStore";
 import { BlendFileInfo } from "@/lib/types/onboarding";
 import { toast } from "sonner";
 import { scanBlendFolder } from "@/server/api/onboarding-local/scanBlendFolder";
@@ -119,6 +120,7 @@ export function OnboardingStepper() {
 
   const handleLaunchWorkspace = () => {
     if (selectedBlendFile) {
+      useInboxStore.getState().clearAll();
       navigate({ to: "/workspace" });
     }
   };
