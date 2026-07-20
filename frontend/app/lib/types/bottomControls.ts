@@ -34,6 +34,7 @@ export interface ChatInputProps {
   message: string;
   setMessage: (message: string) => void;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
 // Navigation-related interfaces
@@ -61,6 +62,7 @@ export interface ChatActionsProps {
   onSendMessage: () => void;
   message: string;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
 export interface BottomControlsProps {

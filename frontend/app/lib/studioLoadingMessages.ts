@@ -94,13 +94,31 @@ export const STUDIO_MESSAGES: Record<string, string[]> = {
   ],
 };
 
-/** User-friendly error messages by failure reason. */
+/**
+ * User-friendly error messages by failure reason.
+ *
+ * Keys must stay in sync with the backend's closed reason taxonomy in
+ * app/services/provisioning/errors.py (ProvisionReason) — a backend test
+ * asserts every value there has an entry here, so a new backend reason
+ * without a matching UI message fails CI instead of silently falling back
+ * to `unknown` at runtime.
+ */
 export const ERROR_REASONS: Record<string, string> = {
   timeout: "Your studio took too long to set up. The GPU might be busy.",
   ssh_failed: "Couldn't connect to your studio. The connection dropped.",
   blender_failed: "Blender failed to start on the GPU instance.",
   no_gpu: "No GPUs available right now. Try again in a few minutes.",
+  instance_incompatible: "That GPU instance wasn't compatible. Finding you another one.",
   local_failed: "Blender failed to start locally. Check your setup.",
+  user_cancelled: "Launch cancelled.",
+  xorg_all_drivers_failed: "The GPU's display drivers wouldn't start. Trying a different instance.",
+  nvidia_download_failed: "Couldn't download GPU drivers for this instance. Trying a different one.",
+  nvidia_extract_failed: "GPU driver setup failed on this instance. Trying a different one.",
+  nvidia_not_found: "This instance doesn't have a usable GPU. Trying a different one.",
+  nvidia_no_version: "Couldn't detect the GPU driver version. Trying a different instance.",
+  blender_crashed: "Blender crashed on startup. Please try again.",
+  blend_download_failed: "Couldn't download your project file. Please try again.",
+  ssh_error: "Lost the connection to your studio. Please try again.",
   unknown: "Something unexpected happened. Please try again.",
 };
 

@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/card";
 import { signInFn } from "@/server/auth/functions";
 import { InviteDialog } from "@/components/invite/InviteDialog";
+import { BlendFileBrowser } from "@/components/blend-browser/BlendFileBrowser";
+import type { BlendFile } from "@/server/api/storage/functions";
 import { Lock } from "lucide-react";
 import cr8 from "@/assets/cr8.jpeg";
 
@@ -46,11 +48,14 @@ function RemoteHome() {
     return <SignInPage />;
   }
 
+  const navigate = useNavigate();
+  const { setSelectedBlendObject, setEmptyProject } = useUserStore();
   const [choice, setChoice] = useState<RemoteChoice>("none");
   const [isApproved, setIsApproved] = useState(
     userProfile?.is_approved ?? false
   );
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showBlendBrowser, setShowBlendBrowser] = useState(false);
 
   if (choice === "empty") {
     return <RemoteNewProjectLauncher onBack={() => setChoice("none")} />;
@@ -62,6 +67,21 @@ function RemoteHome() {
     } else {
       setShowInviteDialog(true);
     }
+  };
+
+  const handleOpenExisting = () => {
+    if (isApproved) {
+      setShowBlendBrowser(true);
+    } else {
+      setShowInviteDialog(true);
+    }
+  };
+
+  const handleSelectBlendFile = (file: BlendFile) => {
+    setEmptyProject(false);
+    setSelectedBlendObject(file.filename, file.key);
+    useInboxStore.getState().clearAll();
+    navigate({ to: "/workspace" });
   };
 
   return (
@@ -89,18 +109,30 @@ function RemoteHome() {
           </Button>
           <Button
             variant="outline"
-            className="w-full h-20 flex flex-col items-center justify-center gap-1 opacity-50 cursor-not-allowed"
-            disabled
+            className="w-full h-20 flex flex-col items-center justify-center gap-1 relative"
+            onClick={handleOpenExisting}
           >
+            {!isApproved && (
+              <Lock className="absolute top-3 right-3 h-4 w-4 text-muted-foreground" />
+            )}
             <span className="text-base font-medium">
               Open Existing Project
             </span>
             <span className="text-xs text-muted-foreground">
-              Coming soon — browse your remote blend files
+              {isApproved
+                ? "Browse your cloud blend files"
+                : "Requires invite token to unlock"}
             </span>
           </Button>
         </CardContent>
       </Card>
+
+      <BlendFileBrowser
+        open={showBlendBrowser}
+        onOpenChange={setShowBlendBrowser}
+        accessToken={auth.accessToken!}
+        onSelect={handleSelectBlendFile}
+      />
 
       <InviteDialog
         open={showInviteDialog}
@@ -115,10 +147,13 @@ function RemoteHome() {
 function RemoteNewProjectLauncher({ onBack }: { onBack: () => void }) {
   const navigate = useNavigate();
   const { auth } = Route.useRouteContext();
-  const { setEmptyProject } = useUserStore();
+  const { setEmptyProject, clearBlendSelection } = useUserStore();
   const username = auth.isAuthenticated ? auth.user.name : "";
 
   const handleLaunch = () => {
+    // Drop any previously selected cloud file, or its stale key would ride
+    // along in the socket auth and open that file instead of an empty scene
+    clearBlendSelection();
     setEmptyProject(true);
     useInboxStore.getState().clearAll();
     navigate({ to: "/workspace" });

@@ -8,12 +8,16 @@ export interface UserStoreState {
   blendFolderPath: string;
   selectedBlendFile: string;
   fullBlendFilePath: string;
+  /** RustFS object key of the selected cloud blend file (remote mode). */
+  selectedBlendObjectKey: string;
   isEmptyProject: boolean;
   _hasHydrated: boolean;
   setUser: (user: { id: string; name: string; email?: string | null }) => void;
   setUsername: (username: string) => void;
   setBlendFolder: (path: string) => void;
   setSelectedBlendFile: (filename: string, fullPath: string) => void;
+  /** Select a cloud blend file by its object key (remote mode). */
+  setSelectedBlendObject: (filename: string, objectKey: string) => void;
   setEmptyProject: (value: boolean) => void;
   clearBlendSelection: () => void;
   reset: () => void;

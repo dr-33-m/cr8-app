@@ -196,8 +196,9 @@ export function BottomControls({ children }: BottomControlsProps) {
       {/* Separate 3D Navigation Panel - Positioned to the right */}
       {(isFullyConnected || connectionState === "blender_reconnecting") && (
         <div
-          className={`absolute bottom-0 left-[calc(50%+280px)] transition-all duration-300 
-    ${isVisible ? "translate-y-0" : "translate-y-full"}`}
+          className={`absolute bottom-0 left-[calc(50%+280px)] transition-all duration-300
+    ${isVisible ? "translate-y-0" : "translate-y-full"}
+    ${connectionState === "blender_reconnecting" ? "pointer-events-none opacity-60" : ""}`}
         >
           <Navigation />
         </div>

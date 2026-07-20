@@ -65,6 +65,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
     # Utilities
     unzip \
     wget \
+    curl \
     mesa-utils \
     && rm -rf /var/lib/apt/lists/*
 

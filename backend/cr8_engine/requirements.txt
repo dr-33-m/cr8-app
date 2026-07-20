@@ -12,7 +12,9 @@ python-socketio
 psutil
 
 # B.L.A.Z.E Agent dependencies
-pydantic-ai
+# Pinned: >1.16.0 removed the deprecated pydantic_ai.models.openai.OpenAIModel
+# that app/blaze/providers.py imports, breaking a fresh (unpinned) build.
+pydantic-ai==1.16.0
 mcp
 
 # Authentication (JWT validation)
@@ -23,7 +25,15 @@ cryptography
 asyncssh
 
 # Database (PostgreSQL)
-sqlalchemy[asyncio]
-asyncpg
+# Pinned: unpinned versions here are the suspected root cause of a production
+# incident where enqueue_teardown's `ON CONFLICT ... WHERE ... DO NOTHING`
+# failed with `InvalidColumnReferenceError` despite passing in tests against
+# these exact versions — the fix no longer depends on ON CONFLICT inference
+# matching regardless, but pin anyway so "tested against X" stays true.
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.27.0
 psycopg2-binary
 alembic
+
+# Object storage (RustFS — S3-compatible, accessed via the AWS SDK)
+boto3

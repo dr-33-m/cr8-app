@@ -209,9 +209,28 @@ class WebSocketHandler:
             if bpy.data.filepath:
                 logging.info(f"Saving Blender file: {bpy.data.filepath}")
                 bpy.ops.wm.save_mainfile()
+                # The instance disk is scratch — it is destroyed shortly after we
+                # exit, so a local save alone is data loss. Push the file back to
+                # object storage via the presigned URL minted at launch. This is
+                # the one save path that works while the engine is unreachable
+                # (which is exactly why we're in this cleanup).
+                save_url = os.environ.get('CR8_SAVE_URL')
+                if save_url:
+                    try:
+                        import requests
+                        with open(bpy.data.filepath, 'rb') as f:
+                            resp = requests.put(save_url, data=f, timeout=600)
+                        if resp.status_code == 200:
+                            logging.info("Uploaded blend file to cloud storage before exit")
+                        else:
+                            logging.error(f"Cloud save failed with status {resp.status_code}: {resp.text[:200]}")
+                    except Exception as upload_error:
+                        logging.error(f"Cloud save failed: {upload_error}")
+                else:
+                    logging.warning("No CR8_SAVE_URL set — file saved locally only (will be lost with the instance)")
             else:
                 logging.warning("No blend file path found, skipping save")
-            
+
             # Quit Blender
             logging.info("Closing Blender instance")
             bpy.ops.wm.quit_blender()

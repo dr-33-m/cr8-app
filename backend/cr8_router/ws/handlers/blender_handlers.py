@@ -33,6 +33,14 @@ class ConnectWebSocketOperator(bpy.types.Operator):
         try:
             from ..websocket_handler import get_handler
             handler = get_handler()
+            # Idempotent: with a cloud .blend both the app-template hook and the
+            # CLI --python-expr can schedule this operator. A non-None sio means a
+            # connection exists or is mid-handshake (disconnect() nulls it), so the
+            # second call must be a no-op — checking .connected instead would leave
+            # a race window while the first connect (wait=False) is still handshaking.
+            if handler.sio is not None:
+                self.report({'INFO'}, "Connection already initialized")
+                return {'FINISHED'}
             handler.initialize_connection()  # Initialize before connecting
             if handler.connect():
                 self.report({'INFO'}, f"Connected to {handler.url}")

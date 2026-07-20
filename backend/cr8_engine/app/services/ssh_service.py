@@ -84,7 +84,8 @@ class SSHService:
                     logger.error(f"SSH connection failed to instance {instance_id} ({host}:{port}): {e}")
         raise last_error
 
-    async def launch_blender(self, instance_id: int, username: str, status_callback=None, auth_token: str = None) -> int:
+    async def launch_blender(self, instance_id: int, username: str, status_callback=None,
+                             auth_token: str = None, launch_env: dict = None) -> int:
         """
         Launch a headless Blender process on a VastAI instance via SSH.
 
@@ -121,12 +122,18 @@ class SSHService:
             "nvidia_downloading": 180,  # driver download can be slow on cold instances
             "nvidia_installing":  120,  # kernel module build/install
             "xorg_setup":          60,
+            "blend_downloading":  600,  # user .blend can be ~1GB pulled through the tunnel
         }
         DEFAULT_PHASE_TIMEOUT = 30
 
         try:
-            # Pass auth token as environment variable if available
-            env_prefix = f"CR8_AUTH_TOKEN={auth_token} " if auth_token else ""
+            # Pass env as single-quoted assignments: presigned URLs contain & and =,
+            # which would otherwise be interpreted by the remote shell. Values are
+            # engine-generated (tokens, presigned URLs) and never contain quotes.
+            env_vars = dict(launch_env or {})
+            if auth_token:
+                env_vars["CR8_AUTH_TOKEN"] = auth_token
+            env_prefix = "".join(f"{k}='{v}' " for k, v in env_vars.items() if v)
             async with conn.create_process(f"{env_prefix}/opt/cr8/launch-blender.sh {username}") as process:
                 pid = None
                 error = None

@@ -123,10 +123,15 @@ class InstanceManager:
 
         logger.info(f"Instance manager ready: {len(self.state.instances)} active instances")
 
-    async def provision_for_user(self, username: str, tier: str = "creator", status_callback=None) -> Optional[InstanceAssignment]:
+    async def provision_for_user(self, username: str, tier: str = "creator", status_callback=None,
+                                 launch_env: dict = None) -> Optional[InstanceAssignment]:
         """
         Provision a Blender instance for a user.
         Reuses an existing shared instance if available, otherwise launches a new one.
+
+        launch_env: extra env vars for launch-blender.sh (e.g. BLEND_URL, CR8_SAVE_URL).
+        Only applied when a new Blender process is launched — a user rejoining their
+        already-running Blender keeps whatever it was started with.
         """
         # Check for existing assignment
         existing_id = self.state.get_user_instance(username)
@@ -155,7 +160,8 @@ class InstanceManager:
         if record:
             logger.info(f"Reusing instance {record.vastai_id} ({record.user_count}/{record.max_users} users)")
             try:
-                return await self._assign_user_to_instance(username, record, status_callback=status_callback)
+                return await self._assign_user_to_instance(username, record, status_callback=status_callback,
+                                                           launch_env=launch_env)
             except ProvisionError as e:
                 if e.reason == "ssh_failed" and record.is_empty:
                     # SSH failed on a reused instance with no other users.
@@ -166,7 +172,7 @@ class InstanceManager:
                         f"SSH failed on reused instance {record.vastai_id}, "
                         f"recycling container to refresh SSH keys"
                     )
-                    return await self._recycle_and_assign(username, record, status_callback)
+                    return await self._recycle_and_assign(username, record, status_callback, launch_env=launch_env)
                 if e.reason == "instance_incompatible":
                     logger.warning(
                         f"Instance {record.vastai_id} incompatible ({e}), "
@@ -177,12 +183,14 @@ class InstanceManager:
                     except Exception as destroy_err:
                         logger.warning(f"Failed to destroy incompatible instance {record.vastai_id}: {destroy_err}")
                         self.state.remove_instance(record.vastai_id)
-                    return await self._launch_and_assign(username, gpu_name, status_callback=status_callback)
+                    return await self._launch_and_assign(username, gpu_name, status_callback=status_callback,
+                                                         launch_env=launch_env)
                 raise
 
         # Launch new instance
         logger.info(f"No available {gpu_name} instance, launching new one for {username}")
-        return await self._launch_and_assign(username, gpu_name, status_callback=status_callback)
+        return await self._launch_and_assign(username, gpu_name, status_callback=status_callback,
+                                             launch_env=launch_env)
 
     async def release_user(self, username: str) -> bool:
         """Kill user's Blender process and remove their assignment."""
@@ -282,7 +290,8 @@ class InstanceManager:
     # --- Private ---
 
     async def _assign_user_to_instance(self, username: str, record: InstanceRecord,
-                                       status_callback=None, launch_start: float = None) -> InstanceAssignment:
+                                       status_callback=None, launch_start: float = None,
+                                       launch_env: dict = None) -> InstanceAssignment:
         """SSH into an existing instance and launch Blender for the user.
 
         Raises:
@@ -320,7 +329,8 @@ class InstanceManager:
         try:
             from app.auth.internal_token import generate_blender_token
             auth_token = generate_blender_token(username)
-            pid = await self.ssh.launch_blender(record.vastai_id, username, status_callback=ssh_cb, auth_token=auth_token)
+            pid = await self.ssh.launch_blender(record.vastai_id, username, status_callback=ssh_cb,
+                                                auth_token=auth_token, launch_env=launch_env)
         except LaunchError as e:
             logger.error(f"Blender launch failed for {username} on instance {record.vastai_id}: {e}")
             if any(p in e.error_code for p in INSTANCE_FATAL_PATTERNS):
@@ -343,7 +353,8 @@ class InstanceManager:
             blender_pid=pid,
         )
 
-    async def _launch_and_assign(self, username: str, gpu_name: str, status_callback=None) -> InstanceAssignment:
+    async def _launch_and_assign(self, username: str, gpu_name: str, status_callback=None,
+                                 launch_env: dict = None) -> InstanceAssignment:
         """Launch a new VastAI instance and assign the user to it.
         Automatically retries with a fresh instance on timeout or incompatible hardware.
 
@@ -400,7 +411,8 @@ class InstanceManager:
                     raise ProvisionError("ssh_failed", f"SSH key attachment failed for instance {instance_id}")
 
                 return await self._assign_user_to_instance(
-                    username, record, status_callback=status_callback, launch_start=launch_start
+                    username, record, status_callback=status_callback, launch_start=launch_start,
+                    launch_env=launch_env
                 )
 
             except ProvisionError as e:
@@ -424,7 +436,8 @@ class InstanceManager:
         await self.vastai.destroy_instance(instance_id)
         self.state.remove_instance(instance_id)
 
-    async def _recycle_and_assign(self, username: str, record: InstanceRecord, status_callback=None) -> InstanceAssignment:
+    async def _recycle_and_assign(self, username: str, record: InstanceRecord, status_callback=None,
+                                  launch_env: dict = None) -> InstanceAssignment:
         """Recycle a running instance whose container has stale SSH keys, then assign the user.
 
         VastAI's recycle API destroys and recreates the container in place without
@@ -450,7 +463,8 @@ class InstanceManager:
             # Clean up our state and launch a fresh instance instead of giving up.
             logger.warning(f"Recycled instance {instance_id} did not come back, removing and launching fresh")
             await self._destroy_instance(instance_id)
-            return await self._launch_and_assign(username, record.gpu_name, status_callback=status_callback)
+            return await self._launch_and_assign(username, record.gpu_name, status_callback=status_callback,
+                                                 launch_env=launch_env)
 
         record.host = connection_info["host"]
         record.ssh_port = connection_info["ssh_port"]
@@ -466,4 +480,5 @@ class InstanceManager:
         else:
             raise ProvisionError("ssh_failed", f"SSH key attachment failed on recycled instance {instance_id}")
 
-        return await self._assign_user_to_instance(username, record, status_callback=status_callback)
+        return await self._assign_user_to_instance(username, record, status_callback=status_callback,
+                                                   launch_env=launch_env)

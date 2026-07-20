@@ -94,11 +94,12 @@ async def health_check():
 app.include_router(blend_files.router, prefix="/api/v1", tags=["blend-files"])
 app.include_router(polyhaven.router, prefix="/api/v1/polyhaven", tags=["polyhaven"])
 
-# Invite-gate endpoints (remote mode only — requires database)
+# Invite-gate and storage endpoints (remote mode only — require database)
 if DeploymentConfig.get().LAUNCH_MODE == "remote":
-    from app.api.v1.endpoints import users, invitations
+    from app.api.v1.endpoints import users, invitations, storage
     app.include_router(users.router, prefix="/api/v1", tags=["users"])
     app.include_router(invitations.router, prefix="/api/v1", tags=["invitations"])
+    app.include_router(storage.router, prefix="/api/v1", tags=["storage"])
 
 # Create Socket.IO server
 sio = create_socketio_server()

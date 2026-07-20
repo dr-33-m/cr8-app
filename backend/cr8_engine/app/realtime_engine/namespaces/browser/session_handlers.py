@@ -32,6 +32,7 @@ class SessionHandlersMixin:
             
             username = session['username']
             blend_file = session['blend_file']
+            blend_object_key = session.get('blend_object_key')
             recovery_mode = data.get('recovery', False) if data else False
             
             self.logger.info(f"Browser ready signal from {username} (recovery: {recovery_mode})")
@@ -70,7 +71,11 @@ class SessionHandlersMixin:
                 await self.emit(MessageType.INSTANCE_STATUS.value, status_msg.to_dict(), to=sid)
 
             # Launch Blender instance
-            result = await BlenderService.launch_instance(username, blend_file, status_callback=instance_status_callback)
+            result = await BlenderService.launch_instance(
+                username, blend_file,
+                status_callback=instance_status_callback,
+                blend_object_key=blend_object_key,
+            )
 
             if result != "success":
                 reason = result or "unknown"
@@ -116,7 +121,13 @@ class SessionHandlersMixin:
             username = session['username']
             self.logger.info(f"Cancel launch requested by {username}")
 
-            # Release user assignment (kills Blender if running, removes from instance)
+            # Two-pronged, safe to call both: cancel_launch() interrupts an
+            # in-flight provisioning attempt (v2 engine only) at its next
+            # await point instead of letting it run to completion unattended;
+            # terminate_instance() releases an assignment that already
+            # succeeded. Whichever applies takes effect — neither is a no-op
+            # for the wrong case.
+            await BlenderService.cancel_launch(username)
             await BlenderService.terminate_instance(username)
 
             # Send cancelled status to browser

@@ -179,6 +179,18 @@ export function WebSocketProvider({
             setBlenderConnected(false);
             setConnectionState("blender_reconnecting");
 
+            // Clear any timer from a PRIOR drop episode before scheduling this
+            // one's — without this, a flappy connection (a second "transport
+            // close" arriving before the first episode's timer fires or gets
+            // cleared) orphans the earlier timer instead of cancelling it. An
+            // orphaned timer keeps running detached from the ref and can fire
+            // its "Blender disconnected" toast during a LATER, unrelated
+            // blender_reconnecting window — which is what made the toast
+            // appear to lag behind (or outlive) the actual disconnect.
+            if (blenderReconnectTimerRef.current) {
+              clearTimeout(blenderReconnectTimerRef.current);
+            }
+
             // Escalate to full disconnect after 15s if Blender doesn't come back
             blenderReconnectTimerRef.current = setTimeout(() => {
               blenderReconnectTimerRef.current = null;

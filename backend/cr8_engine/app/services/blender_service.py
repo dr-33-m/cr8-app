@@ -8,7 +8,13 @@ from typing import Dict, Optional
 from pathlib import Path
 
 from .config import DeploymentConfig
-from .instance_manager import ProvisionError
+from .instance_manager import ProvisionError as LegacyProvisionError
+from .provisioning.errors import ProvisionError as V2ProvisionError
+
+# Both engines raise their own ProvisionError with the same `.reason` shape —
+# caught together so blender_service.py doesn't need to know which engine is
+# active (see DeploymentConfig.PROVISIONING_ENGINE / _get_instance_manager).
+ProvisionError = (LegacyProvisionError, V2ProvisionError)
 
 # Deferred operator call — bpy.app.timers fires on the main loop, after all addons
 # in extensions/user_default/ are loaded and registered. --python-expr runs during
@@ -120,15 +126,28 @@ class BlenderService:
 
     @classmethod
     def _get_instance_manager(cls):
-        """Lazy-initialize the InstanceManager (only needed in remote mode)."""
+        """Lazy-initialize the instance manager (only needed in remote mode).
+        Picks the provisioning engine per DeploymentConfig.PROVISIONING_ENGINE —
+        "legacy" (default) or "v2". Both expose the same
+        provision_for_user/release_user/get_user_assignment/initialize/shutdown
+        surface, so nothing above this call site needs to know which is active."""
         if cls._instance_manager is None:
-            from .instance_manager import InstanceManager
-            cls._instance_manager = InstanceManager()
+            if DeploymentConfig.get().PROVISIONING_ENGINE == "v2":
+                from .provisioning import ProvisioningManager
+                cls._instance_manager = ProvisioningManager()
+            else:
+                from .instance_manager import InstanceManager
+                cls._instance_manager = InstanceManager()
         return cls._instance_manager
 
     @classmethod
-    async def launch_instance(cls, username: str, blend_file_path: str = None, status_callback=None) -> Optional[str]:
+    async def launch_instance(cls, username: str, blend_file_path: str = None, status_callback=None,
+                              blend_object_key: str = None) -> Optional[str]:
         """Launch a Blender instance. Routes to local or remote based on LAUNCH_MODE.
+
+        blend_file_path is a local filesystem path (local mode); blend_object_key is
+        a RustFS object key (remote mode). Ownership of the key is validated at
+        socket connect — by the time it reaches here it is trusted.
 
         Returns:
             "success" if launched, or a failure reason string:
@@ -136,7 +155,7 @@ class BlenderService:
         """
         config = DeploymentConfig.get()
         if config.LAUNCH_MODE == "remote":
-            return await cls._launch_remote(username, blend_file_path, status_callback=status_callback)
+            return await cls._launch_remote(username, blend_object_key, status_callback=status_callback)
         return await cls._launch_local(username, blend_file_path)
 
     @classmethod
@@ -155,14 +174,49 @@ class BlenderService:
             return await cls._terminate_remote(username)
         return await cls._terminate_local(username)
 
+    @classmethod
+    async def cancel_launch(cls, username: str) -> bool:
+        """Best-effort interrupt of an in-flight remote launch attempt — only
+        the v2 provisioning engine supports this (see
+        ProvisioningManager.cancel_launch / attempts.py); the legacy engine
+        has no cancellation token, so this is a no-op there, matching prior
+        behavior. terminate_instance() remains the reliable path for a launch
+        that already succeeded — callers should call both, not choose one."""
+        config = DeploymentConfig.get()
+        if config.LAUNCH_MODE != "remote":
+            return False
+        manager = cls._get_instance_manager()
+        cancel_fn = getattr(manager, "cancel_launch", None)
+        if cancel_fn is None:
+            return False
+        return cancel_fn(username)
+
     # --- Remote mode (VastAI) ---
 
     @classmethod
-    async def _launch_remote(cls, username: str, blend_file_path: str = None, status_callback=None) -> Optional[str]:
-        """Launch Blender on a VastAI GPU instance via SSH."""
+    async def _launch_remote(cls, username: str, blend_object_key: str = None, status_callback=None) -> Optional[str]:
+        """Launch Blender on a VastAI GPU instance via SSH.
+
+        For a cloud .blend, the instance pulls the file itself via a presigned GET
+        (BLEND_URL) — the engine never touches the bytes. CR8_SAVE_URL is a
+        presigned PUT minted now, at launch, because the emergency save in the
+        addon fires exactly when this engine is unreachable and cannot be asked.
+        """
         try:
+            launch_env = None
+            if blend_object_key:
+                from .storage_service import presign_download, presign_save
+                launch_env = {
+                    # 1h: covers instance provisioning (up to ~10min) + the download
+                    "BLEND_URL": presign_download(blend_object_key, ttl=3600),
+                    # 12h: must outlive the whole editing session
+                    "CR8_SAVE_URL": presign_save(blend_object_key),
+                }
+                cls.logger.info(f"Launching remote Blender for {username} with blend {blend_object_key}")
+
             manager = cls._get_instance_manager()
-            assignment = await manager.provision_for_user(username, tier="creator", status_callback=status_callback)
+            assignment = await manager.provision_for_user(username, tier="creator", status_callback=status_callback,
+                                                          launch_env=launch_env)
             cls.logger.info(
                 f"Remote Blender launched for {username} on instance {assignment.instance_id} "
                 f"(PID {assignment.blender_pid})"

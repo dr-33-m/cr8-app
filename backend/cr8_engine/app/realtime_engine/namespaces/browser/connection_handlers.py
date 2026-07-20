@@ -37,6 +37,34 @@ class ConnectionHandlersMixin:
             self.logger.error(f"Error checking room participants: {e}")
             return False
 
+    async def _verify_blend_key_ownership(self, blend_object_key: str, logto_id: str) -> bool:
+        """
+        True iff the object key lives under the prefix of the user the JWT belongs
+        to, and that user is approved. Maps claims["sub"] (Logto id) to the DB
+        user id, which is what S3 prefixes are keyed on.
+        """
+        try:
+            from sqlalchemy import select
+            from app.db.engine import get_session_factory
+            from app.db.models import User
+            from app.services.storage_service import assert_owned, StorageError
+
+            factory = get_session_factory()
+            async with factory() as db:
+                result = await db.execute(select(User).where(User.logto_id == logto_id))
+                user = result.scalar_one_or_none()
+
+            if not user or not user.is_approved:
+                return False
+            try:
+                assert_owned(blend_object_key, str(user.id))
+            except StorageError:
+                return False
+            return True
+        except Exception as e:
+            self.logger.error(f"Blend key ownership check failed: {e}")
+            return False
+
     async def on_connect(self, sid: str, environ: Dict, auth: Optional[Dict]) -> bool:
         """
         Handle browser client connection.
@@ -64,6 +92,7 @@ class ConnectionHandlersMixin:
 
             token = auth.get('token')
             blend_file_path = auth.get('blend_file_path')
+            blend_object_key = auth.get('blend_object_key')
             config = DeploymentConfig.get()
 
             if config.LAUNCH_MODE == "remote":
@@ -81,8 +110,18 @@ class ConnectionHandlersMixin:
                 except Exception as e:
                     self.logger.error(f"JWT validation failed: {e}")
                     return False
+
+                # The object key is client-supplied; verify it belongs to the JWT's
+                # user before it can reach the launch path. The prefix is keyed on
+                # the DB user id (claims["sub"] -> User.id), NOT the socket-layer
+                # username, which is a fallback-chained display name.
+                if blend_object_key:
+                    if not await self._verify_blend_key_ownership(blend_object_key, user_id):
+                        self.logger.error(f"Rejected blend_object_key not owned by {user_id}: {blend_object_key}")
+                        return False
             else:
                 # Local mode: accept plain username auth (no JWT required)
+                blend_object_key = None  # cloud files don't exist in local mode
                 username = auth.get('username')
                 if not username:
                     self.logger.error("No username provided in auth (local mode)")
@@ -121,6 +160,7 @@ class ConnectionHandlersMixin:
             session_data = {
                 'username': username,
                 'blend_file': blend_file_path,
+                'blend_object_key': blend_object_key,
                 'browser_sid': sid,
                 'blender_sid': None,
                 'state': 'waiting_for_browser_ready',

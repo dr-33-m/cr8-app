@@ -24,6 +24,7 @@ if config.config_file_name is not None:
 # Import models so autogenerate can detect them
 from app.db.base import Base
 import app.db.models  # noqa: F401 — registers models with Base.metadata
+import app.services.provisioning.models  # noqa: F401 — registers provisioning models with Base.metadata
 
 target_metadata = Base.metadata
 

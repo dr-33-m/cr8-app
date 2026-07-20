@@ -248,9 +248,31 @@ if command -v glxinfo &>/dev/null; then
 fi
 
 # ============================================================
+# Step 3.7: Optional cloud .blend — download via presigned GET
+# BLEND_URL is minted by the engine (see BlenderService._launch_remote);
+# the file can be ~1GB, so the engine gives this phase a long watchdog.
+# ============================================================
+BLEND_FILE=""
+if [ -n "${BLEND_URL:-}" ]; then
+    cr8_status "blend_downloading"
+    BLEND_FILE="/tmp/cr8_${USERNAME}.blend"
+    if ! curl -fsSL --retry 3 --retry-delay 5 -o "$BLEND_FILE" "$BLEND_URL"; then
+        rm -f "$BLEND_FILE"
+        cr8_error "blend_download_failed"
+    fi
+    cr8_status "blend_downloaded:$(stat -c%s "$BLEND_FILE" 2>/dev/null || echo unknown)"
+fi
+
+# ============================================================
 # Step 4: Launch Blender — deferred addon operator via timer
 # ============================================================
 cr8_status "blender_launching"
+
+# When opening a file, the template's load_factory_startup_post hook does not
+# fire (that's a homefile-read event), so inject the connect timer explicitly —
+# same expression the local launch path uses. The operator is idempotent, so
+# on an empty launch both the template hook and this expr firing is harmless.
+CONNECT_EXPR='import bpy; bpy.app.timers.register(lambda: (bpy.ops.ws_handler.connect_websocket(), None)[-1], first_interval=1.0)'
 
 DISPLAY=:2 \
 CR8_USERNAME="${USERNAME}" \
@@ -260,7 +282,8 @@ GST_DEBUG="3,webrtcsink:5,rswebrtc:5,webrtc-signaller:5,gstglcontext:5,gstgldisp
 GST_DEBUG_FILE="/tmp/gst_debug_${USERNAME}.log" \
 GST_PLUGIN_SCANNER="${GST_PLUGIN_SCANNER:-}" \
 GST_PLUGIN_PATH="/usr/lib/x86_64-linux-gnu/gstreamer-1.0" \
-nohup blender --app-template cr8 \
+nohup blender --app-template cr8 ${BLEND_FILE:+"$BLEND_FILE"} \
+    --python-expr "$CONNECT_EXPR" \
     > "$LOGFILE" 2>&1 &
 
 BLENDER_PID=$!

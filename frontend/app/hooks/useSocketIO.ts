@@ -146,7 +146,8 @@ export const useSocketIO = (
       return;
     }
 
-    const { fullBlendFilePath } = useUserStore.getState();
+    const { fullBlendFilePath, selectedBlendObjectKey, isEmptyProject } =
+      useUserStore.getState();
 
     isManuallyDisconnected.current = false;
     setStatus("connecting");
@@ -160,6 +161,12 @@ export const useSocketIO = (
           token,
           username,
           blend_file_path: fullBlendFilePath || undefined,
+          // RustFS object key of the cloud .blend to open; the engine verifies
+          // ownership against the JWT before using it
+          blend_object_key:
+            !isEmptyProject && selectedBlendObjectKey
+              ? selectedBlendObjectKey
+              : undefined,
         };
       } else {
         authPayload = {

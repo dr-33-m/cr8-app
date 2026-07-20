@@ -1,6 +1,7 @@
 import { useChatMessage } from "@/hooks/useChatMessage";
 import useInboxStore from "@/store/inboxStore";
 import { useSceneContext } from "@/hooks/useSceneContext";
+import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { ChatInput } from "./ChatInput";
 import { ChatActions } from "./ChatActions";
 import {
@@ -11,6 +12,8 @@ import {
 export function BlazeChat() {
   const { message, setMessage, isLoading, handleSendMessage } =
     useChatMessage();
+  const { connectionState } = useWebSocketContext();
+  const isReconnecting = connectionState === "blender_reconnecting";
 
   const inboxItems = useInboxStore((state) => state.items);
   const { objects: sceneObjects } = useSceneContext();
@@ -44,6 +47,7 @@ export function BlazeChat() {
           message={message}
           setMessage={setMessage}
           isLoading={isLoading}
+          disabled={isReconnecting}
         />
 
         {/* Action Buttons Row */}
@@ -51,6 +55,7 @@ export function BlazeChat() {
           onSendMessage={handleSendMessage}
           message={message}
           isLoading={isLoading}
+          disabled={isReconnecting}
         />
       </div>
     </div>

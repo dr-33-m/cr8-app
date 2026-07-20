@@ -15,12 +15,13 @@ export function ChatInput({
   message,
   setMessage,
   isLoading,
+  disabled = false,
 }: ChatInputProps) {
   // Handle key press for Enter to send
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSendMessage();
+      if (!disabled) onSendMessage();
     }
   };
 
@@ -30,8 +31,12 @@ export function ChatInput({
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyDown={handleKeyDown}
-        disabled={isLoading}
-        placeholder="Tell B.L.A.Z.E what to do... (Use @inbox or #scene)"
+        disabled={isLoading || disabled}
+        placeholder={
+          disabled
+            ? "Reconnecting to Blender..."
+            : "Tell B.L.A.Z.E what to do... (Use @inbox or #scene)"
+        }
         a11ySuggestionsListLabel="Mention suggestions"
         allowSuggestionsAboveCursor
         style={mentionsInputStyle}

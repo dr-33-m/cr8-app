@@ -11,6 +11,7 @@ const useUserStore = create<UserStoreState>()(
       blendFolderPath: "",
       selectedBlendFile: "",
       fullBlendFilePath: "",
+      selectedBlendObjectKey: "",
       isEmptyProject: false,
       _hasHydrated: false,
       setUser: (user) =>
@@ -19,12 +20,21 @@ const useUserStore = create<UserStoreState>()(
       setBlendFolder: (path) => set({ blendFolderPath: path }),
       setSelectedBlendFile: (filename, fullPath) =>
         set({ selectedBlendFile: filename, fullBlendFilePath: fullPath }),
+      setSelectedBlendObject: (filename, objectKey) =>
+        set({
+          selectedBlendFile: filename,
+          selectedBlendObjectKey: objectKey,
+          // Local-only path: meaningless for a cloud file, and leaving a stale
+          // value here would send a bogus blend_file_path in the socket auth.
+          fullBlendFilePath: "",
+        }),
       setEmptyProject: (value) => set({ isEmptyProject: value }),
       clearBlendSelection: () =>
         set({
           blendFolderPath: "",
           selectedBlendFile: "",
           fullBlendFilePath: "",
+          selectedBlendObjectKey: "",
         }),
       reset: () =>
         set({
@@ -34,6 +44,7 @@ const useUserStore = create<UserStoreState>()(
           blendFolderPath: "",
           selectedBlendFile: "",
           fullBlendFilePath: "",
+          selectedBlendObjectKey: "",
           isEmptyProject: false,
         }),
     }),
