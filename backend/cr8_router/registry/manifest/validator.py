@@ -132,10 +132,16 @@ def validate_parameter(param: dict) -> bool:
             return False
 
     # Validate parameter type
+    # 'dict' is a structured passthrough — used for parameters the engine builds
+    # and the addon consumes verbatim (e.g. render's presigned multipart upload
+    # descriptor). Omitting it here is not a soft failure: an unknown type fails
+    # the whole manifest, and scan_addons drops a failed manifest silently, so
+    # the addon would simply never register and its commands would surface much
+    # later as COMMAND_NOT_FOUND.
     valid_types = [
         'string', 'integer', 'float', 'boolean',
         'object_name', 'material_name', 'collection_name',
-        'enum', 'vector3', 'color', 'file_path'
+        'enum', 'vector3', 'color', 'file_path', 'dict'
     ]
     
     if param['type'] not in valid_types:

@@ -1,0 +1,87 @@
+{
+  "addon_info": {
+    "id": "cr8_render",
+    "name": "Cr8 Render",
+    "version": "1.0.0",
+    "author": "Cr8-xyz <thamsanqa.dev@gmail.com>",
+    "category": "render",
+    "description": "Image rendering and cloud output for AI agents",
+    "homepage": "https://code.cr8-xyz.art/Cr8-xyz/cr8-app"
+  },
+  "ai_integration": {
+    "agent_description": "This addon renders finished images from the scene and uploads them to the user's cloud storage library.\n\nThe user chooses a camera, an output resolution and a render engine; sampling, denoising and GPU device selection are handled internally at production-quality defaults, so there is no need to reason about sample counts. EEVEE is fast and suits look development and quick previews; Cycles is path-traced and suits final, photoreal output at the cost of render time.\n\nRendering blocks Blender's main thread — the viewport freezes and no other command runs until it finishes. A 4K Cycles render can take several minutes. Do not issue a render as a side effect of an unrelated request, and do not issue a second render while one is in progress.\n\nThe upload target is minted by the engine and passed in as the `multipart` parameter. Without it the render has nowhere to go and will fail.",
+    "tools": [
+      {
+        "name": "render_image",
+        "description": "Render the current frame from a camera and save it to the user's render library",
+        "usage": "Use when the user asks for a render, an image, a still, or a final shot. Confirm which camera if the scene has more than one and the user did not say.",
+        "parameters": [
+          {
+            "name": "camera",
+            "type": "object_name",
+            "description": "Name of the camera object to render from. Omit to use the scene's active camera.",
+            "required": false
+          },
+          {
+            "name": "engine",
+            "type": "enum",
+            "description": "Render engine. EEVEE is fast; CYCLES is path-traced and slower but photoreal.",
+            "required": false,
+            "options": ["EEVEE", "CYCLES"],
+            "default": "EEVEE"
+          },
+          {
+            "name": "resolution",
+            "type": "enum",
+            "description": "Output resolution tier, applied to the long edge: hd=1920, 2k=2560, 4k=3840.",
+            "required": false,
+            "options": ["hd", "2k", "4k"],
+            "default": "hd"
+          },
+          {
+            "name": "aspect",
+            "type": "enum",
+            "description": "Aspect ratio of the output image.",
+            "required": false,
+            "options": ["16:9", "9:16", "1:1", "4:5", "3:2"],
+            "default": "16:9"
+          },
+          {
+            "name": "multipart",
+            "type": "dict",
+            "description": "Pre-signed multipart upload descriptor minted by the engine ({upload_id, key, part_size, part_urls}). Passed through verbatim; never construct this.",
+            "required": true
+          },
+          {
+            "name": "thumb_url",
+            "type": "string",
+            "description": "Pre-signed PUT URL for the library thumbnail, minted by the engine.",
+            "required": false
+          }
+        ],
+        "examples": [
+          "render this",
+          "render the kitchen camera at 4K",
+          "give me a final render with cycles",
+          "render a square image for instagram"
+        ],
+        "category": "render"
+      }
+    ],
+    "context_hints": [
+      "Rendering blocks Blender's main thread — the viewport freezes until it completes",
+      "Cycles at 4K can take several minutes; EEVEE is the right default for iteration",
+      "Sampling and denoising are handled internally — the user only picks camera, resolution and engine",
+      "Renders are saved to the user's cloud library under the currently open project",
+      "A project that has never been saved to the cloud has nowhere to file renders and must be saved first"
+    ],
+    "requirements": {
+      "blender_version_min": "4.2.0",
+      "python_packages": ["requests"]
+    },
+    "metadata": {
+      "supports_undo": false,
+      "modifies_scene": false
+    }
+  }
+}

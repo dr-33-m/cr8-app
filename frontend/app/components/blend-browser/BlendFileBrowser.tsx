@@ -38,6 +38,7 @@ import {
   listBlendFilesFn,
 } from "@/server/api/storage/functions";
 import { MAX_BLEND_BYTES, useBlendUpload } from "@/hooks/useBlendUpload";
+import { formatDate, formatSize } from "@/lib/formatters";
 
 interface BlendFileBrowserProps {
   open: boolean;
@@ -48,23 +49,6 @@ interface BlendFileBrowserProps {
 
 type ViewMode = "grid" | "list";
 type SortKey = "latest" | "oldest" | "name" | "size";
-
-function formatSize(bytes: number): string {
-  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-  if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`;
-  return `${Math.round(bytes / 1024)} KB`;
-}
-
-// dd/mm/yyyy • h:mm AM/PM — matches the gallery mockup.
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString("en-GB");
-  const time = d.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  return `${date} • ${time}`;
-}
 
 function sortFiles(files: BlendFile[], sort: SortKey): BlendFile[] {
   const copy = [...files];

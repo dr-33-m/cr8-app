@@ -59,6 +59,12 @@ class DeploymentConfig:
         self.RUSTFS_SECRET_KEY: str = os.getenv("RUSTFS_SECRET_KEY", "")
         self.RUSTFS_BUCKET: str = os.getenv("RUSTFS_BUCKET", "cr8-xyz")
 
+        # How long the engine waits for a render to come back from Blender.
+        # Must clear the addon's own Cycles time limit plus the upload, or a
+        # render that was actually going to succeed gets abandoned mid-flight.
+        self.RENDER_TIMEOUT_SECONDS: int = int(
+            os.getenv("RENDER_TIMEOUT_SECONDS", "1800"))
+
     @classmethod
     def get(cls) -> "DeploymentConfig":
         """Get singleton config instance."""
@@ -85,6 +91,7 @@ class DeploymentConfig:
             logger.info(f"  RUSTFS_INTERNAL_ENDPOINT={self.RUSTFS_INTERNAL_ENDPOINT or 'NOT SET'}")
             logger.info(f"  RUSTFS_ACCESS_KEY={'set' if self.RUSTFS_ACCESS_KEY else 'NOT SET'}")
             logger.info(f"  RUSTFS_BUCKET={self.RUSTFS_BUCKET}")
+            logger.info(f"  RENDER_TIMEOUT_SECONDS={self.RENDER_TIMEOUT_SECONDS}s")
             # Normal user saves are multipart through the public endpoint, so
             # they work over the tunnel regardless. A distinct internal endpoint
             # (a RustFS address instances can reach directly) is still an optional

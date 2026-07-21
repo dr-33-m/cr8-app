@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { MoreHorizontal, Save } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { MoreHorizontal, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
+import type { RenderOptions } from "@/contexts/WebSocketContext";
 import useUserStore from "@/store/userStore";
+import { RenderDialog } from "./RenderDialog";
 
 /**
  * Workspace actions menu — a menu-icon button that opens a popover of actions.
@@ -31,20 +33,31 @@ import useUserStore from "@/store/userStore";
  * (from context) gates every entry point here.
  */
 export function WorkspaceActions() {
-  const { saveFile, isSaving, connectionState, isFullyConnected } =
-    useWebSocketContext();
+  const {
+    saveFile,
+    isSaving,
+    renderImage,
+    isRendering,
+    connectionState,
+    isFullyConnected,
+  } = useWebSocketContext();
   const selectedBlendObjectKey = useUserStore((s) => s.selectedBlendObjectKey);
   const selectedBlendFile = useUserStore((s) => s.selectedBlendFile);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [renderOpen, setRenderOpen] = useState(false);
   const [filename, setFilename] = useState("");
   const [savedAs, setSavedAs] = useState(false);
+  // Render settings parked while a Save As runs, so the render can resume once
+  // the project has somewhere to file its output.
+  const pendingRenderRef = useRef<RenderOptions | null>(null);
 
   const disabled =
     !isFullyConnected ||
     connectionState === "blender_reconnecting" ||
-    isSaving;
+    isSaving ||
+    isRendering;
 
   // A cloud target exists if we opened a cloud file, or already did a Save As
   // this session (the backend remembers the key on the session either way).
@@ -67,6 +80,21 @@ export function WorkspaceActions() {
     }
   }, [disabled, hasCloudTarget, saveFile, openSaveAs]);
 
+  // A render has to be filed under a project, so a project with no cloud target
+  // has nowhere to put it. The backend reports that as noTarget rather than
+  // inventing an "untitled" folder; here we collect a name and resume.
+  const startRender = useCallback(
+    async (options: RenderOptions) => {
+      const result = await renderImage(options);
+      if (result.noTarget) {
+        pendingRenderRef.current = options;
+        toast.info("Name your project before rendering");
+        openSaveAs();
+      }
+    },
+    [renderImage, openSaveAs]
+  );
+
   const submitSaveAs = useCallback(async () => {
     const name = filename.trim();
     if (!name) {
@@ -77,7 +105,21 @@ export function WorkspaceActions() {
     setSaveAsOpen(false);
     const ok = await saveFile(withExt);
     if (ok) setSavedAs(true);
-  }, [filename, saveFile]);
+
+    // Resume a render that was blocked on this save. Cleared either way, so a
+    // failed save doesn't leave it primed to fire at some unrelated later point.
+    const pending = pendingRenderRef.current;
+    pendingRenderRef.current = null;
+    if (ok && pending) {
+      await startRender(pending);
+    }
+  }, [filename, saveFile, startRender]);
+
+  const handleRender = useCallback(() => {
+    if (disabled) return;
+    setMenuOpen(false);
+    setRenderOpen(true);
+  }, [disabled]);
 
   // Ctrl/Cmd+S → Save (and stop the browser's save-page dialog).
   useEffect(() => {
@@ -129,8 +171,24 @@ export function WorkspaceActions() {
             <Save className="h-4 w-4" />
             Save As…
           </button>
+          <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={handleRender}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+          >
+            <Sparkles className="h-4 w-4" />
+            Render…
+          </button>
         </PopoverContent>
       </Popover>
+
+      <RenderDialog
+        open={renderOpen}
+        onOpenChange={setRenderOpen}
+        onRender={startRender}
+      />
 
       <Dialog open={saveAsOpen} onOpenChange={setSaveAsOpen}>
         <DialogContent className="sm:max-w-md">

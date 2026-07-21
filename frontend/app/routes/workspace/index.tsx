@@ -7,6 +7,7 @@ import { ControlsOverlay } from "@/components/creative-workspace/FullScreenToggl
 import { SceneControls } from "@/components/creative-workspace/SceneControls";
 import { BottomControls } from "@/components/bottom-controls";
 import { SavingOverlay } from "@/components/SavingOverlay";
+import { RenderingOverlay } from "@/components/RenderingOverlay";
 import { ExitWorkspace } from "@/components/creative-workspace/ExitWorkspace";
 import { SceneViewPort } from "@/components/creative-workspace/SceneViewPort";
 import { useWebRTCStream } from "@/hooks/useWebRTCStream";
@@ -76,6 +77,8 @@ function WorkspaceContent({ remoteUser }: { remoteUser?: string }) {
       <ExitWorkspace />
 
       <SavingOverlay />
+
+      <RenderingOverlay />
     </div>
   );
 }

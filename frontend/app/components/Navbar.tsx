@@ -1,4 +1,12 @@
-import { LogOut, Settings, User, Moon, Sun, Palette } from "lucide-react";
+import {
+  LogOut,
+  Settings,
+  User,
+  Moon,
+  Sun,
+  Palette,
+  Images,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -173,6 +181,20 @@ const Navbar = ({ auth }: NavbarProps) => {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {/* Hidden inside the workspace for the same reason the logo
+                      doesn't navigate there: leaving without going through Exit
+                      strands a running, billing GPU instance behind the user. */}
+                  {!inWorkspace && (
+                    <DropdownMenuItem
+                      asChild
+                      className="text-foreground hover:bg-accent"
+                    >
+                      <Link to="/library">
+                        <Images className="mr-2 h-4 w-4" />
+                        <span>Library</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="text-foreground hover:bg-accent">
                       <Palette className="mr-2 h-4 w-4" />

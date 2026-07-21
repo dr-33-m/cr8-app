@@ -61,31 +61,19 @@ def save_and_upload(save_url, username=None):
         return False, f"Cloud save failed: {e}"
 
 
-def save_and_upload_multipart(multipart, username=None):
+def upload_file_multipart(filepath, multipart):
     """
-    Save the current .blend and upload it to cloud storage in parts.
+    PUT a local file to cloud storage as a sequence of pre-signed part uploads.
 
     RustFS is reachable from the instance only through the ~100MB-capped tunnel,
-    so the file goes up as a sequence of pre-signed multipart PUTs, each part
-    under the cap. `multipart` carries {upload_id, key, part_size, part_urls},
-    all minted by the engine. Returns (ok, {"parts": [...], "message": ...}) —
-    the engine uses the ETags to complete the upload. Must run on Blender's main
-    thread (bpy.ops); the command-queue drainer already guarantees that.
+    so anything sizeable has to go up in parts, each under the cap. `multipart`
+    carries {upload_id, key, part_size, part_urls}, all minted by the engine —
+    no credentials ever reach the instance. Returns (ok, {"parts": [...],
+    "message": ...}); the engine uses the ETags to complete the upload.
+
+    Generic on purpose: the caller decides what file this is and what to say
+    about it on success.
     """
-    import bpy
-
-    try:
-        filepath = bpy.data.filepath
-        if filepath:
-            bpy.ops.wm.save_mainfile()
-        else:
-            uname = username or os.environ.get('CR8_USERNAME') or 'user'
-            filepath = f"/tmp/cr8_{uname}.blend"
-            bpy.ops.wm.save_as_mainfile(filepath=filepath)
-    except Exception as e:
-        logging.error(f"Local save failed: {e}")
-        return False, {'message': f"Local save failed: {e}"}
-
     part_size = multipart.get('part_size')
     part_urls = multipart.get('part_urls') or []
     if not part_size or not part_urls:
@@ -101,7 +89,7 @@ def save_and_upload_multipart(multipart, username=None):
                 if not chunk:
                     break
                 if index >= len(part_urls):
-                    return False, {'message': 'File is larger than the save can handle'}
+                    return False, {'message': 'File is larger than the upload can handle'}
                 resp = requests.put(part_urls[index], data=chunk, timeout=600)
                 if resp.status_code != 200:
                     return False, {
@@ -111,11 +99,38 @@ def save_and_upload_multipart(multipart, username=None):
                 index += 1
         if not parts:
             return False, {'message': 'Nothing to upload'}
-        logging.info(f"Uploaded blend file to cloud storage in {len(parts)} part(s)")
-        return True, {'parts': parts, 'message': 'Saved to cloud'}
+        logging.info(f"Uploaded {filepath} in {len(parts)} part(s)")
+        return True, {'parts': parts}
     except Exception as e:
         logging.error(f"Multipart upload failed: {e}")
         return False, {'message': f"Upload failed: {e}"}
+
+
+def save_and_upload_multipart(multipart, username=None):
+    """
+    Save the current .blend and upload it to cloud storage in parts.
+
+    Must run on Blender's main thread (bpy.ops); the command-queue drainer
+    already guarantees that. Returns (ok, {"parts": [...], "message": ...}).
+    """
+    import bpy
+
+    try:
+        filepath = bpy.data.filepath
+        if filepath:
+            bpy.ops.wm.save_mainfile()
+        else:
+            uname = username or os.environ.get('CR8_USERNAME') or 'user'
+            filepath = f"/tmp/cr8_{uname}.blend"
+            bpy.ops.wm.save_as_mainfile(filepath=filepath)
+    except Exception as e:
+        logging.error(f"Local save failed: {e}")
+        return False, {'message': f"Local save failed: {e}"}
+
+    ok, result = upload_file_multipart(filepath, multipart)
+    if not ok:
+        return False, result
+    return True, {**result, 'message': 'Saved to cloud'}
 
 
 class WebSocketHandler:
