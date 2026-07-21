@@ -70,3 +70,25 @@ defined in one addon will not work from another without resolving the dynamic
 **Rule:** cross-addon contracts must be structural, not nominal — check for an
 attribute or method, the way the registry already duck-types
 `AI_COMMAND_HANDLERS`. Each addon defines its own carrier class.
+
+## A blocking UI is often an interlock, not a limitation
+
+Twice in one session I proposed making a blocking operation asynchronous, and
+both times the blocking was deliberate:
+
+- **Render** — the artist's flow is work → render → look → resume. The wait *is*
+  the point, so `RenderingOverlay` is correct design.
+- **Cloud save** — `SavingOverlay` is a safety interlock. `WorkspaceActions.tsx`
+  gates every entry point on `isSaving`, so the user cannot navigate, exit the
+  workspace, or tear down the instance mid-upload. Unblocking it risks losing
+  the project.
+
+I judged the save "the safest candidate" purely on technical shape — pure I/O,
+thread-safe, no `bpy`, none of the mid-render scene-restore hazards — and never
+asked what the modal was *for*.
+
+**Rule:** before making something non-blocking, ask what the block currently
+prevents the user from doing. If the answer is "something destructive", it is
+load-bearing. And a worst case that only exists in a code comment (the save's
+"up to 20 minutes") is not a justification — confirm it happens in practice
+first.
