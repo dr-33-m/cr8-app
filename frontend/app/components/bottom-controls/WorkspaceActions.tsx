@@ -3,19 +3,11 @@ import { MoreHorizontal, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { SaveAsDialog } from "@/components/SaveAsDialog";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import type { RenderOptions } from "@/contexts/WebSocketContext";
 import useUserStore from "@/store/userStore";
@@ -36,19 +28,17 @@ export function WorkspaceActions() {
   const {
     saveFile,
     isSaving,
+    hasCloudTarget,
     renderImage,
     isRendering,
     connectionState,
     isFullyConnected,
   } = useWebSocketContext();
-  const selectedBlendObjectKey = useUserStore((s) => s.selectedBlendObjectKey);
   const selectedBlendFile = useUserStore((s) => s.selectedBlendFile);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [renderOpen, setRenderOpen] = useState(false);
-  const [filename, setFilename] = useState("");
-  const [savedAs, setSavedAs] = useState(false);
   // Render settings parked while a Save As runs, so the render can resume once
   // the project has somewhere to file its output.
   const pendingRenderRef = useRef<RenderOptions | null>(null);
@@ -59,16 +49,10 @@ export function WorkspaceActions() {
     isSaving ||
     isRendering;
 
-  // A cloud target exists if we opened a cloud file, or already did a Save As
-  // this session (the backend remembers the key on the session either way).
-  const hasCloudTarget = !!selectedBlendObjectKey || savedAs;
-
   const openSaveAs = useCallback(() => {
     setMenuOpen(false);
-    const base = (selectedBlendFile || "untitled").replace(/\.blend$/i, "");
-    setFilename(base);
     setSaveAsOpen(true);
-  }, [selectedBlendFile]);
+  }, []);
 
   const handleSave = useCallback(() => {
     if (disabled) return;
@@ -95,25 +79,20 @@ export function WorkspaceActions() {
     [renderImage, openSaveAs]
   );
 
-  const submitSaveAs = useCallback(async () => {
-    const name = filename.trim();
-    if (!name) {
-      toast.error("Enter a file name");
-      return;
-    }
-    const withExt = /\.blend$/i.test(name) ? name : `${name}.blend`;
-    setSaveAsOpen(false);
-    const ok = await saveFile(withExt);
-    if (ok) setSavedAs(true);
+  const submitSaveAs = useCallback(
+    async (filename: string) => {
+      const ok = await saveFile(filename);
 
-    // Resume a render that was blocked on this save. Cleared either way, so a
-    // failed save doesn't leave it primed to fire at some unrelated later point.
-    const pending = pendingRenderRef.current;
-    pendingRenderRef.current = null;
-    if (ok && pending) {
-      await startRender(pending);
-    }
-  }, [filename, saveFile, startRender]);
+      // Resume a render that was blocked on this save. Cleared either way, so a
+      // failed save doesn't leave it primed to fire at some unrelated later point.
+      const pending = pendingRenderRef.current;
+      pendingRenderRef.current = null;
+      if (ok && pending) {
+        await startRender(pending);
+      }
+    },
+    [saveFile, startRender]
+  );
 
   const handleRender = useCallback(() => {
     if (disabled) return;
@@ -190,37 +169,12 @@ export function WorkspaceActions() {
         onRender={startRender}
       />
 
-      <Dialog open={saveAsOpen} onOpenChange={setSaveAsOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Save project as</DialogTitle>
-            <DialogDescription>
-              Name your file. It will be saved to your cloud storage as a .blend.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center gap-2">
-            <Input
-              autoFocus
-              value={filename}
-              onChange={(e) => setFilename(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  submitSaveAs();
-                }
-              }}
-              placeholder="untitled"
-            />
-            <span className="text-sm text-muted-foreground">.blend</span>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveAsOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={submitSaveAs}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SaveAsDialog
+        open={saveAsOpen}
+        onOpenChange={setSaveAsOpen}
+        defaultName={selectedBlendFile}
+        onSubmit={submitSaveAs}
+      />
     </>
   );
 }

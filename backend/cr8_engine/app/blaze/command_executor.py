@@ -39,7 +39,8 @@ class CommandExecutor:
                 error_data = payload.get('data', {})
                 error_msg = error_data.get('message', 'Unknown error occurred')
                 logger.error(f"Command {command} failed: {error_msg}")
-                raise ModelRetry(f"Command {command} failed: {error_msg}")
+                raise ModelRetry(
+                    f"Command {command} failed: {self._format_failure(error_data, error_msg)}")
             elif payload.get('status') == 'success':
                 # Extract success details from payload
                 success_data = payload.get('data', {})
@@ -63,6 +64,25 @@ class CommandExecutor:
         except Exception as e:
             logger.error(f"Error executing addon command: {str(e)}")
             raise ModelRetry(f"Error executing {command}: {str(e)}")
+
+    @staticmethod
+    def _format_failure(error_data: Dict[str, Any], error_msg: str) -> str:
+        """
+        Build the retry text B.L.A.Z.E sees when a command fails.
+
+        A bare message is rarely enough to fix anything. Blender-side handlers
+        attach a traceback, and code execution also returns whatever the code
+        printed before it died — that is the context that lets the agent correct
+        itself instead of retrying the same broken call.
+        """
+        parts = [error_msg]
+        for label, key in (("Traceback", "traceback"), ("stdout", "stdout"), ("stderr", "stderr")):
+            value = error_data.get(key)
+            # `traceback` duplicates `message` when the handler put the trace
+            # there directly (execute_python does) — don't repeat it.
+            if value and value not in error_msg:
+                parts.append(f"\n{label}:\n{value}")
+        return "".join(parts)
 
     async def _send_command_and_wait_response(self, addon_id: str, command: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Send command via unified routing system and wait for response"""

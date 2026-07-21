@@ -205,9 +205,10 @@ function ProjectLibrary() {
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" asChild>
-                    {/* download forces a save rather than a navigation; the
-                        presigned URL is already scoped to this user. */}
-                    <a href={selected.url} download={selected.filename}>
+                    {/* download_url, not url: the `download` attribute is
+                        ignored cross-origin, so the save is forced by the
+                        Content-Disposition the engine signs into this URL. */}
+                    <a href={selected.download_url} download={selected.filename}>
                       <Download className="mr-1.5 h-4 w-4" />
                       Download
                     </a>

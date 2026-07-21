@@ -84,10 +84,11 @@ RUN ln -sf /opt/blender/blender /usr/local/bin/blender && \
 RUN /opt/blender/5.1/python/bin/python3.11 -m pip install "python-socketio[client]" websocket-client
 
 # --- cr8 extensions (install + enable via Blender CLI) ---
-# All four are required for the full cr8 pipeline:
+# All five are required for the full cr8 pipeline:
 #   - blender_ai_router: WebSocket/WebRTC connection (ws_handler.connect_websocket)
 #   - cr8_sets: AI-capable asset management for production design
 #   - blender_controls: Scene manipulation and viewport controls for AI agents
+#   - cr8_script: Python execution fallback for AI agents (CR8_ALLOW_CODE_EXEC=0 disables)
 #   - cr8_render: Image rendering and cloud output
 COPY addons/*.zip /tmp/addons/
 RUN blender --background --command extension install-file \
@@ -96,6 +97,8 @@ RUN blender --background --command extension install-file \
         -r user_default -e /tmp/addons/cr8_sets_v1.0.0.zip && \
     blender --background --command extension install-file \
         -r user_default -e /tmp/addons/blender_controls_v1.0.0.zip && \
+    blender --background --command extension install-file \
+        -r user_default -e /tmp/addons/cr8_script_v1.0.0.zip && \
     blender --background --command extension install-file \
         -r user_default -e /tmp/addons/cr8_render_v1.0.0.zip && \
     rm -rf /tmp/addons

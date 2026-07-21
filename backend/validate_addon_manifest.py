@@ -85,10 +85,13 @@ def validate_manifest(manifest_path):
 
                 # Validate parameter type
                 param_type = param['type']
+                # Must mirror cr8_router/registry/manifest/validator.py — this
+                # script exists to catch a bad manifest before Blender does, so a
+                # type the runtime accepts and this rejects is a false alarm.
                 valid_types = [
                     'string', 'integer', 'float', 'boolean',
                     'object_name', 'material_name', 'collection_name',
-                    'enum', 'vector3', 'color', 'file_path'
+                    'enum', 'vector3', 'color', 'file_path', 'dict'
                 ]
 
                 if param_type not in valid_types:

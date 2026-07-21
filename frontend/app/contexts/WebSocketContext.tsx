@@ -17,6 +17,7 @@ import {
   isResponsePayload,
 } from "@/lib/types/websocket";
 import useInboxStore from "@/store/inboxStore";
+import useUserStore from "@/store/userStore";
 import { toast } from "sonner";
 import { Socket } from "socket.io-client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -90,6 +91,12 @@ interface WebSocketContextType {
   /** True while a save is in flight. The save runs on Blender's main thread, so
    * the UI blocks interaction (SavingOverlay) until it clears. */
   isSaving: boolean;
+  /** True when this project has somewhere in the cloud to save to — either it
+   * was opened from there, or a Save As this session gave it a key. Session
+   * state on purpose: it mirrors the backend's `session['blend_object_key']`,
+   * and both die when the workspace does. False means Save must collect a name
+   * first, and leaving without one discards the work. */
+  hasCloudTarget: boolean;
   /** Render the current frame and store it in the user's render library.
    * Resolves with the stored key on success. `noTarget` means the project has
    * never been saved to the cloud, so there is no folder to file renders under —
@@ -127,6 +134,11 @@ export function WebSocketProvider({
   const [instanceStatus, setInstanceStatus] = useState<InstanceStatus | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
+  // Set by a successful Save As. The backend records the new key on the socket
+  // session, but never tells us what it is — so this flag, not a key, is what
+  // says "there is a target now".
+  const [savedAs, setSavedAs] = useState(false);
+  const selectedBlendObjectKey = useUserStore((s) => s.selectedBlendObjectKey);
 
   // Use refs for immediate state tracking to avoid race conditions
   const isReconnectionRef = useRef(false);
@@ -654,6 +666,9 @@ export function WebSocketProvider({
           }
         }, 25 * 60_000);
       });
+      // A Save As that landed means the session now has a cloud target, so
+      // later plain Saves — and Exit — must stop asking for a name.
+      if (filename?.trim()) p.then((ok) => ok && setSavedAs(true));
       // Clear the blocking overlay whichever way the save settles.
       p.finally(() => setIsSaving(false));
       return p;
@@ -716,6 +731,7 @@ export function WebSocketProvider({
     reconnect,
     saveFile,
     isSaving,
+    hasCloudTarget: !!selectedBlendObjectKey || savedAs,
     renderImage,
     isRendering,
     exitWorkspace,

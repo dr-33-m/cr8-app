@@ -21,7 +21,9 @@ name that two users can collide on).
 
 import logging
 import re
+import unicodedata
 from typing import Any
+from urllib.parse import quote
 
 import boto3
 from botocore.client import Config
@@ -510,6 +512,48 @@ def presign_view(key: str, ttl: int = PRESIGN_TTL_SECONDS) -> str:
     return public_client().generate_presigned_url(
         ClientMethod="get_object",
         Params={"Bucket": _bucket(), "Key": key},
+        ExpiresIn=ttl,
+    )
+
+
+def _attachment_disposition(filename: str) -> str:
+    """Content-Disposition value that makes a browser save rather than display.
+
+    Two filename forms per RFC 6266: a plain ASCII one every client understands,
+    and the RFC 5987 `filename*` that carries the real name when it has accents
+    or spaces. Modern browsers prefer the latter and ignore the former.
+    """
+    ascii_name = (
+        unicodedata.normalize("NFKD", filename)
+        .encode("ascii", "ignore")
+        .decode()
+        .replace('"', "")
+        .replace("\\", "")
+        .strip()
+    ) or "render.png"
+    return (
+        f'attachment; filename="{ascii_name}"; '
+        f"filename*=UTF-8''{quote(filename, safe='')}"
+    )
+
+
+def presign_render_download(
+    key: str, filename: str, ttl: int = PRESIGN_TTL_SECONDS
+) -> str:
+    """Presign a GET that downloads the render instead of displaying it.
+
+    A separate URL from presign_view because `<a download>` is silently ignored
+    cross-origin, and renders are fetched straight from RustFS — so the only
+    thing that can force a save-to-disk is the response's own
+    Content-Disposition, which a presigned URL overrides per request.
+    """
+    return public_client().generate_presigned_url(
+        ClientMethod="get_object",
+        Params={
+            "Bucket": _bucket(),
+            "Key": key,
+            "ResponseContentDisposition": _attachment_disposition(filename),
+        },
         ExpiresIn=ttl,
     )
 
