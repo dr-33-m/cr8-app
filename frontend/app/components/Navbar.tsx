@@ -13,7 +13,7 @@ import {
   DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import cr8 from "@/assets/cr8.jpeg";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import {
   Popover,
@@ -82,6 +82,12 @@ const Navbar = ({ auth }: NavbarProps) => {
 
   const isVisible = useVisibilityStore((state) => !state.isFullscreen);
 
+  // Inside the workspace the logo must not navigate home — leaving has to go
+  // through the Exit button so we save + shut Blender down instead of stranding
+  // a running instance behind the user.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const inWorkspace = pathname.startsWith("/workspace");
+
   const handleSignOut = async () => {
     if (isRemoteMode) {
       // Clear local stores, then redirect to Logto sign-out
@@ -102,14 +108,28 @@ const Navbar = ({ auth }: NavbarProps) => {
         <div className="bg-card border rounded-lg shadow-lg">
           <div className="flex justify-between items-center px-6 py-3">
             <div className="flex items-center">
-              <Link to="/" className="flex items-center">
-                <img
-                  src={cr8}
-                  alt="Cr8-xyz"
-                  className="w-10 h-10 shadow-xs rounded-md"
-                />
-                <span className="ml-2 text-xl font-semibold">Cr8-xyz</span>
-              </Link>
+              {inWorkspace ? (
+                <div
+                  className="flex items-center cursor-default select-none"
+                  title="Use Exit to leave the workspace"
+                >
+                  <img
+                    src={cr8}
+                    alt="Cr8-xyz"
+                    className="w-10 h-10 shadow-xs rounded-md"
+                  />
+                  <span className="ml-2 text-xl font-semibold">Cr8-xyz</span>
+                </div>
+              ) : (
+                <Link to="/" className="flex items-center">
+                  <img
+                    src={cr8}
+                    alt="Cr8-xyz"
+                    className="w-10 h-10 shadow-xs rounded-md"
+                  />
+                  <span className="ml-2 text-xl font-semibold">Cr8-xyz</span>
+                </Link>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>

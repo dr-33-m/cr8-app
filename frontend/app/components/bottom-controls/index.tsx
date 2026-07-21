@@ -8,6 +8,7 @@ import { ViewportControls } from "./ViewportControls";
 import { BlazeChat } from "./blaze-chat";
 import { AnimationControls } from "./AnimationControls";
 import { Navigation } from "./Navigation/Navigation";
+import { WorkspaceActions } from "./WorkspaceActions";
 import { BottomControlsProps } from "@/lib/types/bottomControls";
 import { formatElapsed, ERROR_REASONS } from "@/lib/studioLoadingMessages";
 import { useLaunchTimerStore } from "@/store/launchTimerStore";
@@ -136,8 +137,13 @@ export function BottomControls({ children }: BottomControlsProps) {
               {/* Row 2: Chat Interface - Spans all 3 columns */}
               <BlazeChat />
 
-              {/* Row 3: Animation Controls - Spans all 3 columns */}
-              <AnimationControls />
+              {/* Row 3: Actions menu (start) + Animation Controls (centered) */}
+              <div className="col-span-3 relative flex items-center justify-center">
+                <div className="absolute left-0">
+                  <WorkspaceActions />
+                </div>
+                <AnimationControls />
+              </div>
             </div>
           ) : instanceStatus?.phase === "error" ? (
             <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-3">
@@ -183,10 +189,10 @@ export function BottomControls({ children }: BottomControlsProps) {
           ) : (
             <div className="col-span-3 row-span-3 flex items-center justify-center flex-col gap-2">
               <p className="text-muted-foreground text-sm">
-                Waiting for Blender to connect...
+                Connecting to Blender...
               </p>
               <p className="text-muted-foreground text-xs">
-                Please launch Blender and open your project
+                Hang tight — setting up your session
               </p>
             </div>
           )}

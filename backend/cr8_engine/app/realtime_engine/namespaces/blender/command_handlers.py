@@ -2,9 +2,10 @@
 Command handling and routing for Blender namespace.
 """
 
+import asyncio
 import logging
-from typing import Dict, Any
-from app.lib import MessageType
+from typing import Dict, Any, Optional
+from app.lib import MessageType, generate_message_id
 
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,38 @@ logger = logging.getLogger(__name__)
 
 class CommandHandlersMixin:
     """Mixin providing command handling for BlenderNamespace."""
+
+    async def request_and_wait(self, username: str, command_data: Dict[str, Any],
+                               timeout: float = 60.0) -> Optional[Dict[str, Any]]:
+        """
+        Send a command to the user's Blender client and await its completion.
+
+        Unlike send_command_to_blender (fire-and-forget), this resolves when the
+        matching command_completed/command_failed arrives — used for backend-
+        initiated commands whose result the engine must act on before proceeding
+        (e.g. collecting multipart ETags to finalize a save, or saving before
+        tearing Blender down on a project switch). Returns the completion's inner
+        payload data dict (e.g. {"ok": True, "parts": [...]}), or None on
+        failure/timeout.
+        """
+        message_id = command_data.get('message_id') or generate_message_id()
+        command_data['message_id'] = message_id
+        loop = asyncio.get_event_loop()
+        future = loop.create_future()
+        self.pending_requests[message_id] = future
+        try:
+            sent = await self.send_command_to_blender(username, command_data)
+            if not sent:
+                return None
+            return await asyncio.wait_for(future, timeout)
+        except asyncio.TimeoutError:
+            self.logger.warning(f"request_and_wait timed out for {username} ({message_id})")
+            return None
+        except Exception as e:
+            self.logger.error(f"request_and_wait error for {username}: {e}")
+            return None
+        finally:
+            self.pending_requests.pop(message_id, None)
 
     async def on_command_completed(self, sid: str, data: Dict[str, Any]):
         """
@@ -22,6 +55,16 @@ class CommandHandlersMixin:
             data: Command result data with metadata containing route information
         """
         try:
+            # Resolve any backend-initiated request awaiting this completion
+            # (request_and_wait). These carry a backend-generated message_id, so
+            # there's no browser waiting — resolve and stop, don't forward.
+            waiting_id = data.get('message_id')
+            future = self.pending_requests.get(waiting_id) if waiting_id else None
+            if future is not None and not future.done():
+                payload = data.get('payload', {}) or {}
+                future.set_result(payload.get('data') or {})
+                return
+
             session = await self.get_session(sid)
             if not session:
                 self.logger.error(f"No session found for sid {sid}")
@@ -94,6 +137,48 @@ class CommandHandlersMixin:
 
         except Exception as e:
             self.logger.error(f"Error handling command_completed: {str(e)}")
+
+    async def on_command_failed(self, sid: str, data: Dict[str, Any]):
+        """
+        Handle command_failed events from Blender.
+
+        Critically, this resolves any backend request awaiting this message_id
+        (request_and_wait). Without it, a failed command — e.g. an addon that
+        doesn't recognize the `save` command and routes it through the router,
+        which then fails — leaves the awaiting coroutine blocked until its full
+        timeout (up to 20 min), which is exactly the "stuck on Saving" symptom.
+        For non-awaited direct commands, it forwards the failure to the browser
+        so the error actually surfaces instead of being silently dropped.
+        """
+        try:
+            waiting_id = data.get('message_id')
+            future = self.pending_requests.get(waiting_id) if waiting_id else None
+            if future is not None and not future.done():
+                payload = data.get('payload', {}) or {}
+                future.set_result(payload.get('data') or {})
+                return
+
+            session = await self.get_session(sid)
+            if not session:
+                return
+            browser_sid = session.get('browser_sid')
+            metadata = data.get('metadata', {})
+            route = metadata.get('route', 'direct')
+
+            if route == 'agent':
+                message_id = data.get('message_id')
+                if message_id:
+                    try:
+                        self.blaze_agent.handle_command_response(message_id, data)
+                    except Exception as e:
+                        self.logger.error(f"Error forwarding failed response to B.L.A.Z.E: {e}")
+            elif browser_sid:
+                browser_namespace = self.server.namespace_handlers.get('/browser')
+                if browser_namespace:
+                    event_name = data.get('type', MessageType.COMMAND_FAILED.value)
+                    await browser_namespace.emit(event_name, data, to=browser_sid)
+        except Exception as e:
+            self.logger.error(f"Error handling command_failed: {str(e)}")
 
     async def on_browser_command(self, sid: str, data: Dict[str, Any]):
         """

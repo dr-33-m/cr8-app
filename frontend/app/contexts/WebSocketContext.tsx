@@ -49,6 +49,10 @@ interface WebSocketContextType {
   socket: Socket | null;
   isConnected: boolean;
   blenderConnected: boolean;
+  /** True once THIS workspace's Blender has connected at least once. Stays true
+   * across later reconnect blips, so the stream isn't hidden during a network
+   * hiccup — only before the very first connect of the session. */
+  blenderConnectedOnce: boolean;
   isFullyConnected: boolean;
   connectionState: ConnectionState;
   isHealthCheckInProgress: boolean;
@@ -57,6 +61,16 @@ interface WebSocketContextType {
   reconnect: () => void;
   disconnect: () => void;
   sendMessage: (message: WebSocketMessage) => void;
+  /** Save the running .blend to cloud storage. Pass a filename for Save As
+   * (new/renamed file); omit it to overwrite the currently-open file. Resolves
+   * true on a confirmed cloud save, false otherwise. */
+  saveFile: (filename?: string) => Promise<boolean>;
+  /** True while a save is in flight. The save runs on Blender's main thread, so
+   * the UI blocks interaction (SavingOverlay) until it clears. */
+  isSaving: boolean;
+  /** Tell the backend to shut down this user's Blender/instance (which also ends
+   * the stream). Fire-and-forget; call after any final save, before leaving. */
+  exitWorkspace: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
@@ -74,17 +88,22 @@ export function WebSocketProvider({
 }: WebSocketProviderProps) {
   const queryClient = useQueryClient();
   const [blenderConnected, setBlenderConnected] = useState(false);
+  const [blenderConnectedOnce, setBlenderConnectedOnce] = useState(false);
   const [contextUpdateSent, setContextUpdateSent] = useState(false);
   const [sessionCreated, setSessionCreated] = useState(false);
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
   const [isHealthCheckInProgress, setIsHealthCheckInProgress] = useState(false);
   const [instanceStatus, setInstanceStatus] = useState<InstanceStatus | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Use refs for immediate state tracking to avoid race conditions
   const isReconnectionRef = useRef(false);
   const shouldSendBrowserReadyRef = useRef(false);
   const blenderReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // In-flight saveFile() calls, keyed by the message_id we emitted. Resolved
+  // when the matching command_completed/command_failed comes back.
+  const pendingSavesRef = useRef<Map<string, (ok: boolean) => void>>(new Map());
 
   const processMessage = useCallback(
     (data: any) => {
@@ -97,6 +116,39 @@ export function WebSocketProvider({
 
       const message = data as SocketMessage;
       const payload = message.payload;
+
+      // Resolve a pending saveFile() call before the generic command handlers,
+      // so a save owns its own success/error toast (and doesn't double-toast via
+      // the shared COMMAND_FAILED handler below).
+      if (
+        (message.type === MessageType.COMMAND_COMPLETED ||
+          message.type === MessageType.COMMAND_FAILED) &&
+        message.message_id &&
+        pendingSavesRef.current.has(message.message_id)
+      ) {
+        const resolve = pendingSavesRef.current.get(message.message_id)!;
+        pendingSavesRef.current.delete(message.message_id);
+
+        let ok = false;
+        let msg = "Save failed";
+        if (message.type === MessageType.COMMAND_FAILED) {
+          // Backend-side failure (validation/routing) — error is in payload.error.
+          msg =
+            isResponsePayload(payload) && payload.error
+              ? payload.error.user_message
+              : "Save failed";
+        } else {
+          // Addon reply: always command_completed, real outcome in payload.data.
+          const d = isResponsePayload(payload) ? payload.data : undefined;
+          ok = d?.ok === true;
+          msg = d?.message || (ok ? "Saved to cloud" : "Save failed");
+        }
+        if (ok) toast.success(msg);
+        else toast.error(msg);
+        resolve(ok);
+        onMessage?.(data);
+        return;
+      }
 
       // Handle messages by type using switch
       switch (message.type) {
@@ -156,6 +208,7 @@ export function WebSocketProvider({
             elapsed: instanceStatus?.elapsed ?? 0,
           });
           setBlenderConnected(true);
+          setBlenderConnectedOnce(true);
           setConnectionState("fully_connected");
           if (
             isResponsePayload(payload) &&
@@ -498,15 +551,60 @@ export function WebSocketProvider({
     }
   }, [wsHook.socket, instanceStatus]);
 
+  const saveFile = useCallback(
+    (filename?: string): Promise<boolean> => {
+      const socket = wsHook.socket;
+      if (!socket?.connected) {
+        toast.error("Not connected — can't save right now");
+        return Promise.resolve(false);
+      }
+      setIsSaving(true);
+      const p = new Promise<boolean>((resolve) => {
+        const messageId = `save_${Date.now()}_${Math.random()
+          .toString(36)
+          .slice(2)}`;
+        pendingSavesRef.current.set(messageId, resolve);
+        socket.emit("save_file", {
+          message_id: messageId,
+          filename: filename?.trim() || undefined,
+        });
+        // Safety net for a genuinely lost response (e.g. the socket died). Set
+        // well above the backend's own save ceiling (~20 min for a large
+        // multipart upload) so a slow-but-working save resolves normally first.
+        setTimeout(() => {
+          if (pendingSavesRef.current.has(messageId)) {
+            pendingSavesRef.current.delete(messageId);
+            toast.error("Save timed out");
+            resolve(false);
+          }
+        }, 25 * 60_000);
+      });
+      // Clear the blocking overlay whichever way the save settles.
+      p.finally(() => setIsSaving(false));
+      return p;
+    },
+    [wsHook.socket]
+  );
+
+  const exitWorkspace = useCallback(() => {
+    if (wsHook.socket?.connected) {
+      wsHook.socket.emit("exit_workspace");
+    }
+  }, [wsHook.socket]);
+
   const contextValue = {
     ...wsHook,
     blenderConnected,
+    blenderConnectedOnce,
     isFullyConnected: wsHook.isConnected && blenderConnected,
     connectionState,
     isHealthCheckInProgress,
     instanceStatus,
     cancelLaunch,
     reconnect,
+    saveFile,
+    isSaving,
+    exitWorkspace,
   };
 
   return (

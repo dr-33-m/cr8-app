@@ -12,6 +12,11 @@ from app.lib import (
 
 logger = logging.getLogger(__name__)
 
+# Instance saves upload in parts to stay under the Cloudflare tunnel's ~100MB
+# request-body cap (RustFS sits behind NAT, so the tunnel is the only ingress —
+# there is no VPN path to bypass it). 90MiB leaves headroom under the cap.
+SAVE_PART_SIZE_BYTES = 90 * 1024 * 1024
+
 
 class CommandHandlersMixin:
     """Mixin for command-related event handlers."""
@@ -225,3 +230,176 @@ class CommandHandlersMixin:
                 route=route  # Use extracted route
             )
             await self.emit(MessageType.AGENT_ERROR.value, error_msg.to_dict(), to=sid)
+
+    async def _emit_save_failed(self, sid: str, message_id: str, code: str, user_message: str):
+        """Report a save failure back to the browser as a command_failed the
+        frontend already knows how to match by message_id."""
+        error_msg = create_error_response(
+            error_code=code,
+            user_message=user_message,
+            technical_message=user_message,
+            message_id=message_id,
+            source='backend',
+            route='direct',
+        )
+        await self.emit(MessageType.COMMAND_FAILED.value, error_msg.to_dict(), to=sid)
+
+    async def _emit_save_result(self, sid: str, message_id: str, ok: bool, message: str):
+        """Report a save outcome as a command_completed carrying the real result
+        in payload.data.ok — the shape the frontend's save handler matches on."""
+        result = {
+            'message_id': message_id,
+            'type': MessageType.COMMAND_COMPLETED.value,
+            'payload': {'status': 'success', 'data': {'ok': ok, 'message': message}},
+            'metadata': {'source': 'backend', 'route': 'direct'},
+        }
+        await self.emit(MessageType.COMMAND_COMPLETED.value, result, to=sid)
+
+    async def _perform_multipart_save(self, username: str, user_id: str,
+                                      filename: str) -> tuple:
+        """
+        Save the running .blend to cloud storage as a multipart upload.
+
+        RustFS is behind NAT, reachable by instances only through the Cloudflare
+        tunnel, which caps request bodies at ~100MB. So the engine creates a
+        multipart upload and pre-signs part URLs (public/tunnel host — the same
+        one the instance already reaches for downloads), the instance PUTs each
+        part under the cap, and the engine completes the upload from the ETags.
+        Credentials never leave the engine. Returns (ok: bool, message: str).
+        """
+        from app.services.storage_service import (
+            create_multipart_upload, presign_part, complete_multipart_upload,
+            abort_multipart_upload, StorageError, MAX_BLEND_BYTES,
+        )
+
+        blender_ns = self.server.namespace_handlers.get('/blender')
+        if not blender_ns:
+            return False, 'Blender is not connected'
+
+        try:
+            created = create_multipart_upload(user_id, filename)
+            key = created['key']
+            upload_id = created['uploadId']
+            # Enough parts to cover the max blend size at this part size, with a
+            # margin. presign_part guards its own upper bound.
+            n_parts = (MAX_BLEND_BYTES // SAVE_PART_SIZE_BYTES) + 8
+            part_urls = [
+                presign_part(key, upload_id, i, user_id)
+                for i in range(1, n_parts + 1)
+            ]
+        except StorageError as e:
+            return False, str(e)
+        except Exception as e:
+            self.logger.error(f"Multipart start failed for {username}: {e}")
+            return False, 'Could not start the save'
+
+        self.logger.info(f"Multipart save for {username} -> {key} ({upload_id})")
+        resp = await blender_ns.request_and_wait(username, {
+            'type': 'addon_command',
+            'addon_id': 'blender_ai_router',
+            'command': 'save',
+            'params': {
+                'multipart': {
+                    'upload_id': upload_id,
+                    'key': key,
+                    'part_size': SAVE_PART_SIZE_BYTES,
+                    'part_urls': part_urls,
+                },
+            },
+            'metadata': {'route': 'direct'},
+        }, timeout=1200)  # up to 20 min — a 2GB upload over the tunnel is slow
+
+        parts = (resp or {}).get('parts')
+        ok = bool(resp and resp.get('ok') and parts)
+        try:
+            if ok:
+                complete_multipart_upload(key, upload_id, parts, user_id)
+            else:
+                abort_multipart_upload(key, upload_id, user_id)
+        except Exception as e:
+            self.logger.error(f"Multipart finalize failed for {username}: {e}")
+            try:
+                abort_multipart_upload(key, upload_id, user_id)
+            except Exception:
+                pass
+            return False, 'Save could not be finalized'
+
+        message = (resp or {}).get('message') or ('Saved to cloud' if ok else 'Save failed')
+        return ok, message
+
+    async def on_save_file(self, sid: str, data: Dict[str, Any]):
+        """
+        Save the running Blender file back to cloud storage (RustFS).
+
+        Two modes:
+          - Plain Save: overwrite the session's existing blend_object_key.
+          - Save As: build a new key under the user's prefix from `filename`, and
+            remember it on the session so later plain Saves overwrite the same file.
+        The bytes go up as a multipart upload (see _perform_multipart_save).
+        """
+        from app.services.storage_service import build_key, assert_owned, StorageError
+
+        message_id = data.get('message_id') or generate_message_id()
+        try:
+            session = await self.get_session(sid)
+            if not session:
+                self.logger.error(f"No session found for sid {sid}")
+                return
+
+            username = session['username']
+            filename = (data.get('filename') or '').strip()
+            key = session.get('blend_object_key')
+
+            logto_id = session.get('logto_id')
+            user_id = await self._resolve_db_user_id(logto_id) if logto_id else None
+            if not user_id:
+                await self._emit_save_failed(
+                    sid, message_id, 'AUTH_ERROR',
+                    'Could not verify your account to save')
+                return
+
+            if filename:
+                # Save As — derive the storage key under the caller's own prefix.
+                try:
+                    key = build_key(user_id, filename)
+                except StorageError as e:
+                    await self._emit_save_failed(sid, message_id, 'VALIDATION_ERROR', str(e))
+                    return
+                # Remember the new target so subsequent plain Saves overwrite it.
+                session['blend_object_key'] = key
+                await self.save_session(sid, session)
+                # Keep the project-switch tracker in sync: the running Blender now
+                # has this file open, so reopening it later is a reconnect, not a
+                # switch that would needlessly relaunch.
+                from .singleton import get_open_projects
+                get_open_projects()[username] = key
+
+            if not key:
+                # New project never named — the frontend routes this to Save As.
+                await self._emit_save_failed(
+                    sid, message_id, 'NO_TARGET',
+                    'Choose a name to save this project')
+                return
+
+            # Ownership guard (defence in depth — the key came off the session).
+            try:
+                assert_owned(key, user_id)
+            except StorageError:
+                await self._emit_save_failed(
+                    sid, message_id, 'AUTH_ERROR', 'That file is not yours to save')
+                return
+
+            blender_sid = session.get('blender_sid')
+            if not blender_sid:
+                await self._emit_save_failed(
+                    sid, message_id, 'BLENDER_DISCONNECTED', 'Blender is not connected')
+                return
+
+            save_filename = key.rsplit('/', 1)[-1]
+            ok, message = await self._perform_multipart_save(username, user_id, save_filename)
+            await self._emit_save_result(sid, message_id, ok, message)
+
+        except Exception as e:
+            self.logger.error(f"Error processing save_file: {str(e)}")
+            await self._emit_save_failed(
+                sid, message_id, 'EXECUTION_FAILED', 'Error saving your file')

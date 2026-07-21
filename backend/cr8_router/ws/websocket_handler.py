@@ -15,6 +15,109 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger(__name__)
 
 
+def save_and_upload(save_url, username=None):
+    """
+    Save the current .blend to disk and upload it to cloud storage via a
+    presigned PUT. Shared by the user-triggered `save` command and the emergency
+    server-cleanup path.
+
+    A brand-new project (Save As) has no filepath yet, so we save_as to a scratch
+    path first; the instance disk is ephemeral, so the cloud upload is the only
+    durable copy. Returns (ok: bool, detail: str).
+
+    Must run on Blender's main thread (bpy.ops) — callers are already on it (the
+    main-thread command-queue drainer, or a bpy timer callback).
+    """
+    import bpy
+
+    try:
+        filepath = bpy.data.filepath
+        if filepath:
+            bpy.ops.wm.save_mainfile()
+        else:
+            uname = username or os.environ.get('CR8_USERNAME') or 'user'
+            filepath = f"/tmp/cr8_{uname}.blend"
+            bpy.ops.wm.save_as_mainfile(filepath=filepath)
+    except Exception as e:
+        logging.error(f"Local save failed: {e}")
+        return False, f"Local save failed: {e}"
+
+    if not save_url:
+        logging.warning("No save URL available — file saved locally only")
+        return False, "No cloud save target available"
+
+    try:
+        import requests
+        with open(filepath, 'rb') as f:
+            resp = requests.put(save_url, data=f, timeout=600)
+        if resp.status_code == 200:
+            logging.info("Uploaded blend file to cloud storage")
+            return True, "Saved to cloud"
+        logging.error(
+            f"Cloud save failed with status {resp.status_code}: {resp.text[:200]}")
+        return False, f"Cloud save failed (status {resp.status_code})"
+    except Exception as e:
+        logging.error(f"Cloud save failed: {e}")
+        return False, f"Cloud save failed: {e}"
+
+
+def save_and_upload_multipart(multipart, username=None):
+    """
+    Save the current .blend and upload it to cloud storage in parts.
+
+    RustFS is reachable from the instance only through the ~100MB-capped tunnel,
+    so the file goes up as a sequence of pre-signed multipart PUTs, each part
+    under the cap. `multipart` carries {upload_id, key, part_size, part_urls},
+    all minted by the engine. Returns (ok, {"parts": [...], "message": ...}) —
+    the engine uses the ETags to complete the upload. Must run on Blender's main
+    thread (bpy.ops); the command-queue drainer already guarantees that.
+    """
+    import bpy
+
+    try:
+        filepath = bpy.data.filepath
+        if filepath:
+            bpy.ops.wm.save_mainfile()
+        else:
+            uname = username or os.environ.get('CR8_USERNAME') or 'user'
+            filepath = f"/tmp/cr8_{uname}.blend"
+            bpy.ops.wm.save_as_mainfile(filepath=filepath)
+    except Exception as e:
+        logging.error(f"Local save failed: {e}")
+        return False, {'message': f"Local save failed: {e}"}
+
+    part_size = multipart.get('part_size')
+    part_urls = multipart.get('part_urls') or []
+    if not part_size or not part_urls:
+        return False, {'message': 'Missing multipart parameters'}
+
+    try:
+        import requests
+        parts = []
+        with open(filepath, 'rb') as f:
+            index = 0
+            while True:
+                chunk = f.read(part_size)
+                if not chunk:
+                    break
+                if index >= len(part_urls):
+                    return False, {'message': 'File is larger than the save can handle'}
+                resp = requests.put(part_urls[index], data=chunk, timeout=600)
+                if resp.status_code != 200:
+                    return False, {
+                        'message': f"Part {index + 1} failed (status {resp.status_code})"}
+                etag = resp.headers.get('ETag') or resp.headers.get('Etag')
+                parts.append({'PartNumber': index + 1, 'ETag': etag})
+                index += 1
+        if not parts:
+            return False, {'message': 'Nothing to upload'}
+        logging.info(f"Uploaded blend file to cloud storage in {len(parts)} part(s)")
+        return True, {'parts': parts, 'message': 'Saved to cloud'}
+    except Exception as e:
+        logging.error(f"Multipart upload failed: {e}")
+        return False, {'message': f"Upload failed: {e}"}
+
+
 class WebSocketHandler:
     """Socket.IO handler with direct command routing."""
     _instance = None
@@ -203,33 +306,16 @@ class WebSocketHandler:
         import bpy
         
         logging.info("Performing server cleanup: saving file and closing Blender")
-        
+
         try:
-            # Save the current file
-            if bpy.data.filepath:
-                logging.info(f"Saving Blender file: {bpy.data.filepath}")
-                bpy.ops.wm.save_mainfile()
-                # The instance disk is scratch — it is destroyed shortly after we
-                # exit, so a local save alone is data loss. Push the file back to
-                # object storage via the presigned URL minted at launch. This is
-                # the one save path that works while the engine is unreachable
-                # (which is exactly why we're in this cleanup).
-                save_url = os.environ.get('CR8_SAVE_URL')
-                if save_url:
-                    try:
-                        import requests
-                        with open(bpy.data.filepath, 'rb') as f:
-                            resp = requests.put(save_url, data=f, timeout=600)
-                        if resp.status_code == 200:
-                            logging.info("Uploaded blend file to cloud storage before exit")
-                        else:
-                            logging.error(f"Cloud save failed with status {resp.status_code}: {resp.text[:200]}")
-                    except Exception as upload_error:
-                        logging.error(f"Cloud save failed: {upload_error}")
-                else:
-                    logging.warning("No CR8_SAVE_URL set — file saved locally only (will be lost with the instance)")
-            else:
-                logging.warning("No blend file path found, skipping save")
+            # Save + upload via the shared helper. The instance disk is scratch —
+            # destroyed shortly after we exit — so the cloud PUT is the durable
+            # copy. This is the one save path that works while the engine is
+            # unreachable (which is exactly why we're in this cleanup), relying on
+            # the presigned URL minted at launch.
+            save_url = os.environ.get('CR8_SAVE_URL')
+            ok, detail = save_and_upload(save_url, username=self.username)
+            logging.info(f"Server-cleanup save result: {detail}")
 
             # Quit Blender
             logging.info("Closing Blender instance")

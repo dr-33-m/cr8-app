@@ -11,7 +11,7 @@ export function ControlsOverlay({ children }: ControlsOverlayProps) {
   return (
     <div className="z-20 absolute inset-0 pointer-events-none transition-all duration-500 ease-in-out">
       <div className="pointer-events-auto">{children}</div>
-      <div className="absolute bottom-4 left-4 flex space-x-2 pointer-events-auto">
+      <div className="absolute bottom-4 right-4 flex space-x-2 pointer-events-auto">
         <Button
           variant="ghost"
           size="icon"

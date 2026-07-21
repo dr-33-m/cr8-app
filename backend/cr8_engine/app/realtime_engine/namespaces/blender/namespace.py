@@ -27,6 +27,9 @@ class BlenderNamespace(
         self.logger = logging.getLogger(__name__)
         # Store username to sid mapping for Blender clients
         self.username_to_sid: Dict[str, str] = {}
+        # message_id -> Future, for backend-initiated commands that need to await
+        # the Blender client's completion (e.g. saving before a project switch).
+        self.pending_requests: Dict[str, "object"] = {}
 
     @property
     def blaze_agent(self):

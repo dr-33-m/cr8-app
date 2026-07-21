@@ -85,6 +85,16 @@ class DeploymentConfig:
             logger.info(f"  RUSTFS_INTERNAL_ENDPOINT={self.RUSTFS_INTERNAL_ENDPOINT or 'NOT SET'}")
             logger.info(f"  RUSTFS_ACCESS_KEY={'set' if self.RUSTFS_ACCESS_KEY else 'NOT SET'}")
             logger.info(f"  RUSTFS_BUCKET={self.RUSTFS_BUCKET}")
+            # Normal user saves are multipart through the public endpoint, so
+            # they work over the tunnel regardless. A distinct internal endpoint
+            # (a RustFS address instances can reach directly) is still an optional
+            # perf win: it bypasses the tunnel for downloads and the emergency
+            # env-var save (a single PUT that would 413 past ~100MB otherwise).
+            if not os.getenv("RUSTFS_INTERNAL_ENDPOINT"):
+                logger.info(
+                    "  RUSTFS_INTERNAL_ENDPOINT is unset — downloads and the "
+                    "emergency save route via the public tunnel (fine, just not "
+                    "the fastest path). Normal saves are multipart and unaffected.")
 
     def validate_remote_config(self) -> list[str]:
         """Validate that all required remote config is set. Returns list of errors."""

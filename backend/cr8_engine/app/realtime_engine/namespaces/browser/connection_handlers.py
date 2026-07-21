@@ -65,6 +65,29 @@ class ConnectionHandlersMixin:
             self.logger.error(f"Blend key ownership check failed: {e}")
             return False
 
+    async def _resolve_db_user_id(self, logto_id: str) -> Optional[str]:
+        """
+        Map a Logto id (claims['sub']) to the DB user id that S3 prefixes are
+        keyed on. Used by Save-As to build a storage key under the user's own
+        prefix. Returns None if the user is missing or not approved.
+        """
+        try:
+            from sqlalchemy import select
+            from app.db.engine import get_session_factory
+            from app.db.models import User
+
+            factory = get_session_factory()
+            async with factory() as db:
+                result = await db.execute(select(User).where(User.logto_id == logto_id))
+                user = result.scalar_one_or_none()
+
+            if not user or not user.is_approved:
+                return None
+            return str(user.id)
+        except Exception as e:
+            self.logger.error(f"User id resolution failed: {e}")
+            return None
+
     async def on_connect(self, sid: str, environ: Dict, auth: Optional[Dict]) -> bool:
         """
         Handle browser client connection.
@@ -93,6 +116,7 @@ class ConnectionHandlersMixin:
             token = auth.get('token')
             blend_file_path = auth.get('blend_file_path')
             blend_object_key = auth.get('blend_object_key')
+            logto_id = None  # stored on the session so Save-As can resolve the user's storage prefix
             config = DeploymentConfig.get()
 
             if config.LAUNCH_MODE == "remote":
@@ -105,6 +129,7 @@ class ConnectionHandlersMixin:
                     validator = get_jwt_validator()
                     claims = validator.validate(token)
                     user_id = claims["sub"]
+                    logto_id = user_id
                     username = auth.get('username') or claims.get("name") or claims.get("username") or user_id
                     self.logger.info(f"JWT validated for user_id={user_id}, username={username}")
                 except Exception as e:
@@ -161,6 +186,7 @@ class ConnectionHandlersMixin:
                 'username': username,
                 'blend_file': blend_file_path,
                 'blend_object_key': blend_object_key,
+                'logto_id': logto_id,
                 'browser_sid': sid,
                 'blender_sid': None,
                 'state': 'waiting_for_browser_ready',

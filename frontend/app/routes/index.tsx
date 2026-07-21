@@ -88,7 +88,7 @@ function RemoteHome() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
-          <CardTitle>Welcome to Cr8</CardTitle>
+          <CardTitle>Welcome to Cr8-xyz</CardTitle>
           <CardDescription>How would you like to start?</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -216,7 +216,7 @@ function LocalHome() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
-          <CardTitle>Welcome to Cr8</CardTitle>
+          <CardTitle>Welcome to Cr8-xyz</CardTitle>
           <CardDescription>How would you like to start?</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

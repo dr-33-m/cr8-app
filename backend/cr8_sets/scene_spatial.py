@@ -9,8 +9,15 @@ def list_scene_objects() -> list:
     """
     try:
         objects_info = []
-        
-        for obj in bpy.data.objects:
+
+        # Enumerate objects actually linked to the current scene, NOT
+        # bpy.data.objects. The latter is every object datablock in the file,
+        # including ones deleted from the scene that still linger in blend data
+        # (a fake user, or linked in another scene/collection). Those show up in
+        # the browser's object list as un-selectable ghosts that never clear on
+        # refresh — exactly the "deleted objects still listed" bug. An empty
+        # scene has no such lingering datablocks, which is why it looked fine.
+        for obj in bpy.context.scene.objects:
             obj_info = {
                 'name': obj.name,
                 'type': obj.type,

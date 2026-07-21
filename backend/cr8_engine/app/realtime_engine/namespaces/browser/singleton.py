@@ -17,6 +17,16 @@ _shared_blaze_agent: Optional[BlazeAgent] = None
 # Cleanup timers for browser disconnects
 _cleanup_timers: Dict[str, asyncio.Task] = {}
 
+# The project each user currently has open on their running Blender, keyed by
+# username. Value is the RustFS object key, or the "__EMPTY__" sentinel for a
+# fresh/empty project. Used to decide, when a browser opens the workspace while
+# a Blender is already running, whether it's the SAME project (reconnect) or a
+# DIFFERENT one (save + tear down the old, launch the new). A username missing
+# from this dict means "unknown" (e.g. the engine restarted) — treated as a
+# reconnect so a page refresh never destroys a running instance.
+EMPTY_PROJECT = "__EMPTY__"
+_open_projects: Dict[str, str] = {}
+
 
 def initialize_shared_blaze_agent(browser_ns, blender_ns) -> BlazeAgent:
     """Initialize the shared BlazeAgent singleton with namespace references."""
@@ -39,3 +49,9 @@ def get_cleanup_timers() -> Dict[str, asyncio.Task]:
     """Get the cleanup timers dictionary."""
     global _cleanup_timers
     return _cleanup_timers
+
+
+def get_open_projects() -> Dict[str, str]:
+    """Get the {username: project-key} map of currently-open projects."""
+    global _open_projects
+    return _open_projects

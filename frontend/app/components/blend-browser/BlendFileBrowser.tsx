@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Trash2, Upload } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FileImage,
+  LayoutGrid,
+  List as ListIcon,
+  Loader2,
+  MoreVertical,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +18,20 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   BlendFile,
   deleteBlendFileFn,
@@ -23,10 +46,47 @@ interface BlendFileBrowserProps {
   onSelect: (file: BlendFile) => void;
 }
 
+type ViewMode = "grid" | "list";
+type SortKey = "latest" | "oldest" | "name" | "size";
+
 function formatSize(bytes: number): string {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
   if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`;
   return `${Math.round(bytes / 1024)} KB`;
+}
+
+// dd/mm/yyyy • h:mm AM/PM — matches the gallery mockup.
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-GB");
+  const time = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${date} • ${time}`;
+}
+
+function sortFiles(files: BlendFile[], sort: SortKey): BlendFile[] {
+  const copy = [...files];
+  switch (sort) {
+    case "oldest":
+      return copy.sort(
+        (a, b) =>
+          new Date(a.last_modified).getTime() -
+          new Date(b.last_modified).getTime()
+      );
+    case "name":
+      return copy.sort((a, b) => a.filename.localeCompare(b.filename));
+    case "size":
+      return copy.sort((a, b) => b.size - a.size);
+    case "latest":
+    default:
+      return copy.sort(
+        (a, b) =>
+          new Date(b.last_modified).getTime() -
+          new Date(a.last_modified).getTime()
+      );
+  }
 }
 
 export function BlendFileBrowser({
@@ -40,6 +100,9 @@ export function BlendFileBrowser({
   const [listError, setListError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortKey>("latest");
+  const [view, setView] = useState<ViewMode>("grid");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -54,14 +117,22 @@ export function BlendFileBrowser({
     }
   }, [accessToken]);
 
-  const { addFiles, progress, error: uploadError, isUploading } =
-    useBlendUpload(refresh);
+  const { addFiles, progress, error: uploadError } = useBlendUpload(refresh);
 
   useEffect(() => {
     if (open) refresh();
   }, [open, refresh]);
 
+  const visibleFiles = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? files.filter((f) => f.filename.toLowerCase().includes(q))
+      : files;
+    return sortFiles(filtered, sort);
+  }, [files, query, sort]);
+
   const handleDelete = async (key: string) => {
+    if (deleting) return;
     setDeleting(key);
     try {
       await deleteBlendFileFn({ data: { accessToken, key } });
@@ -77,47 +148,121 @@ export function BlendFileBrowser({
     addFiles(Array.from(e.dataTransfer.files));
   };
 
+  const openFilePicker = () => inputRef.current?.click();
+
   const error = uploadError ?? listError;
+
+  const FileMenu = ({ file }: { file: BlendFile }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          disabled={deleting === file.key}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {deleting === file.key ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <MoreVertical className="h-4 w-4" />
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete(file.key);
+          }}
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl! h-[80vh]! flex flex-col overflow-hidden">
+      <DialogContent className="max-w-5xl! h-[80vh]! flex flex-col overflow-hidden gap-4">
         <DialogHeader className="shrink-0">
-          <DialogTitle>Open Existing Project</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold">
+            Open Existing Project
+          </DialogTitle>
           <DialogDescription>
-            Your blend files, stored in the cloud. Up to{" "}
+            Your files, stored in the cloud. Up to{" "}
             {MAX_BLEND_BYTES / 1024 ** 3}GB each.
           </DialogDescription>
         </DialogHeader>
 
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragging(true);
-          }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleDrop}
-          onClick={() => inputRef.current?.click()}
-          className={`shrink-0 rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-colors ${
-            isDragging ? "border-primary bg-primary/5" : "border-muted"
-          }`}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".blend"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              addFiles(Array.from(e.target.files ?? []));
-              e.target.value = "";
-            }}
-          />
-          <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Drop .blend files here, or click to browse
-          </p>
+        {/* Toolbar: search · sort · view toggle */}
+        <div className="shrink-0 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search projects..."
+              className="pl-9"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              Sort by
+            </span>
+            <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="latest">Latest</SelectItem>
+                <SelectItem value="oldest">Oldest</SelectItem>
+                <SelectItem value="name">Name A–Z</SelectItem>
+                <SelectItem value="size">Size</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-0.5 rounded-md border p-0.5">
+            <button
+              type="button"
+              aria-label="Grid view"
+              onClick={() => setView("grid")}
+              className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
+                view === "grid"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="List view"
+              onClick={() => setView("list")}
+              className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
+                view === "list"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ListIcon className="h-4 w-4" />
+            </button>
+          </div>
         </div>
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".blend"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            addFiles(Array.from(e.target.files ?? []));
+            e.target.value = "";
+          }}
+        />
 
         {progress && (
           <div className="shrink-0 space-y-1">
@@ -134,50 +279,106 @@ export function BlendFileBrowser({
           </div>
         )}
 
-        {error && (
-          <p className="shrink-0 text-sm text-destructive">{error}</p>
-        )}
+        {error && <p className="shrink-0 text-sm text-destructive">{error}</p>}
 
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+        {/* Content — whole area is a drop target */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          className={`flex-1 min-h-0 overflow-y-auto rounded-lg pr-1 transition-colors ${
+            isDragging ? "ring-2 ring-primary ring-inset bg-primary/5" : ""
+          }`}
+        >
           {isLoading && files.length === 0 ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
-          ) : files.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-              No blend files yet — upload one to get started.
+          ) : view === "grid" ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-0.5">
+              {visibleFiles.map((file) => (
+                <Card
+                  key={file.key}
+                  className="relative p-4 flex flex-col items-center justify-center gap-2 min-h-[180px] cursor-pointer hover:bg-accent transition-colors"
+                  onClick={() => onSelect(file)}
+                >
+                  <div className="absolute top-2 right-2">
+                    <FileMenu file={file} />
+                  </div>
+                  <FileImage className="h-14 w-14 text-primary" strokeWidth={1} />
+                  <p className="font-medium truncate max-w-full text-center px-2">
+                    {file.filename}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatSize(file.size)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(file.last_modified)}
+                  </p>
+                </Card>
+              ))}
+
+              {/* Add Files tile */}
+              <button
+                type="button"
+                onClick={openFilePicker}
+                className="rounded-xl border-2 border-dashed border-muted flex flex-col items-center justify-center gap-2 min-h-[180px] p-4 cursor-pointer hover:border-primary/50 transition-colors"
+              >
+                <div className="h-12 w-12 rounded-md border flex items-center justify-center">
+                  <Plus className="h-6 w-6" />
+                </div>
+                <p className="font-medium">Add Files</p>
+                <p className="text-xs text-muted-foreground text-center">
+                  <span className="text-primary">Browse</span> or drop .blend
+                  files here
+                </p>
+              </button>
             </div>
           ) : (
-            files.map((file) => (
-              <Card
-                key={file.key}
-                className="p-3 flex items-center gap-3 cursor-pointer hover:bg-accent transition-colors"
-                onClick={() => onSelect(file)}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{file.filename}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatSize(file.size)} ·{" "}
-                    {new Date(file.last_modified).toLocaleDateString()}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  disabled={deleting === file.key || isUploading}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(file.key);
-                  }}
+            <div className="space-y-2 p-0.5">
+              {visibleFiles.map((file) => (
+                <Card
+                  key={file.key}
+                  className="p-3 flex items-center gap-3 cursor-pointer hover:bg-accent transition-colors"
+                  onClick={() => onSelect(file)}
                 >
-                  {deleting === file.key ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                </Button>
-              </Card>
-            ))
+                  <FileImage className="h-8 w-8 text-primary shrink-0" strokeWidth={1} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{file.filename}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatSize(file.size)} · {formatDate(file.last_modified)}
+                    </p>
+                  </div>
+                  <FileMenu file={file} />
+                </Card>
+              ))}
+
+              <button
+                type="button"
+                onClick={openFilePicker}
+                className="w-full rounded-lg border-2 border-dashed border-muted flex items-center justify-center gap-2 p-4 text-sm cursor-pointer hover:border-primary/50 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>
+                  <span className="text-primary">Browse</span> or drop .blend
+                  files here
+                </span>
+              </button>
+            </div>
+          )}
+
+          {!isLoading && !error && files.length > 0 && visibleFiles.length === 0 && (
+            <p className="text-center text-sm text-muted-foreground py-6">
+              No projects match “{query}”.
+            </p>
+          )}
+          {!isLoading && !error && files.length === 0 && (
+            <p className="text-center text-sm text-muted-foreground pt-4">
+              No blend files yet — add one to get started.
+            </p>
           )}
         </div>
       </DialogContent>

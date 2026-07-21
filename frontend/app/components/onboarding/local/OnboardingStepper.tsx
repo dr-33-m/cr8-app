@@ -136,7 +136,7 @@ export function OnboardingStepper() {
   return (
     <Card className="w-full max-w-lg">
       <CardHeader className="text-center">
-        <CardTitle>Welcome to Cr8</CardTitle>
+        <CardTitle>Welcome to Cr8-xyz</CardTitle>
         <CardDescription>Set up your workspace</CardDescription>
       </CardHeader>
 

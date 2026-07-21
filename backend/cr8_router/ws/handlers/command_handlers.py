@@ -5,6 +5,7 @@ Handles message deduplication, command routing, and addon command execution.
 
 import json
 import logging
+import os
 from ..utils.response_manager import ResponseManager
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,39 @@ def handle_addon_command(data, handler):
 
         logger.info(
             f"Handling addon command: {addon_id}.{command} with params: {params}, route: {route}")
+
+        # Built-in `save` command: an app-level operation (save the current .blend
+        # and upload it to cloud storage), not a scene/addon command — handle it
+        # directly rather than routing through the addon registry. The presigned
+        # PUT URL is supplied by the engine in params; we fall back to the
+        # launch-time CR8_SAVE_URL env var if it's missing.
+        if command == 'save':
+            from ..websocket_handler import save_and_upload, save_and_upload_multipart
+            response_manager = ResponseManager.get_instance()
+            uname = getattr(handler, 'username', None)
+            multipart = params.get('multipart')
+            if multipart:
+                # Normal path: engine-orchestrated multipart upload (parts stay
+                # under the tunnel's request-body cap). result carries the ETags.
+                ok, result = save_and_upload_multipart(multipart, username=uname)
+            else:
+                # Legacy single PUT — only the emergency env-var save path
+                # (CR8_SAVE_URL) still uses this; 413s past ~100MB.
+                save_url = params.get('save_url') or os.environ.get('CR8_SAVE_URL')
+                ok, detail = save_and_upload(save_url, username=uname)
+                result = {'message': detail}
+            # Always reply as command_completed (result=True) so the engine
+            # receives it (the engine only forwards/awaits completed, not failed,
+            # events). The real outcome rides in the payload (`ok` + `parts`),
+            # which the engine and frontend inspect.
+            response_manager.send_response(
+                'save',
+                True,
+                {'ok': ok, **result},
+                message_id,
+                route=route,
+            )
+            return
 
         # Get router instance
         from ... import get_router

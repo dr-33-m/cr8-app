@@ -9,6 +9,7 @@ from app.lib import (
     create_error_response,
     generate_message_id,
 )
+from .singleton import get_open_projects, EMPTY_PROJECT
 
 logger = logging.getLogger(__name__)
 
@@ -34,16 +35,50 @@ class SessionHandlersMixin:
             blend_file = session['blend_file']
             blend_object_key = session.get('blend_object_key')
             recovery_mode = data.get('recovery', False) if data else False
-            
+            requested_project = blend_object_key or EMPTY_PROJECT
+            open_projects = get_open_projects()
+
             self.logger.info(f"Browser ready signal from {username} (recovery: {recovery_mode})")
-            
-            # ALWAYS check if Blender is already in the room (single source of truth)
+
+            # Blender already running for this user?
             if await self.is_blender_in_room(username):
-                self.logger.info(f"Blender already in room for {username}, notifying browser")
-                await self.notify_existing_blender_connection(sid)
-                return
-            
-            # If we get here, no Blender in room - safe to launch
+                tracked = open_projects.get(username)
+                # Reconnect (leave the running Blender alone) when this is a
+                # network-recovery reconnect, when we can't prove which project is
+                # running (tracked is None — e.g. after an engine restart, so a
+                # refresh never destroys a live instance), or when it's the same
+                # project (a page refresh / re-open of the same file).
+                if recovery_mode or tracked is None or tracked == requested_project:
+                    self.logger.info(f"Blender already in room for {username}, reconnecting")
+                    await self.notify_existing_blender_connection(sid)
+                    return
+
+                # Different project chosen → save the outgoing file, tear the old
+                # Blender down, then fall through to launch the new one.
+                self.logger.info(
+                    f"Project switch for {username}: {tracked} -> {requested_project}")
+                if tracked and tracked != EMPTY_PROJECT:
+                    try:
+                        logto_id = session.get('logto_id')
+                        user_id = (await self._resolve_db_user_id(logto_id)
+                                   if logto_id else None)
+                        if user_id:
+                            save_filename = tracked.rsplit('/', 1)[-1]
+                            ok, message = await self._perform_multipart_save(
+                                username, user_id, save_filename)
+                            self.logger.info(
+                                f"Pre-switch save for {username}: "
+                                f"{'ok' if ok else message}")
+                        else:
+                            self.logger.warning(
+                                f"Pre-switch save skipped for {username}: no user id")
+                    except Exception as e:
+                        self.logger.error(f"Pre-switch save failed for {username}: {e}")
+
+                await BlenderService.terminate_instance(username)
+                open_projects.pop(username, None)
+
+            # If we get here, no (usable) Blender in room - safe to launch
             self.logger.info(f"No Blender in room for {username}, launching new instance")
             
             # Update session state
@@ -96,7 +131,11 @@ class SessionHandlersMixin:
             # Update state to waiting for Blender connection
             session['state'] = 'waiting_for_blender'
             await self.save_session(sid, session)
-            
+
+            # Remember which project this Blender was launched with, so a later
+            # workspace open can tell a same-project reconnect from a real switch.
+            open_projects[username] = requested_project
+
             self.logger.info(f"Blender launched for {username}, waiting for connection")
             
         except Exception as e:
@@ -110,6 +149,23 @@ class SessionHandlersMixin:
                 source='backend'
             )
             await self.emit(MessageType.INSTANCE_STATUS.value, error_status_msg.to_dict(), to=sid)
+
+    async def on_exit_workspace(self, sid: str, data: Optional[Dict] = None):
+        """
+        User is leaving the workspace deliberately (via the Exit button, after any
+        final save). Shut their Blender/instance down now rather than leaving it
+        for the disconnect grace timer — this also ends the WebRTC stream.
+        """
+        try:
+            session = await self.get_session(sid)
+            if not session:
+                return
+            username = session['username']
+            self.logger.info(f"Exit workspace requested by {username}")
+            get_open_projects().pop(username, None)
+            await BlenderService.terminate_instance(username)
+        except Exception as e:
+            self.logger.error(f"Error in exit_workspace: {str(e)}")
 
     async def on_cancel_launch(self, sid: str, data: Optional[Dict] = None):
         """Handle cancel launch request from the browser."""
