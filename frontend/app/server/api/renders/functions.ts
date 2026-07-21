@@ -16,6 +16,10 @@ export interface RenderItem {
   size: number;
   last_modified: string;
   url: string;
+  /** Same object as `url`, but signed to return Content-Disposition: attachment.
+   * Needed because `<a download>` is ignored cross-origin, and renders come
+   * straight from object storage rather than through our own origin. */
+  download_url: string;
   /** Null when the best-effort thumbnail upload didn't land — fall back to `url`. */
   thumb_url: string | null;
 }

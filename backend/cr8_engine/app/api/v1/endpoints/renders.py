@@ -41,6 +41,7 @@ class RenderItemResponse(BaseModel):
     size: int
     last_modified: datetime
     url: str
+    download_url: str
     thumb_url: Optional[str] = None
 
 
@@ -88,6 +89,11 @@ async def list_renders(
         {
             **item,
             "url": storage_service.presign_view(item["key"]),
+            # Same object, signed to come back as an attachment — see
+            # presign_render_download for why a second URL is needed at all.
+            "download_url": storage_service.presign_render_download(
+                item["key"], item["filename"]
+            ),
             # Absent when the best-effort thumbnail upload didn't land; the
             # client falls back to the full image rather than a broken preview.
             "thumb_url": (
