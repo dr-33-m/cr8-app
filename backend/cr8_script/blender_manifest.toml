@@ -1,0 +1,36 @@
+schema_version = "1.0.0"
+
+# Blaze Script Addon - Python execution for AI agents
+id = "cr8_script"
+version = "0.1.0"
+name = "Blaze Script"
+tagline = "Python execution for AI agents"
+maintainer = "Cr8-xyz <thamsanqa.dev@gmail.com>"
+type = "add-on"
+
+# Links and documentation
+website = "https://code.cr8-xyz.art/Cr8-xyz/cr8-app"
+
+# Tags for categorization
+tags = ["Development", "AI"]
+
+blender_version_min = "4.2.0"
+
+# License
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+# Permissions - runs agent-authored Python with full bpy access
+[permissions]
+scene = "Execute agent-authored Python against scene data"
+files = "Agent-authored code may read and write files (e.g. renders, imports)"
+
+# Build configuration
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.git/",
+  "/*.zip",
+  "/dist/",
+]

@@ -54,8 +54,9 @@ fi
 CR8_ROUTER_ZIP="$CR8_ADDONS_DIR/cr8_router/dist/blender_ai_router_v1.0.0.zip"
 CR8_SETS_ZIP="$CR8_ADDONS_DIR/cr8_sets/dist/cr8_sets_v1.0.0.zip"
 CR8_CONTROLS_ZIP="$CR8_ADDONS_DIR/cr8_controls/dist/blender_controls_v1.0.0.zip"
+CR8_SCRIPT_ZIP="$CR8_ADDONS_DIR/cr8_script/dist/cr8_script_v1.0.0.zip"
 
-for addon_zip in "$CR8_ROUTER_ZIP" "$CR8_SETS_ZIP" "$CR8_CONTROLS_ZIP"; do
+for addon_zip in "$CR8_ROUTER_ZIP" "$CR8_SETS_ZIP" "$CR8_CONTROLS_ZIP" "$CR8_SCRIPT_ZIP"; do
     if [ ! -f "$addon_zip" ]; then
         echo "ERROR: Addon zip not found at $addon_zip"
         echo "Build the addon first, or set CR8_ADDONS_DIR to the backend/ directory"
@@ -86,7 +87,8 @@ mkdir -p "$SCRIPT_DIR/addons"
 cp -f "$CR8_ROUTER_ZIP" "$SCRIPT_DIR/addons/"
 cp -f "$CR8_SETS_ZIP" "$SCRIPT_DIR/addons/"
 cp -f "$CR8_CONTROLS_ZIP" "$SCRIPT_DIR/addons/"
-echo "  Copied cr8 addon zips (router, sets, controls)"
+cp -f "$CR8_SCRIPT_ZIP" "$SCRIPT_DIR/addons/"
+echo "  Copied cr8 addon zips (router, sets, controls, script)"
 
 echo ""
 

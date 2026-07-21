@@ -20,16 +20,35 @@ logger = logging.getLogger(__name__)
 # websocket-client _send_lock bottleneck that caused "transport close" disconnects.
 _command_queue: queue.Queue = queue.Queue()
 
+# Drainer tick rates. We poll at the active rate while commands are flowing and
+# back off once the queue has been empty for a while — a session sitting idle
+# does not need 10 wakeups a second, and instance time is billed by the hour.
+_DRAIN_INTERVAL_ACTIVE = 0.1
+_DRAIN_INTERVAL_IDLE = 1.0
+_DRAIN_IDLE_DELAY = 5.0
+# Consecutive empty ticks before dropping to the idle rate.
+_DRAIN_IDLE_TICKS = int(_DRAIN_IDLE_DELAY / _DRAIN_INTERVAL_ACTIVE)
+
+_drain_idle_countdown = _DRAIN_IDLE_TICKS
+
 
 def _drain_command_queue():
-    """Persistent Blender timer: process one queued command per tick (~60fps).
+    """Persistent Blender timer: process one queued command per tick.
 
     Keeps sio.emit() calls spaced out so websocket-client's _send_lock never
     creates a bottleneck under burst traffic. Defined at module level so
     bpy.app.timers.is_registered() can identify it by identity across reconnects.
+
+    Ticks at 10/s while work is arriving, then backs off to 1/s after ~5s of
+    quiet. Any command resets it to the active rate, so the slow rate only ever
+    costs latency on the first command after an idle stretch.
     """
+    global _drain_idle_countdown
+
+    did_work = False
     try:
         data = _command_queue.get_nowait()
+        did_work = True
         # Import handler lazily — avoids circular import at module load time
         from ..websocket_handler import get_handler
         handler = get_handler()
@@ -38,7 +57,15 @@ def _drain_command_queue():
         pass
     except Exception as e:
         logger.error(f"Error processing queued command: {e}")
-    return 0.1  # re-register at 10/s — reduces _send_lock contention with heartbeat frames
+
+    if did_work:
+        _drain_idle_countdown = _DRAIN_IDLE_TICKS
+        return _DRAIN_INTERVAL_ACTIVE
+
+    if _drain_idle_countdown > 0:
+        _drain_idle_countdown -= 1
+        return _DRAIN_INTERVAL_ACTIVE
+    return _DRAIN_INTERVAL_IDLE
 
 
 def encode_turn_url(turn_url: str) -> str:
@@ -193,6 +220,15 @@ def register_event_handlers(handler):
                 break
         if flushed:
             logger.info(f"Flushed {flushed} queued command(s) on disconnect")
+
+        # Same reasoning for in-flight long-running work: the engine-side Futures
+        # died with the session, so resolving them later would emit responses for
+        # message IDs nobody is waiting on.
+        try:
+            from ...registry.routing import deferred
+            deferred.close_all()
+        except Exception as e:
+            logger.error(f"Failed to clear deferred commands: {e}")
 
         # Only stop streaming on intentional disconnects, not transient transport errors.
         # Transport errors trigger Socket.IO reconnection — streaming has its own

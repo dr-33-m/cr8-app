@@ -1,0 +1,55 @@
+{
+  "addon_info": {
+    "id": "cr8_script",
+    "name": "Blaze Script",
+    "version": "0.1.0",
+    "author": "Cr8-xyz <thamsanqa.dev@gmail.com>",
+    "category": "development",
+    "description": "Python execution for AI agents",
+    "homepage": "https://code.cr8-xyz.art/Cr8-xyz/cr8-app"
+  },
+  "ai_integration": {
+    "agent_description": "This addon lets you run Python directly inside Blender using the full bpy API. It is a fallback, not a first choice: when another addon provides a dedicated tool for what the user asked, use that tool instead — those are tested, validated, and produce better error messages. Reach for execute_python when no tool covers the request (adding modifiers, editing materials and nodes, building light rigs, mesh editing, driver and constraint setup, querying scene data no tool exposes) or when you need to inspect the API before acting.\n\nThe code you write runs on Blender's main thread, so a long-running loop will freeze the user's viewport. For anything slow — rendering, baking, simulation — use the deferred pattern described in the tool's usage notes rather than blocking.",
+    "tools": [
+      {
+        "name": "execute_python",
+        "description": "Execute Python code inside Blender with full bpy access. Use when no dedicated tool covers the request. Rules: (1) assign your answer to a dict named `result` — that dict is what comes back; (2) `print()` output and Blender's own messages are returned to you, and failures return the full traceback, so read it and fix the code rather than retrying unchanged; (3) the code runs on Blender's main thread, so never block — to start slow work such as a render or bake, define a no-argument function `check_is_finished` that returns None while it runs and a dict when done, and it will be polled until it completes (`result` is then ignored). Operators that would end the user's session or discard their project are blocked and explain themselves.",
+        "usage": "Use when no dedicated tool covers the request. Three rules govern the code you write:\n\n1. RETURN VALUES — assign a dict to a variable named `result`. That dict is what comes back to you. Anything else (a bare value, no assignment at all) is an error. Values that are not JSON-serializable, such as a bpy object, are converted to their text representation rather than failing, so prefer extracting the fields you actually need: `result = {'name': obj.name, 'location': list(obj.location)}`.\n\n2. DEBUGGING — `print()` output is captured and returned to you in the `stdout` field, and so is anything Blender itself prints. If the code raises, you get the full traceback back; read it and fix the code rather than repeating the same call.\n\n3. LONG OPERATIONS — the code runs on the main thread, so never block or busy-wait. To start work that takes time, kick it off and define a function named `check_is_finished` that takes no arguments and returns None while the work is in progress, then a result dict when it is done. It will be polled until it reports completion, and the user's viewport stays responsive throughout. When you define `check_is_finished`, the `result` variable is ignored.\n\nSome operators are blocked because they would end the user's session or discard their project — quitting Blender, resetting preferences, and opening or replacing the current file. If one of those is rejected you will get an explanation and a suggested alternative; do not try to work around it.",
+        "parameters": [
+          {
+            "name": "code",
+            "type": "string",
+            "description": "Python source to execute. Assign your answer to a `result` dict, or define `check_is_finished` for long-running work. `bpy` must be imported by the code itself.",
+            "required": true
+          }
+        ],
+        "examples": [
+          "add a subdivision surface modifier to the selected object",
+          "make the Cube's material emissive with strength 5",
+          "count how many vertices each mesh in the scene has",
+          "set up a three-point lighting rig around the product",
+          "render the current frame to /tmp/preview.png and tell me when it's done",
+          "what arguments does bpy.ops.mesh.primitive_cylinder_add take?"
+        ],
+        "category": "scripting"
+      }
+    ],
+    "context_hints": [
+      "Fallback capability — always prefer a dedicated tool from another addon when one exists for the task",
+      "Covers anything bpy can do: modifiers, materials and shader nodes, mesh editing, constraints, drivers, lighting, rendering",
+      "Also useful for inspecting the Blender API (dir(), help()) before writing code that depends on it",
+      "Code runs on the main thread — use the check_is_finished deferred pattern for renders, bakes, and simulations",
+      "Tracebacks come back in full; read them and correct the code instead of retrying unchanged",
+      "May be disabled per-deployment, in which case calls return a CODE_EXECUTION_DISABLED error"
+    ],
+    "requirements": {
+      "blender_version_min": "4.2.0",
+      "python_packages": []
+    },
+    "metadata": {
+      "priority": 40,
+      "performance_impact": "medium",
+      "experimental": false
+    }
+  }
+}

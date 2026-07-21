@@ -166,6 +166,15 @@ def handle_addon_command(data, handler):
         # Execute command through router
         result = router.execute_command(addon_id, command, params)
 
+        # Long-running work (render, bake, modal op) defers its response: the
+        # handler hands back a checker instead of a result. Park the message_id
+        # and return without replying — deferred.poll() sends the response once
+        # the job reports done. The engine awaits its Future with no timeout.
+        from ...registry.routing import deferred
+        if deferred.is_deferred(result):
+            deferred.register(result, command, message_id, route)
+            return
+
         # Send response with preserved route
         response_manager = ResponseManager.get_instance()
         response_manager.send_response(
@@ -227,6 +236,12 @@ def route_command_to_addon(command, data, handler):
             result = router.execute_command(addon_id, command, params)
         else:
             result = router.route_command(command, params)
+
+        # Deferred response — see handle_addon_command above.
+        from ...registry.routing import deferred
+        if deferred.is_deferred(result):
+            deferred.register(result, command, message_id)
+            return
 
         # Send response
         response_manager = ResponseManager.get_instance()
