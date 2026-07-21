@@ -8,6 +8,7 @@ from .connection_handlers import ConnectionHandlersMixin
 from .session_handlers import SessionHandlersMixin
 from .command_handlers import CommandHandlersMixin
 from .notification_handlers import NotificationHandlersMixin
+from .render_handlers import RenderHandlersMixin
 from .singleton import get_shared_blaze_agent
 
 
@@ -16,6 +17,7 @@ class BrowserNamespace(
     SessionHandlersMixin,
     CommandHandlersMixin,
     NotificationHandlersMixin,
+    RenderHandlersMixin,
     socketio.AsyncNamespace,
 ):
     """Namespace handler for browser clients."""

@@ -96,10 +96,11 @@ app.include_router(polyhaven.router, prefix="/api/v1/polyhaven", tags=["polyhave
 
 # Invite-gate and storage endpoints (remote mode only — require database)
 if DeploymentConfig.get().LAUNCH_MODE == "remote":
-    from app.api.v1.endpoints import users, invitations, storage
+    from app.api.v1.endpoints import users, invitations, storage, renders
     app.include_router(users.router, prefix="/api/v1", tags=["users"])
     app.include_router(invitations.router, prefix="/api/v1", tags=["invitations"])
     app.include_router(storage.router, prefix="/api/v1", tags=["storage"])
+    app.include_router(renders.router, prefix="/api/v1", tags=["renders"])
 
 # Create Socket.IO server
 sio = create_socketio_server()

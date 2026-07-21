@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceIndexRouteImport } from './routes/workspace/index'
+import { Route as LibraryIndexRouteImport } from './routes/library/index'
+import { Route as LibraryProjectRouteImport } from './routes/library/$project'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +25,16 @@ const WorkspaceIndexRoute = WorkspaceIndexRouteImport.update({
   path: '/workspace/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibraryIndexRoute = LibraryIndexRouteImport.update({
+  id: '/library/',
+  path: '/library/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryProjectRoute = LibraryProjectRouteImport.update({
+  id: '/library/$project',
+  path: '/library/$project',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
@@ -32,30 +44,49 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/library/$project': typeof LibraryProjectRoute
+  '/library/': typeof LibraryIndexRoute
   '/workspace/': typeof WorkspaceIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/library/$project': typeof LibraryProjectRoute
+  '/library': typeof LibraryIndexRoute
   '/workspace': typeof WorkspaceIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/library/$project': typeof LibraryProjectRoute
+  '/library/': typeof LibraryIndexRoute
   '/workspace/': typeof WorkspaceIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth/callback' | '/workspace/'
+  fullPaths:
+    | '/'
+    | '/auth/callback'
+    | '/library/$project'
+    | '/library/'
+    | '/workspace/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth/callback' | '/workspace'
-  id: '__root__' | '/' | '/auth/callback' | '/workspace/'
+  to: '/' | '/auth/callback' | '/library/$project' | '/library' | '/workspace'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth/callback'
+    | '/library/$project'
+    | '/library/'
+    | '/workspace/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  LibraryProjectRoute: typeof LibraryProjectRoute
+  LibraryIndexRoute: typeof LibraryIndexRoute
   WorkspaceIndexRoute: typeof WorkspaceIndexRoute
 }
 
@@ -75,6 +106,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/library/': {
+      id: '/library/'
+      path: '/library'
+      fullPath: '/library/'
+      preLoaderRoute: typeof LibraryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library/$project': {
+      id: '/library/$project'
+      path: '/library/$project'
+      fullPath: '/library/$project'
+      preLoaderRoute: typeof LibraryProjectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
@@ -88,6 +133,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  LibraryProjectRoute: LibraryProjectRoute,
+  LibraryIndexRoute: LibraryIndexRoute,
   WorkspaceIndexRoute: WorkspaceIndexRoute,
 }
 export const routeTree = rootRouteImport

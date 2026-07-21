@@ -1,0 +1,38 @@
+schema_version = "1.0.0"
+
+# Cr8 Render Addon - Image rendering and cloud output
+id = "cr8_render"
+version = "1.0.0"
+name = "Cr8 Render"
+tagline = "Image rendering and cloud output for AI agents"
+maintainer = "Cr8-xyz <thamsanqa.dev@gmail.com>"
+type = "add-on"
+
+# Links and documentation
+website = "https://code.cr8-xyz.art/Cr8-xyz/cr8-app"
+
+# Tags for categorization
+tags = ["Development", "Render"]
+
+blender_version_min = "4.2.0"
+
+# License
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+# Permissions - uploads finished renders to the user's cloud storage using
+# pre-signed URLs minted by the engine (no credentials are held here), and
+# writes the frame to a temp path before upload.
+[permissions]
+network = "Upload finished renders to cloud storage via pre-signed URLs"
+files = "Write rendered frames and thumbnails to a temporary path before upload"
+
+# Build configuration
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.git/",
+  "/*.zip",
+  "/dist/",
+]

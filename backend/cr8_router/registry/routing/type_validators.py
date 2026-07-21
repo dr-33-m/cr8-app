@@ -133,6 +133,26 @@ class FilePathValidator:
         return str(value)
 
 
+class DictValidator:
+    """Passthrough for structured parameters the addon consumes verbatim.
+
+    Exists so nested payloads survive the validated routing path. Without a
+    registered type, ParameterValidator drops any parameter the manifest doesn't
+    declare (`logger.warning("Unknown parameter"); continue`) — which for
+    render's presigned upload descriptor would mean the render succeeds and then
+    uploads nowhere, with only a log line to show for it.
+
+    Deliberately does not inspect the contents: the shape is a contract between
+    the engine and one addon, not something this generic router should know.
+    """
+
+    @staticmethod
+    def validate(value, param_spec):
+        if not isinstance(value, dict):
+            raise ValueError(f"Expected an object, got {type(value).__name__}")
+        return value
+
+
 # Validator registry mapping parameter types to validators
 VALIDATOR_REGISTRY = {
     'string': StringValidator,
@@ -146,6 +166,7 @@ VALIDATOR_REGISTRY = {
     'material_name': NameValidator,
     'collection_name': NameValidator,
     'file_path': FilePathValidator,
+    'dict': DictValidator,
 }
 
 

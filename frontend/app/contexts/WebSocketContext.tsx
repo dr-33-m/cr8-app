@@ -44,6 +44,28 @@ export interface InstanceStatus {
   error?: InstanceStatusError; // present when phase === "error"
 }
 
+export type RenderEngine = "EEVEE" | "CYCLES";
+export type RenderResolution = "hd" | "2k" | "4k";
+export type RenderAspect = "16:9" | "9:16" | "1:1" | "4:5" | "3:2";
+
+export interface RenderOptions {
+  /** Omit to render from the scene's active camera. */
+  camera?: string;
+  engine: RenderEngine;
+  resolution: RenderResolution;
+  aspect: RenderAspect;
+}
+
+export interface RenderResult {
+  ok: boolean;
+  /** Storage key of the finished render, present on success. */
+  key?: string;
+  project?: string;
+  /** True when the backend refused because the project has no cloud target. */
+  noTarget?: boolean;
+  message?: string;
+}
+
 interface WebSocketContextType {
   status: WebSocketStatus;
   socket: Socket | null;
@@ -68,6 +90,14 @@ interface WebSocketContextType {
   /** True while a save is in flight. The save runs on Blender's main thread, so
    * the UI blocks interaction (SavingOverlay) until it clears. */
   isSaving: boolean;
+  /** Render the current frame and store it in the user's render library.
+   * Resolves with the stored key on success. `noTarget` means the project has
+   * never been saved to the cloud, so there is no folder to file renders under —
+   * the caller should route the user through Save As and retry. */
+  renderImage: (options: RenderOptions) => Promise<RenderResult>;
+  /** True while a render is in flight — blocks the UI via RenderingOverlay,
+   * because the render occupies Blender's main thread. */
+  isRendering: boolean;
   /** Tell the backend to shut down this user's Blender/instance (which also ends
    * the stream). Fire-and-forget; call after any final save, before leaving. */
   exitWorkspace: () => void;
@@ -96,6 +126,7 @@ export function WebSocketProvider({
   const [isHealthCheckInProgress, setIsHealthCheckInProgress] = useState(false);
   const [instanceStatus, setInstanceStatus] = useState<InstanceStatus | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRendering, setIsRendering] = useState(false);
 
   // Use refs for immediate state tracking to avoid race conditions
   const isReconnectionRef = useRef(false);
@@ -104,6 +135,11 @@ export function WebSocketProvider({
   // In-flight saveFile() calls, keyed by the message_id we emitted. Resolved
   // when the matching command_completed/command_failed comes back.
   const pendingSavesRef = useRef<Map<string, (ok: boolean) => void>>(new Map());
+  // Same pattern for renders. Kept in a separate map so a save and a render
+  // can never resolve each other's promise.
+  const pendingRendersRef = useRef<Map<string, (r: RenderResult) => void>>(
+    new Map()
+  );
 
   const processMessage = useCallback(
     (data: any) => {
@@ -146,6 +182,45 @@ export function WebSocketProvider({
         if (ok) toast.success(msg);
         else toast.error(msg);
         resolve(ok);
+        onMessage?.(data);
+        return;
+      }
+
+      // Same for a pending renderImage() call, ahead of the generic handlers.
+      if (
+        (message.type === MessageType.COMMAND_COMPLETED ||
+          message.type === MessageType.COMMAND_FAILED) &&
+        message.message_id &&
+        pendingRendersRef.current.has(message.message_id)
+      ) {
+        const resolve = pendingRendersRef.current.get(message.message_id)!;
+        pendingRendersRef.current.delete(message.message_id);
+
+        let result: RenderResult = { ok: false, message: "Render failed" };
+        if (message.type === MessageType.COMMAND_FAILED) {
+          const error = isResponsePayload(payload) ? payload.error : undefined;
+          const noTarget = error?.code === "NO_TARGET";
+          result = {
+            ok: false,
+            noTarget,
+            message: error?.user_message || "Render failed",
+          };
+          // NO_TARGET isn't a failure the user needs to see — the caller turns
+          // it into a Save As prompt and retries. Toasting it would put an
+          // error on screen a moment before we ask them to name the file.
+          if (!noTarget) toast.error(result.message!);
+        } else {
+          const d = isResponsePayload(payload) ? payload.data : undefined;
+          result = {
+            ok: d?.ok === true,
+            key: d?.key,
+            project: d?.project,
+            message: d?.message || (d?.ok ? "Render saved" : "Render failed"),
+          };
+          if (result.ok) toast.success(result.message!);
+          else toast.error(result.message!);
+        }
+        resolve(result);
         onMessage?.(data);
         return;
       }
@@ -586,6 +661,43 @@ export function WebSocketProvider({
     [wsHook.socket]
   );
 
+  const renderImage = useCallback(
+    (options: RenderOptions): Promise<RenderResult> => {
+      const socket = wsHook.socket;
+      if (!socket?.connected) {
+        toast.error("Not connected — can't render right now");
+        return Promise.resolve({ ok: false, message: "Not connected" });
+      }
+      setIsRendering(true);
+      const p = new Promise<RenderResult>((resolve) => {
+        const messageId = `render_${Date.now()}_${Math.random()
+          .toString(36)
+          .slice(2)}`;
+        pendingRendersRef.current.set(messageId, resolve);
+        socket.emit("render_image", {
+          message_id: messageId,
+          camera: options.camera || undefined,
+          engine: options.engine,
+          resolution: options.resolution,
+          aspect: options.aspect,
+        });
+        // Safety net for a genuinely lost response. Set above the backend's own
+        // RENDER_TIMEOUT_SECONDS (30 min) so a slow-but-working Cycles render
+        // always resolves on its own first.
+        setTimeout(() => {
+          if (pendingRendersRef.current.has(messageId)) {
+            pendingRendersRef.current.delete(messageId);
+            toast.error("Render timed out");
+            resolve({ ok: false, message: "Render timed out" });
+          }
+        }, 35 * 60_000);
+      });
+      p.finally(() => setIsRendering(false));
+      return p;
+    },
+    [wsHook.socket]
+  );
+
   const exitWorkspace = useCallback(() => {
     if (wsHook.socket?.connected) {
       wsHook.socket.emit("exit_workspace");
@@ -604,6 +716,8 @@ export function WebSocketProvider({
     reconnect,
     saveFile,
     isSaving,
+    renderImage,
+    isRendering,
     exitWorkspace,
   };
 
