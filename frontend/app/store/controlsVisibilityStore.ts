@@ -6,6 +6,12 @@ export const useVisibilityStore = create<VisibilityState>((set) => ({
   isAssetSelectionVisible: true,
   isBottomControlsVisible: true,
   isFullscreen: false,
+  rightPanel: "assets",
+  setRightPanel: (panel) => set({ rightPanel: panel }),
+  // Clicking B.L.A.Z.E in the bottom controls should get you to the chat even if
+  // the card is collapsed, so opening and sliding are one action.
+  showRightPanel: (panel) =>
+    set({ rightPanel: panel, isAssetSelectionVisible: true }),
   setSceneControlsVisible: (visible) =>
     set({ isSceneControlsVisible: visible }),
   setAssetSelectionVisible: (visible) =>
@@ -42,5 +48,6 @@ export const useVisibilityStore = create<VisibilityState>((set) => ({
       isAssetSelectionVisible: true,
       isBottomControlsVisible: true,
       isFullscreen: false,
+      rightPanel: "assets",
     }),
 }));

@@ -16,6 +16,7 @@ import { useSceneContext } from "@/hooks/useSceneContext";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/placeholders/EmptyState";
+import { ADDON_IDS } from "@/lib/constants/addons";
 
 export function SceneControls() {
   const isVisible = useVisibilityStore((state) => state.isSceneControlsVisible);
@@ -39,7 +40,7 @@ export function SceneControls() {
     try {
       const messageId = uuidv4();
       sendMessage({
-        addon_id: "multi_registry_assets",
+        addon_id: ADDON_IDS.SETS,
         command: command,
         params: params,
         message_id: messageId,
@@ -55,6 +56,18 @@ export function SceneControls() {
 
   // Determine what to show based on connection state
   const renderContent = () => {
+    // "connecting" is the very first attempt, not a failure — saying "Blender
+    // Disconnected" there alarms the user while their instance is still launching.
+    if (connectionState === "connecting") {
+      return (
+        <EmptyState
+          title="Connecting"
+          description="Waiting for your Blender session"
+          hint="💡 Scene objects will appear once Blender is ready"
+        />
+      );
+    }
+
     if (
       connectionState === "blender_disconnected" ||
       connectionState === "disconnected"
@@ -147,7 +160,16 @@ export function SceneControls() {
                   >
                     <ScanEye className="h-3 w-3" />
                   </Button>
-                  <ObjectTransformationPopover objectName={obj.name} />
+                  <ObjectTransformationPopover
+                    objectName={obj.name}
+                    onOpen={() =>
+                      sendSceneCommand(
+                        "set_active_object",
+                        { object_name: obj.name },
+                        true
+                      )
+                    }
+                  />
                   <Button
                     variant="destructive"
                     size="icon"

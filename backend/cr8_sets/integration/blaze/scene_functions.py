@@ -48,6 +48,22 @@ def get_objects_by_type(asset_type: str = "all") -> str:
 # ============================================================================
 
 
+def _transform_response(result: dict, operation: str) -> str:
+    """
+    Forward a scene_spatial transform result without inventing a success.
+
+    These wrappers used to hardcode success=True and stuff the whole result dict
+    into "message", so a real failure ('No active object', 'Object not found')
+    reached B.L.A.Z.E looking like it had worked.
+    """
+    success = bool(result.get("success"))
+    return json.dumps({
+        "success": success,
+        "message": result.get("message") or result.get("error") or "",
+        "operation": operation,
+    }, indent=2)
+
+
 def transform_resize(
     value_x: float = 1.0,
     value_y: float = 1.0,
@@ -57,8 +73,9 @@ def transform_resize(
     constraint_z: bool = False,
     snap: bool = False,
     snap_target: str = "CLOSEST",
+    object_name: str = "",
 ) -> str:
-    """Resize/scale selected objects."""
+    """Set an object's absolute scale (1.0 = original size), not a multiplier."""
     try:
         result = scene_spatial.transform_resize(
             value_x=value_x,
@@ -69,12 +86,9 @@ def transform_resize(
             constraint_z=constraint_z,
             snap=snap,
             snap_target=snap_target,
+            object_name=object_name,
         )
-        return json.dumps({
-            "success": True,
-            "message": result,
-            "operation": "transform_resize",
-        }, indent=2)
+        return _transform_response(result, "transform_resize")
     except Exception as e:
         logger.error(f"Transform resize failed: {e}")
         return json.dumps({"success": False, "message": f"Failed to resize objects: {str(e)}"})
@@ -89,8 +103,9 @@ def transform_translate(
     constraint_z: bool = False,
     snap: bool = False,
     snap_target: str = "CLOSEST",
+    object_name: str = "",
 ) -> str:
-    """Translate/move selected objects."""
+    """Move an object to an absolute position."""
     try:
         result = scene_spatial.transform_translate(
             value_x=value_x,
@@ -101,12 +116,9 @@ def transform_translate(
             constraint_z=constraint_z,
             snap=snap,
             snap_target=snap_target,
+            object_name=object_name,
         )
-        return json.dumps({
-            "success": True,
-            "message": result,
-            "operation": "transform_translate",
-        }, indent=2)
+        return _transform_response(result, "transform_translate")
     except Exception as e:
         logger.error(f"Transform translate failed: {e}")
         return json.dumps({"success": False, "message": f"Failed to translate objects: {str(e)}"})
@@ -121,8 +133,9 @@ def transform_rotate(
     constraint_z: bool = False,
     snap: bool = False,
     snap_target: str = "CLOSEST",
+    object_name: str = "",
 ) -> str:
-    """Rotate selected objects to absolute rotation on all axes."""
+    """Rotate an object to an absolute rotation on all axes."""
     try:
         result = scene_spatial.transform_rotate(
             value_x=value_x,
@@ -133,12 +146,9 @@ def transform_rotate(
             constraint_z=constraint_z,
             snap=snap,
             snap_target=snap_target,
+            object_name=object_name,
         )
-        return json.dumps({
-            "success": True,
-            "message": result,
-            "operation": "transform_rotate",
-        }, indent=2)
+        return _transform_response(result, "transform_rotate")
     except Exception as e:
         logger.error(f"Transform rotate failed: {e}")
         return json.dumps({"success": False, "message": f"Failed to rotate objects: {str(e)}"})

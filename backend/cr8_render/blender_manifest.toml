@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 # Cr8 Render Addon - Image rendering and cloud output
 id = "cr8_render"
-version = "1.0.0"
+version = "0.1.0"
 name = "Cr8 Render"
 tagline = "Image rendering and cloud output for AI agents"
 maintainer = "Cr8-xyz <thamsanqa.dev@gmail.com>"

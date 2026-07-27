@@ -13,10 +13,14 @@ import {
   WebSocketMessage,
   MessageType,
   SocketMessage,
+  SystemPayload,
   isSocketMessage,
   isResponsePayload,
 } from "@/lib/types/websocket";
 import useInboxStore from "@/store/inboxStore";
+import useBlazeChatStore from "@/store/blazeChatStore";
+import { useNavigationStore } from "@/store/navigationStore";
+import { useVisibilityStore } from "@/store/controlsVisibilityStore";
 import useUserStore from "@/store/userStore";
 import { toast } from "sonner";
 import { Socket } from "socket.io-client";
@@ -24,9 +28,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { sceneContextKeys } from "@/websocket/query-manager/scene-context";
 import { useLaunchTimerStore } from "@/store/launchTimerStore";
 import { checkEngineHealthFn } from "@/server/engine/functions";
+import { ADDON_IDS } from "@/lib/constants/addons";
 
 type ConnectionState =
-  | "disconnected" // Not connected
+  | "connecting" // First attempt in flight — never been connected yet
+  | "disconnected" // Was connected (or an attempt failed), now not connected
   | "browser_connected" // Browser connected, waiting for Blender
   | "fully_connected" // Both connected
   | "blender_reconnecting" // Blender dropped (network blip), auto-reconnecting
@@ -128,8 +134,12 @@ export function WebSocketProvider({
   const [blenderConnectedOnce, setBlenderConnectedOnce] = useState(false);
   const [contextUpdateSent, setContextUpdateSent] = useState(false);
   const [sessionCreated, setSessionCreated] = useState(false);
+  // Starts as "connecting", not "disconnected". On a first navigation into the
+  // workspace the socket has simply not opened yet — rendering that as
+  // "Cannot connect to server" with a Reconnect button flashed a failure state
+  // at the user while their Blender instance was in fact launching normally.
   const [connectionState, setConnectionState] =
-    useState<ConnectionState>("disconnected");
+    useState<ConnectionState>("connecting");
   const [isHealthCheckInProgress, setIsHealthCheckInProgress] = useState(false);
   const [instanceStatus, setInstanceStatus] = useState<InstanceStatus | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -394,15 +404,65 @@ export function WebSocketProvider({
           }
           break;
 
+        case MessageType.AGENT_PROCESSING:
+          // Mid-run progress. Goes to the activity feed only — no toast, or a
+          // tool-heavy request would bury the screen in notifications.
+          {
+            const activity = payload as SystemPayload;
+            if (activity?.message) {
+              useBlazeChatStore
+                .getState()
+                .addActivity(activity.status ?? "activity", activity.message);
+            }
+          }
+          break;
+
+        case MessageType.SCENE_CONTEXT_UPDATED:
+          // Blender telling us what it actually is, rather than what the UI
+          // optimistically assumed. Currently carries viewport shading, which
+          // B.L.A.Z.E changes on its own before taking a screenshot.
+          {
+            const update = payload as SystemPayload;
+            const mode = update?.data?.viewport_mode;
+            if (mode === "solid" || mode === "rendered") {
+              useNavigationStore.getState().setViewportMode(mode);
+            }
+          }
+          break;
+
         case MessageType.AGENT_RESPONSE_READY:
           if (isResponsePayload(payload) && payload.data?.message) {
-            toast.success("B.L.A.Z.E: " + payload.data.message);
+            // No toast: the chat panel is the transcript now, and the Blaze mark
+            // in the bottom controls already signals a finished turn. Toasting a
+            // full reply on top of that just covers the viewport.
+            useBlazeChatStore.getState().addAssistant(payload.data.message);
           }
+          // The turn is over whether or not it carried a message, so the
+          // activity indicator must stop pulsing either way.
+          useBlazeChatStore.getState().setBusy(false);
+          // A finished turn has usually changed the scene — imported assets,
+          // moved things. The 5s poll makes that feel laggy, so refresh now.
+          // This is one refetch per turn, not per command: invalidating on every
+          // COMMAND_COMPLETED is what previously flooded the Blender socket.
+          queryClient.invalidateQueries({
+            queryKey: sceneContextKeys.objects(),
+          });
           break;
 
         case MessageType.AGENT_ERROR:
           if (isResponsePayload(payload) && payload.error) {
-            toast.error("B.L.A.Z.E: " + payload.error.user_message);
+            useBlazeChatStore.getState().addError(payload.error.user_message);
+            // Unlike a successful reply, a failure is worth interrupting for —
+            // but only if the user isn't already looking at the chat, where the
+            // error appears in red anyway.
+            {
+              const vis = useVisibilityStore.getState();
+              const chatOnScreen =
+                vis.isAssetSelectionVisible && vis.rightPanel === "chat";
+              if (!chatOnScreen) {
+                toast.error("B.L.A.Z.E: " + payload.error.user_message);
+              }
+            }
             console.error("Agent error:", payload.error.technical_message);
             if (payload.error.recovery_suggestions?.length) {
               console.info(
@@ -411,6 +471,7 @@ export function WebSocketProvider({
               );
             }
           }
+          useBlazeChatStore.getState().setBusy(false);
           break;
 
         case MessageType.EXECUTION_ERROR:
@@ -490,7 +551,8 @@ export function WebSocketProvider({
       wsHook.socket.emit("browser_ready", { recovery: true });
     } else if (
       connectionState === "server_unavailable" ||
-      connectionState === "disconnected"
+      connectionState === "disconnected" ||
+      connectionState === "connecting"
     ) {
       // Check if server is back online before attempting reconnect (for both server_unavailable and disconnected states)
       console.log(`Server was ${connectionState}, checking health endpoint...`);
@@ -554,7 +616,7 @@ export function WebSocketProvider({
         message_id: messageId,
         type: "command_sent",
         payload: {
-          addon_id: "multi_registry_assets",
+          addon_id: ADDON_IDS.SETS,
           command: "list_scene_objects",
           params: {},
         },
@@ -611,12 +673,17 @@ export function WebSocketProvider({
 
   // Handle initial connection failure
   useEffect(() => {
-    // Only show toast for initial connection failures (not reconnections)
+    // Only show toast for initial connection failures (not reconnections).
+    // wsHook.status === "failed" is the signal that the attempt is genuinely
+    // over, so the still-in-flight "connecting" state counts here too.
     if (
       wsHook.status === "failed" &&
-      connectionState === "disconnected" &&
+      (connectionState === "disconnected" || connectionState === "connecting") &&
       !isReconnectionRef.current
     ) {
+      // The first attempt has now definitively failed, so stop presenting it as
+      // in-progress — this is what flips the UI to its reconnect affordance.
+      setConnectionState("disconnected");
       console.log("Initial connection failed, checking server health...");
       checkServerHealth().then((isHealthy) => {
         if (!isHealthy) {

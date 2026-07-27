@@ -1,8 +1,8 @@
 {
   "addon_info": {
-    "id": "blender_ai_router",
+    "id": "cr8_router",
     "name": "Blaze Router",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "Cr8-xyz <thamsanqa.dev@gmail.com>",
     "category": "utility",
     "description": "Main AI router addon for discovering and routing commands to AI-capable addons",

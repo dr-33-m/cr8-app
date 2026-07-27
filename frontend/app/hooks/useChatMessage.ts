@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import useInboxStore from "@/store/inboxStore";
+import useBlazeChatStore from "@/store/blazeChatStore";
 import { useSceneContext } from "@/hooks/useSceneContext";
 
 import { MentionData } from "@/lib/types/bottomControls";
@@ -104,8 +105,7 @@ export function useChatMessage() {
       // Convert to plain text for the agent
       const plainTextMessage = getPlainText(message);
 
-      // Send message to B.L.A.Z.E Agent with context
-      wsSendMessage({
+      const request = {
         message: plainTextMessage.trim(),
         context: {
           inbox_items: inboxItems,
@@ -115,53 +115,34 @@ export function useChatMessage() {
             objects: objectMentions,
           },
         },
-        route: "agent",
+        route: "agent" as const,
         refresh_context: inboxItems.length > 0, // Refresh context when there are inbox items to process
-      });
+      };
+
+      // Send message to B.L.A.Z.E Agent with context
+      wsSendMessage(request);
+
+      // Record the turn and light up the activity indicator. isLoading below
+      // only gates the input — it clears the moment this fire-and-forget emit
+      // returns, so it says nothing about whether B.L.A.Z.E is still working.
+      // The store's isBusy is what tracks that, and it clears on the response.
+      const chat = useBlazeChatStore.getState();
+      chat.addUser(plainTextMessage.trim());
+      chat.setBusy(true);
+      // Kept so a failed turn can be replayed verbatim — same context and
+      // mentions, not just the message text.
+      chat.setLastRequest(request);
 
       // Clear input
       setMessage("");
 
-      // Build context summary for toast
-      const contextParts: string[] = [];
-
-      if (assetMentions.length > 0) {
-        contextParts.push(
-          `${assetMentions.length} asset${
-            assetMentions.length !== 1 ? "s" : ""
-          }`
-        );
-      }
-
-      if (objectMentions.length > 0) {
-        contextParts.push(
-          `${objectMentions.length} object${
-            objectMentions.length !== 1 ? "s" : ""
-          }`
-        );
-      }
-
-      if (inboxItems.length > 0 && assetMentions.length === 0) {
-        contextParts.push(
-          `${inboxItems.length} inbox item${inboxItems.length !== 1 ? "s" : ""}`
-        );
-      }
-
-      if (sceneContext.length > 0 && objectMentions.length === 0) {
-        contextParts.push(
-          `${sceneContext.length} scene object${
-            sceneContext.length !== 1 ? "s" : ""
-          }`
-        );
-      }
-
-      const contextSummary =
-        contextParts.length > 0 ? ` (${contextParts.join(", ")})` : "";
-
-      toast.success(`Message sent to B.L.A.Z.E${contextSummary}`);
+      // No "message sent" toast — the message is already visible in the chat
+      // panel the instant addUser runs, and the Blaze mark starts pulsing.
     } catch (error) {
       console.error("Failed to send message:", error);
       toast.error("Failed to send message");
+      // Nothing is in flight, so don't leave the indicator pulsing forever.
+      useBlazeChatStore.getState().setBusy(false);
     } finally {
       setIsLoading(false);
     }

@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 import { useNavigationStore } from "@/store/navigationStore";
+import { ADDON_IDS } from "@/lib/constants/addons";
 
 export function useNavigationControls() {
   const {
@@ -28,7 +29,7 @@ export function useNavigationControls() {
           command: command,
           params: params,
           route: "direct",
-          addon_id: "blender_controls",
+          addon_id: ADDON_IDS.CONTROLS,
         });
       } catch (error) {
         toast.error(`Failed to send ${command} command`);

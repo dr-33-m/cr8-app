@@ -9,10 +9,29 @@ Provides comprehensive scene manipulation and viewport control capabilities for 
 """
 
 import os
+import re
 import zipfile
 import shutil
 from pathlib import Path
 import argparse
+
+
+def read_manifest_meta():
+    """
+    Read id and version from blender_manifest.toml — the single source of truth.
+
+    The zip's internal root directory MUST equal the extension id, or Blender
+    installs the addon under a module path that nothing else can import, and the
+    filename should carry the real version. Hardcoding either lets the shipped
+    zip drift from the manifest, which stays invisible until runtime.
+    """
+    text = Path("blender_manifest.toml").read_text()
+    id_match = re.search(r'^id\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    version_match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    if not id_match or not version_match:
+        raise SystemExit(
+            "ERROR: could not read id/version from blender_manifest.toml")
+    return id_match.group(1), version_match.group(1)
 
 
 def add_directory_to_zip(zf, directory, base_arcname, exclude_files):
@@ -65,20 +84,13 @@ def create_addon_package(output_dir="dist", version=None):
     output_path.mkdir(exist_ok=True)
 
     # Determine version for filename
-    if not version:
-        try:
-            # Try to extract version from __init__.py
-            with open("__init__.py", "r") as f:
-                content = f.read()
-                if '"version": (1, 0, 0)' in content:
-                    version = "1.0.0"
-                else:
-                    version = "1.0.0"  # fallback
-        except:
-            version = "1.0.0"
+    # id and version both come from blender_manifest.toml; --version overrides
+    # only the filename, for one-off builds.
+    addon_id, manifest_version = read_manifest_meta()
+    version = version or manifest_version
 
     # Create package filename
-    package_name = f"blender_controls_v{version}.zip"
+    package_name = f"{addon_id}_v{version}.zip"
     package_path = output_path / package_name
 
     print(f"Creating addon package: {package_path}")
@@ -89,7 +101,7 @@ def create_addon_package(output_dir="dist", version=None):
         for file_name in addon_files:
             if os.path.exists(file_name):
                 # Add file to ZIP with addon folder structure
-                arcname = f"blender_controls/{file_name}"
+                arcname = f"{addon_id}/{file_name}"
                 zf.write(file_name, arcname)
                 print(f"  Added: {file_name}")
             else:
@@ -100,7 +112,7 @@ def create_addon_package(output_dir="dist", version=None):
             if os.path.exists(directory) and os.path.isdir(directory):
                 print(f"  Adding directory: {directory}/")
                 add_directory_to_zip(
-                    zf, directory, "blender_controls", exclude_files)
+                    zf, directory, addon_id, exclude_files)
             else:
                 print(f"  WARNING: Missing directory: {directory}")
 
@@ -143,7 +155,8 @@ def create_development_package():
     output_path = Path("dist")
     output_path.mkdir(exist_ok=True)
 
-    package_name = "blender_controls_dev.zip"
+    addon_id, _ = read_manifest_meta()
+    package_name = f"{addon_id}_dev.zip"
     package_path = output_path / package_name
 
     print(f"Creating development package: {package_path}")
@@ -151,7 +164,7 @@ def create_development_package():
     with zipfile.ZipFile(package_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for file_name in addon_files:
             if os.path.exists(file_name):
-                arcname = f"blender_controls/{file_name}"
+                arcname = f"{addon_id}/{file_name}"
                 zf.write(file_name, arcname)
                 print(f"  Added: {file_name}")
 
@@ -161,7 +174,7 @@ def create_development_package():
             if os.path.exists(directory) and os.path.isdir(directory):
                 print(f"  Adding directory: {directory}/")
                 add_directory_to_zip(
-                    zf, directory, "blender_controls", exclude_files)
+                    zf, directory, addon_id, exclude_files)
 
     print(f"✅ Development package created: {package_path}")
     return package_path

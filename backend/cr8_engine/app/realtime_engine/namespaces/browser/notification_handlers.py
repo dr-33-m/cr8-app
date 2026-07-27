@@ -1,11 +1,12 @@
 """Notification event handlers for BrowserNamespace."""
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from app.lib import (
     MessageType,
     create_success_response,
     create_error_response,
+    create_system_message,
     generate_message_id,
 )
 
@@ -14,6 +15,90 @@ logger = logging.getLogger(__name__)
 
 class NotificationHandlersMixin:
     """Mixin for notification-related event handlers."""
+
+    async def send_agent_processing(
+        self,
+        username: str,
+        phase: str,
+        message: str,
+        data: Optional[Dict[str, Any]] = None,
+        message_id: Optional[str] = None,
+    ):
+        """
+        Push a mid-run progress update to the browser.
+
+        Emitted while B.L.A.Z.E is still working, so the UI can show what it is
+        up to instead of leaving the user staring at nothing until the final
+        reply lands. Best-effort: a failure here must never break the agent run,
+        so nothing raises out of this method.
+
+        Args:
+            username: Username of the browser client
+            phase: What kind of step this is ('tool_call', 'tool_result', ...)
+            message: Short human-readable line for the activity feed
+            data: Optional structured detail (tool name, etc.)
+            message_id: ID of the agent turn this belongs to
+        """
+        try:
+            browser_sid = self.username_to_sid.get(username)
+            if not browser_sid:
+                # No browser attached (disconnected mid-run) — nothing to tell.
+                return
+
+            processing_msg = create_system_message(
+                message_type=MessageType.AGENT_PROCESSING,
+                status=phase,
+                message=message,
+                data=data,
+                source='backend',
+                message_id=message_id or generate_message_id()
+            )
+
+            await self.emit(
+                MessageType.AGENT_PROCESSING.value,
+                processing_msg.to_dict(),
+                to=browser_sid
+            )
+
+        except Exception as e:
+            self.logger.debug(f"Could not send agent activity for {username}: {e}")
+
+    async def send_viewport_sync(self, username: str, viewport_mode: str):
+        """
+        Tell the browser which viewport shading Blender is actually using.
+
+        The browser's Solid/Rendered toggle is optimistic local state, set when
+        the user clicks it. B.L.A.Z.E changes shading on its own — typically
+        flipping to rendered before taking a screenshot — which left the toggle
+        lying about the scene. Best-effort: never raise into the agent run.
+
+        Args:
+            username: Username of the browser client
+            viewport_mode: 'solid' or 'rendered'
+        """
+        try:
+            browser_sid = self.username_to_sid.get(username)
+            if not browser_sid:
+                return
+
+            sync_msg = create_system_message(
+                message_type=MessageType.SCENE_CONTEXT_UPDATED,
+                status='viewport_changed',
+                message=f'Viewport shading is now {viewport_mode}',
+                data={'viewport_mode': viewport_mode},
+                source='backend',
+                message_id=generate_message_id()
+            )
+
+            await self.emit(
+                MessageType.SCENE_CONTEXT_UPDATED.value,
+                sync_msg.to_dict(),
+                to=browser_sid
+            )
+            self.logger.info(f"Synced viewport mode '{viewport_mode}' to {username}")
+
+        except Exception as e:
+            self.logger.debug(f"Could not sync viewport mode for {username}: {e}")
 
     async def send_agent_error(self, username: str, error_data: Dict[str, Any]):
         """
@@ -114,7 +199,7 @@ class NotificationHandlersMixin:
             refresh_message_id = generate_message_id()
             refresh_command = {
                 'type': 'addon_command',
-                'addon_id': 'multi_registry_assets',
+                'addon_id': 'cr8_sets',
                 'command': 'list_scene_objects',
                 'params': {},
                 'message_id': refresh_message_id,

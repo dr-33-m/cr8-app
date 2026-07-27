@@ -12,6 +12,7 @@ import {
   AgentQueryPayload,
 } from "@/lib/types/websocket";
 import { getAccessTokenFn } from "@/server/auth/functions";
+import { ADDON_IDS } from "@/lib/constants/addons";
 
 const isRemoteMode = import.meta.env.VITE_LAUNCH_MODE === "remote";
 
@@ -64,7 +65,7 @@ export const useSocketIO = (
         message_id,
         type: MessageType.COMMAND_SENT,
         payload: {
-          addon_id: message.addon_id || "blender_ai_router",
+          addon_id: message.addon_id || ADDON_IDS.ROUTER,
           command: command!,
           params: message.params || data,
         } as CommandPayload,
@@ -239,6 +240,7 @@ export const useSocketIO = (
         MessageType.BLENDER_DISCONNECTED,
         MessageType.COMMAND_COMPLETED,
         MessageType.COMMAND_FAILED,
+        MessageType.AGENT_PROCESSING,
         MessageType.AGENT_RESPONSE_READY,
         MessageType.AGENT_ERROR,
         MessageType.SCENE_CONTEXT_UPDATED,

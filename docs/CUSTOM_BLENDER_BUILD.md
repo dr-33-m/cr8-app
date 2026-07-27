@@ -62,7 +62,7 @@ python package_addon.py
 
 - Open Blender
 - Go to Edit > Preferences > Add-ons
-- Click "Install..." and select `dist/multi_registry_asset_manager_v1.0.0.zip`
+- Click "Install..." and select `dist/cr8_sets_v0.2.0.zip`
 - Enable the addon
 
 ### 2. Blender Cr8tive Engine

@@ -1,6 +1,8 @@
 node_modules
 dist
 .env
+# Deploy-time frontend build args (secrets). The .example alongside it is tracked.
+.env.release
 venv/
 __pycache__/
 *.log

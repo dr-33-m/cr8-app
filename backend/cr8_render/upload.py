@@ -3,7 +3,7 @@ Cloud upload for rendered files.
 
 Deliberately a local copy of the router's multipart loop rather than an import
 from it. Reaching across extensions would mean
-`bl_ext.user_default.blender_ai_router.ws.websocket_handler`, a path that
+`bl_ext.user_default.cr8_router.ws.websocket_handler`, a path that
 depends on the repo name the extension was installed under and couples two
 extensions' load order. Thirty lines of "PUT this file to these URLs" is the
 cheaper of the two.

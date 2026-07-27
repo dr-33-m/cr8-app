@@ -1,4 +1,36 @@
 import bpy
+import mathutils
+
+# The rotation_mode values that actually drive rotation_euler. An object in any
+# other mode ('QUATERNION', 'AXIS_ANGLE') ignores rotation_euler entirely — reads
+# return whatever stale values happen to be sitting there, and writes do nothing.
+EULER_MODES = {'XYZ', 'XZY', 'YXZ', 'YZX', 'ZXY', 'ZYX'}
+
+
+def _resolve_target(object_name: str = ""):
+    """Target the named object, falling back to the active object."""
+    if object_name:
+        return bpy.data.objects.get(object_name)
+    return bpy.context.active_object
+
+
+def _effective_euler(obj) -> list:
+    """
+    Rotation as an XYZ euler whatever the object's rotation_mode is.
+
+    Reading obj.rotation_euler directly is wrong for anything the glTF importer
+    produced: it sets rotation_mode='QUATERNION' on every object it creates, so
+    rotation_euler is stale and usually (0, 0, 0) — which is why the transform
+    sliders always opened at zero for Polyhaven assets.
+    """
+    if obj.rotation_mode in EULER_MODES:
+        return list(obj.rotation_euler)
+    if obj.rotation_mode == 'QUATERNION':
+        return list(obj.rotation_quaternion.to_euler('XYZ'))
+    # AXIS_ANGLE is stored as (angle, x, y, z)
+    axis_angle = obj.rotation_axis_angle
+    return list(mathutils.Quaternion(axis_angle[1:], axis_angle[0]).to_euler('XYZ'))
+
 
 def list_scene_objects() -> list:
     """
@@ -25,7 +57,8 @@ def list_scene_objects() -> list:
                 'selected': obj.select_get(),
                 'active': obj == bpy.context.active_object,
                 'location': list(obj.location),
-                'rotation': list(obj.rotation_euler),
+                'rotation': _effective_euler(obj),
+                'rotation_mode': obj.rotation_mode,
                 'scale': list(obj.scale)
             }
             
@@ -55,49 +88,83 @@ def get_objects_by_type(object_type: str) -> list:
         return [f"Error filtering objects: {str(e)}"]
 
 
-def transform_resize(value_x: float = 1.0, value_y: float = 1.0, value_z: float = 1.0, 
+def transform_resize(value_x: float = 1.0, value_y: float = 1.0, value_z: float = 1.0,
                     constraint_x: bool = False, constraint_y: bool = False, constraint_z: bool = False,
-                    snap: bool = False, snap_target: str = 'CLOSEST') -> dict:
+                    snap: bool = False, snap_target: str = 'CLOSEST', object_name: str = "") -> dict:
     """
-    AI tool: Resize/scale selected objects.
-    
+    AI tool: Set an object's absolute scale on each axis.
+
     Args:
-        value_x, value_y, value_z: Scale factors for each axis
-        constraint_x, constraint_y, constraint_z: Lock transformation to specific axes
-        snap: Enable snapping
-        snap_target: Snap target ('CLOSEST', 'CENTER', 'MEDIAN', 'ACTIVE')
-    
+        value_x, value_y, value_z: Absolute scale per axis (1.0 = the object's
+            original size). These are not multipliers — passing 2.0 twice leaves
+            the object at 2x, not 4x.
+        constraint_x, constraint_y, constraint_z: Apply only the axes flagged
+            True. Leave all False to apply all three.
+        snap: Unused. Snapping has no meaning for an absolute scale.
+        snap_target: Unused, kept for signature compatibility.
+        object_name: Object to scale. Omit to use the active object.
+
     Returns:
         Dict with operation result
     """
     try:
-        bpy.ops.transform.resize(
-            value=(value_x, value_y, value_z),
-            constraint_axis=(constraint_x, constraint_y, constraint_z),
-            snap=snap,
-            snap_target=snap_target
-        )
-        return {'success': True, 'message': f'Scaled objects by ({value_x}, {value_y}, {value_z})'}
+        obj = _resolve_target(object_name)
+        if obj is None:
+            return {
+                'success': False,
+                'error': f'Object "{object_name}" not found' if object_name else 'No active object'
+            }
+
+        # This used to call bpy.ops.transform.resize, which *multiplies* the
+        # current scale rather than setting it. Every caller — the UI slider and
+        # the agent alike — passes absolute values, so the values compounded:
+        # dragging the slider to 1.4 left the object at 2.4x, resetting to 1.0
+        # did nothing at all (x1), and dragging back down to 1.0 grew it further
+        # still. Assigning obj.scale makes this absolute and idempotent, matching
+        # transform_translate and transform_rotate, and scales the object about
+        # its own origin instead of the scene's pivot point.
+        constraints = (constraint_x, constraint_y, constraint_z)
+        values = (value_x, value_y, value_z)
+        # Blender's constraint_axis convention: all-False means "unconstrained".
+        apply_all = not any(constraints)
+
+        for axis, (constrained, value) in enumerate(zip(constraints, values)):
+            if apply_all or constrained:
+                obj.scale[axis] = value
+
+        obj.update_tag(refresh={'OBJECT'})
+        bpy.context.view_layer.update()
+
+        applied = tuple(round(v, 4) for v in obj.scale)
+        return {'success': True, 'message': f'Set scale of "{obj.name}" to {applied}'}
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
 
 def transform_translate(value_x: float = 0.0, value_y: float = 0.0, value_z: float = 0.0,
                        constraint_x: bool = False, constraint_y: bool = False, constraint_z: bool = False,
-                       snap: bool = False, snap_target: str = 'CLOSEST') -> dict:
+                       snap: bool = False, snap_target: str = 'CLOSEST', object_name: str = "") -> dict:
     """
-    AI tool: Translate/move selected objects to absolute positions.
-    
+    AI tool: Move an object to an absolute position.
+
     Args:
         value_x, value_y, value_z: Absolute position coordinates
         constraint_x, constraint_y, constraint_z: Lock transformation to specific axes
         snap: Enable snapping
         snap_target: Snap target ('CLOSEST', 'CENTER', 'MEDIAN', 'ACTIVE')
-    
+        object_name: Object to move. Omit to use the active object.
+
     Returns:
         Dict with operation result
     """
     try:
+        # Operator-based, so it acts on the selection — make the requested object
+        # the selection first rather than trusting whatever happened to be active.
+        if object_name:
+            select_result = set_active_object(object_name)
+            if not select_result['success']:
+                return select_result
+
         if bpy.context.active_object:
             # Calculate relative movement needed to reach absolute position
             current_loc = bpy.context.active_object.location
@@ -122,35 +189,60 @@ def transform_translate(value_x: float = 0.0, value_y: float = 0.0, value_z: flo
 
 def transform_rotate(value_x: float = 0.0, value_y: float = 0.0, value_z: float = 0.0,
                     constraint_x: bool = False, constraint_y: bool = False, constraint_z: bool = False,
-                    snap: bool = False, snap_target: str = 'CLOSEST') -> dict:
+                    snap: bool = False, snap_target: str = 'CLOSEST', object_name: str = "") -> dict:
     """
-    AI tool: Rotate selected objects to absolute rotation on all axes.
-    
+    AI tool: Rotate an object to an absolute rotation on all axes.
+
     Args:
-        value_x, value_y, value_z: Absolute rotation values in radians for each axis
-        constraint_x, constraint_y, constraint_z: Lock transformation to specific axes
-        snap: Enable snapping
-        snap_target: Snap target ('CLOSEST', 'CENTER', 'MEDIAN', 'ACTIVE')
-    
+        value_x, value_y, value_z: Absolute rotation in radians per axis
+        constraint_x, constraint_y, constraint_z: Apply only the axes flagged
+            True. Leave all False to apply all three.
+        snap: Unused. Snapping has no meaning for an absolute rotation.
+        snap_target: Unused, kept for signature compatibility.
+        object_name: Object to rotate. Omit to use the active object.
+
     Returns:
         Dict with operation result
     """
     try:
-        if bpy.context.active_object:
-            obj = bpy.context.active_object
-            
-            # Set the rotation directly
-            obj.rotation_euler.x = value_x
-            obj.rotation_euler.y = value_y
-            obj.rotation_euler.z = value_z
-            
-            # Update the object to reflect changes
-            obj.update_tag(refresh={'OBJECT'})
-            bpy.context.view_layer.update()
-            
-            return {'success': True, 'message': f'Set object rotation to ({value_x}, {value_y}, {value_z}) radians'}
-        else:
-            return {'success': False, 'error': 'No active object'}
+        obj = _resolve_target(object_name)
+        if obj is None:
+            return {
+                'success': False,
+                'error': f'Object "{object_name}" not found' if object_name else 'No active object'
+            }
+
+        # Blender only honours rotation_euler when rotation_mode is one of the
+        # euler orders. The glTF importer — which every Polyhaven model goes
+        # through — sets rotation_mode='QUATERNION', so writing rotation_euler on
+        # those objects did nothing at all. Assigning rotation_mode converts the
+        # existing rotation into the new representation (BKE_rotMode_change_values),
+        # so the object does not jump when we switch it over.
+        converted_from = ""
+        if obj.rotation_mode not in EULER_MODES:
+            converted_from = obj.rotation_mode
+            obj.rotation_mode = 'XYZ'
+
+        # constraint_* was declared but never honoured here, so "rotate only on Z"
+        # silently rewrote all three axes. Same convention as transform_resize:
+        # all-False means unconstrained.
+        constraints = (constraint_x, constraint_y, constraint_z)
+        values = (value_x, value_y, value_z)
+        apply_all = not any(constraints)
+
+        for axis, (constrained, value) in enumerate(zip(constraints, values)):
+            if apply_all or constrained:
+                obj.rotation_euler[axis] = value
+
+        # Update the object to reflect changes
+        obj.update_tag(refresh={'OBJECT'})
+        bpy.context.view_layer.update()
+
+        applied = tuple(round(v, 4) for v in obj.rotation_euler)
+        message = f'Set rotation of "{obj.name}" to {applied} radians'
+        if converted_from:
+            message += f' (rotation mode converted from {converted_from} to XYZ)'
+        return {'success': True, 'message': message}
     except Exception as e:
         return {'success': False, 'error': str(e)}
 

@@ -23,6 +23,47 @@ export interface UserStoreState {
   reset: () => void;
 }
 
+// B.L.A.Z.E Chat / Activity Store Types
+export type ChatEntryKind = "user" | "assistant" | "error" | "activity";
+
+export interface ChatEntry {
+  id: string;
+  kind: ChatEntryKind;
+  text: string;
+  at: number;
+  /** For activity entries: which step this was ('tool_call', 'tool_result', …). */
+  phase?: string;
+}
+
+/**
+ * The exact agent payload last sent, kept so a failed turn can be replayed.
+ * Shaped to match what useChatMessage passes to sendMessage.
+ */
+export interface BlazeRequest {
+  message: string;
+  context: Record<string, unknown>;
+  route: "agent";
+  refresh_context: boolean;
+}
+
+export interface BlazeChatState {
+  entries: ChatEntry[];
+  /** True from the moment a message is sent until a reply or error lands. */
+  isBusy: boolean;
+  /** Something arrived while the dialog was closed. */
+  hasUnseen: boolean;
+  /** Last request sent, so an error can offer a retry. Cleared once one succeeds. */
+  lastRequest: BlazeRequest | null;
+  addUser: (text: string) => void;
+  addAssistant: (text: string) => void;
+  addError: (text: string) => void;
+  addActivity: (phase: string, text: string) => void;
+  setBusy: (busy: boolean) => void;
+  setLastRequest: (request: BlazeRequest | null) => void;
+  markSeen: () => void;
+  clear: () => void;
+}
+
 // Scene Context Store Types
 export interface SceneObject {
   name: string;
@@ -31,7 +72,10 @@ export interface SceneObject {
   active: boolean;
   selected: boolean;
   location: [number, number, number];
+  /** Always an XYZ euler in radians, whatever the object's rotation_mode is. */
   rotation: [number, number, number];
+  /** Blender's rotation_mode ('XYZ', 'QUATERNION', 'AXIS_ANGLE', …). */
+  rotation_mode?: string;
   scale: [number, number, number];
 }
 

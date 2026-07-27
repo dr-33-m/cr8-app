@@ -2,7 +2,7 @@ schema_version = "1.0.0"
 
 id = "cr8_sets"
 type = "add-on"
-version = "1.0.0-301224"
+version = "0.2.0"
 name = "Blaze Sets"
 tagline = "AI-capable sets addon with direct API access to multiple asset registries."
 maintainer = "Cr8-xyz <thamsanqa.dev@gmail.com>"

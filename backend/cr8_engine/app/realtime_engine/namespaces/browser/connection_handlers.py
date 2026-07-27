@@ -181,6 +181,14 @@ class ConnectionHandlersMixin:
             # Store username mapping
             self.username_to_sid[username] = sid
 
+            # A fresh browser session starts with an empty chat panel, so start
+            # B.L.A.Z.E's memory of this user from scratch too. Otherwise the
+            # agent would answer against turns the user can no longer see.
+            try:
+                self.blaze_agent.clear_user_context(username)
+            except Exception as e:
+                self.logger.debug(f"Could not reset agent context for {username}: {e}")
+
             # Create session data
             session_data = {
                 'username': username,
@@ -324,6 +332,12 @@ class ConnectionHandlersMixin:
                     if username not in self.username_to_sid:
                         self.logger.info(f"Cleaning up Blender for {username} after 5 minutes")
                         await BlenderService.terminate_instance(username)
+                        # Session is over — don't hold its conversation in memory.
+                        try:
+                            self.blaze_agent.clear_user_context(username)
+                        except Exception as ctx_error:
+                            self.logger.debug(
+                                f"Could not clear agent context for {username}: {ctx_error}")
                     else:
                         self.logger.info(f"Browser reconnected for {username}, skipping cleanup")
                 except Exception as e:

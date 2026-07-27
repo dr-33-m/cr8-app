@@ -6,11 +6,36 @@ Support for both cloud (OpenRouter) and local (Ollama) AI providers.
 import os
 import logging
 from typing import Optional, Dict, Any
+from openai import AsyncOpenAI
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.providers.ollama import OllamaProvider
 
 logger = logging.getLogger(__name__)
+
+# OpenRouter app attribution — puts cr8-xyz on the public rankings at
+# openrouter.ai/rankings and unlocks per-app analytics at
+# openrouter.ai/apps?url=<HTTP-Referer>.
+#
+# HTTP-Referer is the required key: it is the app's unique identifier, and
+# without it no app page is created at all. The title only renames an app that
+# the referer already established.
+OPENROUTER_SITE_URL = os.getenv("OPENROUTER_SITE_URL", "https://cr8-xyz.art")
+OPENROUTER_APP_TITLE = os.getenv("OPENROUTER_APP_TITLE", "Cr8-xyz")
+# Comma-separated, max 2 per request, lowercase and hyphenated. Unrecognised
+# values are silently dropped by OpenRouter.
+OPENROUTER_APP_CATEGORIES = os.getenv("OPENROUTER_APP_CATEGORIES", "image-gen")
+
+
+def build_openrouter_headers() -> Dict[str, str]:
+    """Attribution headers sent on every OpenRouter request."""
+    headers = {
+        "HTTP-Referer": OPENROUTER_SITE_URL,
+        "X-OpenRouter-Title": OPENROUTER_APP_TITLE,
+    }
+    if OPENROUTER_APP_CATEGORIES:
+        headers["X-OpenRouter-Categories"] = OPENROUTER_APP_CATEGORIES
+    return headers
 
 
 class ProviderConfig:
@@ -44,13 +69,25 @@ class OpenRouterProviderFactory:
         """Create OpenRouter provider with OpenAI model"""
         if not config.api_key:
             raise ValueError("OPENROUTER_API_KEY is required for OpenRouter provider")
-            
-        provider = OpenRouterProvider(api_key=config.api_key)
+
+        # OpenRouterProvider takes no headers argument, so build the underlying
+        # client ourselves to attach the attribution headers. base_url matches
+        # what the provider would have used.
+        headers = build_openrouter_headers()
+        client = AsyncOpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=config.api_key,
+            default_headers=headers,
+        )
+        provider = OpenRouterProvider(openai_client=client)
         model = OpenAIModel(
             model_name=config.model_name,
             provider=provider
         )
-        logger.info(f"Created OpenRouter provider with model: {config.model_name}")
+        logger.info(
+            f"Created OpenRouter provider with model: {config.model_name} "
+            f"(attributed to {headers['HTTP-Referer']} as '{headers['X-OpenRouter-Title']}')"
+        )
         return model
 
 

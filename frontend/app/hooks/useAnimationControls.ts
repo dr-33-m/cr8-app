@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useWebSocketContext } from "@/contexts/WebSocketContext";
 
 import { AnimationState } from "@/lib/types/bottomControls";
+import { ADDON_IDS } from "@/lib/constants/addons";
 
 export function useAnimationControls() {
   const [animationState, setAnimationState] =
@@ -18,7 +19,7 @@ export function useAnimationControls() {
           command: command,
           params: {},
           route: "direct",
-          addon_id: "blender_controls",
+          addon_id: ADDON_IDS.CONTROLS,
         });
       } catch (error) {
         toast.error(`Failed to send ${command} command`);

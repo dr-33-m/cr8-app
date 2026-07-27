@@ -54,6 +54,13 @@ class CommandExecutor:
                     height = success_data.get('height', 'unknown')
                     logger.info(f"Stored screenshot data for analysis ({width}x{height})")
 
+                # B.L.A.Z.E changes viewport shading on its own — commonly flipping
+                # to rendered before a screenshot. The browser's viewport toggle is
+                # optimistic local state, so without this it keeps showing "Solid"
+                # while Blender is actually rendered. Push the real value across.
+                if 'viewport_mode' in success_data:
+                    await self._sync_viewport_mode(success_data['viewport_mode'])
+
                 # Return the actual response data for parsing by caller
                 return response
             else:
@@ -64,6 +71,15 @@ class CommandExecutor:
         except Exception as e:
             logger.error(f"Error executing addon command: {str(e)}")
             raise ModelRetry(f"Error executing {command}: {str(e)}")
+
+    async def _sync_viewport_mode(self, viewport_mode: str) -> None:
+        """Tell the browser the viewport shading actually in effect. Best effort."""
+        try:
+            await self.agent_instance.browser_namespace.send_viewport_sync(
+                self.agent_instance.current_username, viewport_mode
+            )
+        except Exception as e:
+            logger.debug(f"Could not sync viewport mode to browser: {e}")
 
     @staticmethod
     def _format_failure(error_data: Dict[str, Any], error_msg: str) -> str:

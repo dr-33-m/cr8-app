@@ -1,8 +1,8 @@
 {
   "addon_info": {
-    "id": "multi_registry_assets",
+    "id": "cr8_sets",
     "name": "Blaze Sets",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "Cr8-xyz <thamsanqa.dev@gmail.com>",
     "category": "asset_management",
     "description": "AI-capable multi-registry asset addon with direct API access for fast asset search across Polyhaven, BlenderKit, and more"
@@ -408,79 +408,71 @@
       },
       {
         "name": "transform_resize",
-        "description": "Resize/scale selected objects with precise control over each axis",
-        "usage": "Use to scale selected objects in the scene. Provides precise control over scaling factors for each axis with optional axis constraints and snapping.",
+        "description": "Set an object's absolute scale on each axis, where 1.0 is its original size. Pass object_name to choose which object; omit it to use the active object",
+        "usage": "Use to scale an object in the scene. The values are absolute, not multipliers: calling this twice with 2.0 leaves the object at 2x, not 4x. To scale relative to the object's current size, read its scale from list_scene_objects first and pass the product. Always pass object_name when you know which object you mean.",
         "category": "scene_query",
         "parameters": [
           {
             "name": "value_x",
             "type": "float",
-            "description": "Scale factor for X axis",
+            "description": "Absolute scale on the X axis (1.0 = original size)",
             "required": false,
             "default": 1.0
           },
           {
             "name": "value_y",
             "type": "float",
-            "description": "Scale factor for Y axis",
+            "description": "Absolute scale on the Y axis (1.0 = original size)",
             "required": false,
             "default": 1.0
           },
           {
             "name": "value_z",
             "type": "float",
-            "description": "Scale factor for Z axis",
+            "description": "Absolute scale on the Z axis (1.0 = original size)",
             "required": false,
             "default": 1.0
           },
           {
             "name": "constraint_x",
             "type": "boolean",
-            "description": "Lock transformation to X axis only",
+            "description": "Apply only the X axis, leaving Y and Z untouched",
             "required": false,
             "default": false
           },
           {
             "name": "constraint_y",
             "type": "boolean",
-            "description": "Lock transformation to Y axis only",
+            "description": "Apply only the Y axis, leaving X and Z untouched",
             "required": false,
             "default": false
           },
           {
             "name": "constraint_z",
             "type": "boolean",
-            "description": "Lock transformation to Z axis only",
+            "description": "Apply only the Z axis, leaving X and Y untouched",
             "required": false,
             "default": false
           },
           {
-            "name": "snap",
-            "type": "boolean",
-            "description": "Enable snapping during transformation",
+            "name": "object_name",
+            "type": "string",
+            "description": "Name of the object to scale. Omit to use the active object.",
             "required": false,
-            "default": false
-          },
-          {
-            "name": "snap_target",
-            "type": "enum",
-            "description": "Snap target for alignment",
-            "required": false,
-            "default": "CLOSEST",
-            "options": ["CLOSEST", "CENTER", "MEDIAN", "ACTIVE"]
+            "default": ""
           }
         ],
         "examples": [
-          "scale selected objects by 2x in all dimensions",
-          "resize object to half size on X axis only",
-          "scale furniture by 1.5x with snapping enabled",
-          "resize object with constraints on Y axis only"
+          "make the chair twice its original size: value_x=2, value_y=2, value_z=2",
+          "set the object back to its original size: value_x=1, value_y=1, value_z=1",
+          "flatten the object to half height: value_z=0.5, constraint_z=true",
+          "stretch only along X: value_x=3, constraint_x=true"
         ]
       },
       {
         "name": "transform_translate",
-        "description": "Translate/move selected objects in 3D space with precise positioning",
-        "usage": "Use to move selected objects in the scene. Provides precise control over movement values for each axis with optional axis constraints and snapping.",
+        "description": "Move an object to an absolute position in 3D space. Pass object_name to choose which object; omit it to use the active object",
+        "usage": "Use to move an object in the scene. The values are absolute coordinates, not offsets. Always pass object_name when you know which object you mean, so the operation cannot land on whatever happens to be active.",
         "category": "scene_query",
         "parameters": [
           {
@@ -539,6 +531,13 @@
             "required": false,
             "default": "CLOSEST",
             "options": ["CLOSEST", "CENTER", "MEDIAN", "ACTIVE"]
+          },
+          {
+            "name": "object_name",
+            "type": "string",
+            "description": "Name of the object to move. Omit to use the active object.",
+            "required": false,
+            "default": ""
           }
         ],
         "examples": [
@@ -550,8 +549,8 @@
       },
       {
         "name": "transform_rotate",
-        "description": "Rotate selected objects to absolute rotation values on X, Y, Z axes",
-        "usage": "Use to set absolute rotation of selected objects in the scene. Provides precise control over rotation angles on all three axes with optional constraints and snapping.",
+        "description": "Rotate an object to absolute rotation values in radians on X, Y, Z axes. Pass object_name to choose which object; omit it to use the active object",
+        "usage": "Use to set the absolute rotation of an object in the scene. Values are radians, not degrees. Works on imported assets too: objects in quaternion or axis-angle rotation mode are converted to XYZ euler first, preserving their current orientation. Always pass object_name when you know which object you mean.",
         "category": "scene_query",
         "parameters": [
           {
@@ -578,38 +577,30 @@
           {
             "name": "constraint_x",
             "type": "boolean",
-            "description": "Lock transformation to X axis only",
+            "description": "Apply only the X axis, leaving Y and Z untouched",
             "required": false,
             "default": false
           },
           {
             "name": "constraint_y",
             "type": "boolean",
-            "description": "Lock transformation to Y axis only",
+            "description": "Apply only the Y axis, leaving X and Z untouched",
             "required": false,
             "default": false
           },
           {
             "name": "constraint_z",
             "type": "boolean",
-            "description": "Lock transformation to Z axis only",
+            "description": "Apply only the Z axis, leaving X and Y untouched",
             "required": false,
             "default": false
           },
           {
-            "name": "snap",
-            "type": "boolean",
-            "description": "Enable snapping during transformation",
+            "name": "object_name",
+            "type": "string",
+            "description": "Name of the object to rotate. Omit to use the active object.",
             "required": false,
-            "default": false
-          },
-          {
-            "name": "snap_target",
-            "type": "enum",
-            "description": "Snap target for alignment",
-            "required": false,
-            "default": "CLOSEST",
-            "options": ["CLOSEST", "CENTER", "MEDIAN", "ACTIVE"]
+            "default": ""
           }
         ],
         "examples": [

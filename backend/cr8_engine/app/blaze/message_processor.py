@@ -7,6 +7,8 @@ import logging
 from typing import Dict, Any, Optional
 from pydantic_ai import BinaryContent
 
+from .activity_reporter import ActivityReporter
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,7 +27,8 @@ class MessageProcessor:
         client_type: str = "browser",
         context: Optional[Dict[str, Any]] = None,
         deps: Optional[Dict[str, Any]] = None,
-        route: str = 'agent'
+        route: str = 'agent',
+        message_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Process a natural language message from user"""
         try:
@@ -67,8 +70,23 @@ class MessageProcessor:
             # Build full message prompt with clear separation
             full_message = self._build_full_prompt(message, scene_context, inbox_section)
 
+            # Stream progress to the browser while the run is in flight, so the
+            # user can see which tool is running instead of waiting in silence.
+            reporter = ActivityReporter(
+                self.agent_instance.browser_namespace, username, message_id
+            )
+            await reporter.started()
+
+            # Carry the last few turns so follow-ups ("now move it left") resolve.
+            history = self.agent_instance.conversations.get(username)
+
             # Process with Pydantic AI agent
-            result = await self.agent_instance.agent.run(full_message, deps=deps)
+            result = await self.agent_instance.agent.run(
+                full_message,
+                deps=deps,
+                message_history=history,
+                event_stream_handler=reporter.handler()
+            )
 
             # Check if screenshot was captured and perform image analysis
             response = await self._handle_screenshot_analysis(
@@ -158,10 +176,11 @@ Note: The scene context above may be stale. Call list_scene_objects() to get the
             if screenshot_data:
                 # Perform image analysis with full conversation context
                 return await self._perform_image_analysis(
-                    message, scene_context, result, screenshot_data
+                    username, message, scene_context, result, screenshot_data
                 )
             else:
                 # No screenshot, return standard response
+                self._remember(username, result)
                 return {
                     'status': 'success',
                     'message': result.output,
@@ -171,14 +190,29 @@ Note: The scene context above may be stale. Call list_scene_objects() to get the
         except Exception as e:
             self.logger.error(f"Error handling screenshot analysis: {str(e)}")
             # Return original response if screenshot handling fails
+            self._remember(username, result)
             return {
                 'status': 'success',
                 'message': result.output,
                 'context': scene_context
             }
 
+    def _remember(self, username: str, run_result: Any) -> None:
+        """
+        Persist a completed run's messages as this user's conversation history.
+
+        Only called on the success paths: a run that blew up leaves the previous
+        history untouched rather than poisoning the next turn with a half-finished
+        exchange.
+        """
+        try:
+            self.agent_instance.conversations.replace(username, run_result.all_messages())
+        except Exception as e:
+            self.logger.warning(f"Could not store conversation history for {username}: {e}")
+
     async def _perform_image_analysis(
         self,
+        username: str,
         message: str,
         scene_context: str,
         result: Any,
@@ -209,6 +243,10 @@ Note: The scene context above may be stale. Call list_scene_objects() to get the
 
             self.logger.info("Successfully completed image analysis")
 
+            # The analysis run was seeded with the original run's messages, so
+            # its all_messages() is the full turn — store that, not just one half.
+            self._remember(username, analysis_result)
+
             return {
                 'status': 'success',
                 'message': combined_response,
@@ -222,6 +260,7 @@ Note: The scene context above may be stale. Call list_scene_objects() to get the
                 f"{result.output}\n\n📸 **Visual Verification:** "
                 f"Screenshot captured but analysis failed: {str(e)}"
             )
+            self._remember(username, result)
 
             return {
                 'status': 'success',

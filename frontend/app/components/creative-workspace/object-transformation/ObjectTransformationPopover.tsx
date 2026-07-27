@@ -15,8 +15,17 @@ import { ObjectTransformationPopoverProps } from "@/lib/types/transformation";
 
 export const ObjectTransformationPopover: React.FC<
   ObjectTransformationPopoverProps
-> = ({ objectName, onTransformChange }) => {
+> = ({ objectName, onOpen, onTransformChange }) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+  // The row's click handler is behind a stopPropagation wrapper, so opening this
+  // popover never made its object active. Transform commands now carry
+  // object_name explicitly, but the rest of the UI (focus, highlight) still
+  // keys off the active object — so tell the caller to sync it up.
+  const handleOpenChange = (open: boolean) => {
+    setIsPopoverOpen(open);
+    if (open) onOpen?.();
+  };
 
   const {
     move,
@@ -39,7 +48,7 @@ export const ObjectTransformationPopover: React.FC<
   }, [move, rotate, scale, updateTransformChange]);
 
   return (
-    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+    <Popover open={isPopoverOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger>
         <Button variant="ghost" size="icon" className="h-6 w-6">
           <Move3D className="h-3 w-3" />

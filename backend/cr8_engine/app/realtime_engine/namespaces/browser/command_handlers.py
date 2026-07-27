@@ -46,7 +46,7 @@ class CommandHandlersMixin:
             self.logger.info(f"Received command from {username} with route: {route}: {payload.get('command')}")
             
             # Extract command details from payload
-            addon_id = payload.get('addon_id', 'blender_ai_router')
+            addon_id = payload.get('addon_id', 'cr8_router')
             command = payload.get('command')
             params = payload.get('params', {})
             
@@ -187,7 +187,8 @@ class CommandHandlersMixin:
                 'browser',
                 context,  # Pass full context instead of just inbox_items
                 deps={'addon_registry': addon_registry} if addon_registry else None,
-                route=route  # Preserve route from frontend
+                route=route,  # Preserve route from frontend
+                message_id=message_id  # So mid-run activity events tie back to this turn
             )
             
             # Check if response is success or error
@@ -296,7 +297,7 @@ class CommandHandlersMixin:
         self.logger.info(f"Multipart save for {username} -> {key} ({upload_id})")
         resp = await blender_ns.request_and_wait(username, {
             'type': 'addon_command',
-            'addon_id': 'blender_ai_router',
+            'addon_id': 'cr8_router',
             'command': 'save',
             'params': {
                 'multipart': {

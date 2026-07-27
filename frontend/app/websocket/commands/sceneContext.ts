@@ -1,5 +1,6 @@
 import { Socket } from "socket.io-client";
 import { SceneObject } from "@/lib/types/stores";
+import { ADDON_IDS } from "@/lib/constants/addons";
 
 export interface SceneObjectsResponse {
   objects: SceneObject[];
@@ -51,7 +52,7 @@ export function createSceneObjectsCommand(socket: Socket | null) {
         message_id: messageId,
         type: "command_sent",
         payload: {
-          addon_id: "multi_registry_assets",
+          addon_id: ADDON_IDS.SETS,
           command: "list_scene_objects",
           params: {},
         },

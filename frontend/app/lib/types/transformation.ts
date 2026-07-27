@@ -8,6 +8,8 @@ export type TransformMode = "move" | "rotate" | "scale";
 
 export interface ObjectTransformationPopoverProps {
   objectName: string;
+  /** Fired when the popover opens, so the caller can make this object active. */
+  onOpen?: () => void;
   onTransformChange?: (transforms: {
     move: TransformValue;
     rotate: TransformValue;

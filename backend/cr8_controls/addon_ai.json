@@ -1,8 +1,8 @@
 {
   "addon_info": {
-    "id": "blender_controls",
+    "id": "cr8_controls",
     "name": "Blaze Controls",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "Cr8-xyz <thamsanqa.dev@gmail.com>",
     "category": "controls",
     "description": "Animation, viewport, and navigation controls for AI agents",

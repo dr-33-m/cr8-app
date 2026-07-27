@@ -51,22 +51,44 @@ if [ ! -f "$GST_PLUGIN_DIR/libgstrswebrtc.so" ]; then
     exit 1
 fi
 
-CR8_ROUTER_ZIP="$CR8_ADDONS_DIR/cr8_router/dist/blender_ai_router_v1.0.0.zip"
-CR8_SETS_ZIP="$CR8_ADDONS_DIR/cr8_sets/dist/cr8_sets_v1.0.0.zip"
-CR8_CONTROLS_ZIP="$CR8_ADDONS_DIR/cr8_controls/dist/blender_controls_v1.0.0.zip"
-CR8_SCRIPT_ZIP="$CR8_ADDONS_DIR/cr8_script/dist/cr8_script_v1.0.0.zip"
-CR8_RENDER_ZIP="$CR8_ADDONS_DIR/cr8_render/dist/cr8_render_v1.0.0.zip"
-
-# Fail loudly on a missing zip. An image built without one of these still starts
-# and streams fine, and only reveals the gap much later as COMMAND_NOT_FOUND on
-# a user's first render.
-for addon_zip in "$CR8_ROUTER_ZIP" "$CR8_SETS_ZIP" "$CR8_CONTROLS_ZIP" \
-                 "$CR8_SCRIPT_ZIP" "$CR8_RENDER_ZIP"; do
-    if [ ! -f "$addon_zip" ]; then
-        echo "ERROR: Addon zip not found at $addon_zip"
-        echo "Build the addon first, or set CR8_ADDONS_DIR to the backend/ directory"
+# An addon id is written down in four places (manifest, addon_ai.json, directory
+# name, frontend constants) and a mismatch only shows up at runtime as
+# NO_HANDLERS on a command that silently does nothing. Catch it before it ships.
+ID_CHECK="$CR8_ADDONS_DIR/validate_addon_ids.py"
+if [ -f "$ID_CHECK" ]; then
+    echo "Checking addon id consistency..."
+    if ! python3 "$ID_CHECK"; then
+        echo "ERROR: addon ids are inconsistent — refusing to build."
         exit 1
     fi
+    echo ""
+fi
+
+# Each addon is versioned independently, so resolve its zip by glob rather than
+# pinning a version here — otherwise a version bump silently ships the old zip
+# (or fails the build) until someone remembers to edit this file.
+CR8_ADDONS=(cr8_router cr8_sets cr8_controls cr8_script cr8_render)
+ADDON_ZIPS=()
+
+# Fail loudly on a missing or ambiguous zip. An image built without one of these
+# still starts and streams fine, and only reveals the gap much later as
+# COMMAND_NOT_FOUND on a user's first render.
+for addon in "${CR8_ADDONS[@]}"; do
+    # shellcheck disable=SC2206
+    matches=($CR8_ADDONS_DIR/$addon/dist/${addon}_v*.zip)
+    if [ ! -f "${matches[0]}" ]; then
+        echo "ERROR: No zip found at $CR8_ADDONS_DIR/$addon/dist/${addon}_v*.zip"
+        echo "Run: (cd $CR8_ADDONS_DIR/$addon && python3 package_addon.py)"
+        exit 1
+    fi
+    if [ "${#matches[@]}" -gt 1 ]; then
+        echo "ERROR: Multiple zips for $addon — cannot tell which to ship:"
+        printf '  %s\n' "${matches[@]}"
+        echo "Delete the stale ones and repackage."
+        exit 1
+    fi
+    ADDON_ZIPS+=("${matches[0]}")
+    echo "  $addon -> $(basename "${matches[0]}")"
 done
 
 # --- Stage artifacts into build context ---
@@ -88,13 +110,12 @@ cp -f "$GST_PLUGIN_DIR/libgstrsrtp.so" "$SCRIPT_DIR/gst-plugins/"
 echo "  Copied gst-plugins-rs binaries"
 
 # cr8 addons
+rm -rf "$SCRIPT_DIR/addons"
 mkdir -p "$SCRIPT_DIR/addons"
-cp -f "$CR8_ROUTER_ZIP" "$SCRIPT_DIR/addons/"
-cp -f "$CR8_SETS_ZIP" "$SCRIPT_DIR/addons/"
-cp -f "$CR8_CONTROLS_ZIP" "$SCRIPT_DIR/addons/"
-cp -f "$CR8_SCRIPT_ZIP" "$SCRIPT_DIR/addons/"
-cp -f "$CR8_RENDER_ZIP" "$SCRIPT_DIR/addons/"
-echo "  Copied cr8 addon zips (router, sets, controls, script, render)"
+for addon_zip in "${ADDON_ZIPS[@]}"; do
+    cp -f "$addon_zip" "$SCRIPT_DIR/addons/"
+done
+echo "  Copied ${#ADDON_ZIPS[@]} cr8 addon zips (router, sets, controls, script, render)"
 
 echo ""
 

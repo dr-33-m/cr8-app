@@ -7,6 +7,7 @@ import { hasValuesChanged } from "@/lib/utils";
 import { useSceneContext } from "@/hooks/useSceneContext";
 
 import { UseObjectTransformationProps } from "@/lib/types/transformation";
+import { ADDON_IDS } from "@/lib/constants/addons";
 
 export function useObjectTransformation({
   objectName,
@@ -121,6 +122,7 @@ export function useObjectTransformation({
               value_x: values.x,
               value_y: values.y,
               value_z: values.z,
+              object_name: objectName,
             });
           });
         }
@@ -136,6 +138,7 @@ export function useObjectTransformation({
               value_x: values.x,
               value_y: values.y,
               value_z: values.z,
+              object_name: objectName,
             });
           });
         }
@@ -151,6 +154,7 @@ export function useObjectTransformation({
               value_x: values.x,
               value_y: values.y,
               value_z: values.z,
+              object_name: objectName,
             });
           });
         }
@@ -188,7 +192,7 @@ export function useObjectTransformation({
     try {
       const messageId = uuidv4();
       sendMessage({
-        addon_id: "multi_registry_assets",
+        addon_id: ADDON_IDS.SETS,
         command: command,
         params: params,
         message_id: messageId,

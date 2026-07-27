@@ -1,8 +1,10 @@
 schema_version = "1.0.0"
 
 # Blender Controls Addon - Scene manipulation and viewport controls
-id = "blender_controls"
-version = "0.1.0"
+# id matches the source directory name so the extension, the AI addon_id and the
+# repo folder are all the same string. Renamed from "blender_controls" in 0.2.0.
+id = "cr8_controls"
+version = "0.2.0"
 name = "Blaze Controls"
 tagline = "Animation, viewport, and navigation controls for AI agents"
 maintainer = "Cr8-xyz <thamsanqa.dev@gmail.com>"

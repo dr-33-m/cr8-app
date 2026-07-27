@@ -13,6 +13,7 @@ from .screenshot_manager import ScreenshotManager
 from .command_executor import CommandExecutor
 from .toolset_builder import ToolsetBuilder
 from .message_processor import MessageProcessor
+from .conversation_store import ConversationStore
 from .local_tools import clear_inbox
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,10 @@ class BlazeAgent:
         self.command_executor = CommandExecutor(self, self.screenshot_manager)
         self.toolset_builder = ToolsetBuilder(self)
         self.message_processor = MessageProcessor(self)
+
+        # Conversation memory, keyed by username. This agent is a process-wide
+        # singleton, so history cannot live on the instance itself.
+        self.conversations = ConversationStore()
 
         # Create AI model using the new provider system
         try:
@@ -111,13 +116,16 @@ This workflow ensures the inbox stays clean and users know exactly what was adde
         client_type: str = "browser",
         context: Optional[Dict[str, Any]] = None,
         deps: Optional[Dict[str, Any]] = None,
-        route: str = 'agent'
+        route: str = 'agent',
+        message_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Process a natural language message from user"""
         return await self.message_processor.process_message(
-            username, message, client_type, context, deps, route
+            username, message, client_type, context, deps, route, message_id
         )
 
     def clear_user_context(self, username: str) -> None:
-        """Clear context when user disconnects"""
+        """Drop everything remembered about a user's session."""
+        self.conversations.clear(username)
+        self.screenshot_manager.get_and_clear_screenshot(username)
         self.logger.info(f"Cleared context for {username}")

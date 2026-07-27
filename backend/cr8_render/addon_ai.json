@@ -2,7 +2,7 @@
   "addon_info": {
     "id": "cr8_render",
     "name": "Cr8 Render",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "author": "Cr8-xyz <thamsanqa.dev@gmail.com>",
     "category": "render",
     "description": "Image rendering and cloud output for AI agents",

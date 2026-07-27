@@ -11,7 +11,10 @@ export interface SceneObject {
   active: boolean;
   selected: boolean;
   location: [number, number, number];
+  /** Always an XYZ euler in radians, whatever the object's rotation_mode is. */
   rotation: [number, number, number];
+  /** Blender's rotation_mode ('XYZ', 'QUATERNION', 'AXIS_ANGLE', …). */
+  rotation_mode?: string;
   scale: [number, number, number];
 }
 
