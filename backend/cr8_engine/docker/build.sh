@@ -11,11 +11,13 @@ set -euo pipefail
 #   ./build.sh                          # build only
 #   ./build.sh --push                   # build and push
 #   ./build.sh --tag myrepo/blender:v2  # custom tag
+#   ./build.sh --no-package             # ship the zips already in dist/
 # ============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_TAG="${IMAGE_TAG:-cr8/blender:latest}"
 PUSH=false
+PACKAGE=true
 
 # --- Default artifact paths (override via env vars) ---
 BLENDER_BUILD="${BLENDER_BUILD:-$HOME/Garage/blender-git/build_linux_release/bin}"
@@ -27,6 +29,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --push) PUSH=true; shift ;;
         --tag) IMAGE_TAG="$2"; shift 2 ;;
+        --no-package) PACKAGE=false; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -51,6 +54,44 @@ if [ ! -f "$GST_PLUGIN_DIR/libgstrswebrtc.so" ]; then
     exit 1
 fi
 
+# Each addon is versioned independently, so resolve its zip by glob rather than
+# pinning a version here — otherwise a version bump silently ships the old zip
+# (or fails the build) until someone remembers to edit this file.
+CR8_ADDONS=(cr8_router cr8_sets cr8_controls cr8_script cr8_render)
+ADDON_ZIPS=()
+
+# Rebuild every zip rather than trusting whatever happens to be in dist/. The
+# checks below catch a *missing* or *ambiguous* zip but are blind to a *stale*
+# one — a zip older than its source globs, stages and ships without complaint, so
+# an edited addon reaches production as the previous build and the only symptom is
+# the old behaviour at runtime. Packaging costs ~0.03s per addon and dist/ is
+# gitignored build output, so regenerating it is free and touches nothing tracked.
+# Clearing first also means a version bump can no longer leave two zips behind.
+#
+# Runs *before* the id check below on purpose: that check also validates each
+# zip's root directory name, which it can only do against a zip that exists. Check
+# first and the column is skipped on a clean tree; package first and it validates
+# exactly what is about to ship.
+if [ "$PACKAGE" = true ]; then
+    echo "Packaging addons..."
+    for addon in "${CR8_ADDONS[@]}"; do
+        packager="$CR8_ADDONS_DIR/$addon/package_addon.py"
+        if [ ! -f "$packager" ]; then
+            echo "ERROR: No packager found at $packager"
+            exit 1
+        fi
+        rm -f "$CR8_ADDONS_DIR/$addon"/dist/${addon}_v*.zip
+        if ! ( cd "$CR8_ADDONS_DIR/$addon" && python3 package_addon.py >/dev/null ); then
+            echo "ERROR: Packaging $addon failed — refusing to build."
+            exit 1
+        fi
+    done
+    echo ""
+else
+    echo "Skipping packaging (--no-package) — shipping the zips already in dist/"
+    echo ""
+fi
+
 # An addon id is written down in four places (manifest, addon_ai.json, directory
 # name, frontend constants) and a mismatch only shows up at runtime as
 # NO_HANDLERS on a command that silently does nothing. Catch it before it ships.
@@ -64,12 +105,6 @@ if [ -f "$ID_CHECK" ]; then
     echo ""
 fi
 
-# Each addon is versioned independently, so resolve its zip by glob rather than
-# pinning a version here — otherwise a version bump silently ships the old zip
-# (or fails the build) until someone remembers to edit this file.
-CR8_ADDONS=(cr8_router cr8_sets cr8_controls cr8_script cr8_render)
-ADDON_ZIPS=()
-
 # Fail loudly on a missing or ambiguous zip. An image built without one of these
 # still starts and streams fine, and only reveals the gap much later as
 # COMMAND_NOT_FOUND on a user's first render.
@@ -78,7 +113,13 @@ for addon in "${CR8_ADDONS[@]}"; do
     matches=($CR8_ADDONS_DIR/$addon/dist/${addon}_v*.zip)
     if [ ! -f "${matches[0]}" ]; then
         echo "ERROR: No zip found at $CR8_ADDONS_DIR/$addon/dist/${addon}_v*.zip"
-        echo "Run: (cd $CR8_ADDONS_DIR/$addon && python3 package_addon.py)"
+        if [ "$PACKAGE" = true ]; then
+            echo "package_addon.py ran without error but produced no zip — check its output:"
+            echo "  (cd $CR8_ADDONS_DIR/$addon && python3 package_addon.py)"
+        else
+            echo "Run: (cd $CR8_ADDONS_DIR/$addon && python3 package_addon.py)"
+            echo "...or drop --no-package to have this script do it."
+        fi
         exit 1
     fi
     if [ "${#matches[@]}" -gt 1 ]; then
