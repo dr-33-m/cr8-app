@@ -50,6 +50,15 @@ function buildIceServers(): RTCIceServer[] {
   return iceServers;
 }
 
+// A consumer session that never produces a track leaves isConnecting latched, which
+// then swallows every later producerAdded. Give it a bounded window to deliver.
+const CONNECT_TIMEOUT_MS = 15000;
+const MAX_CONNECT_ATTEMPTS = 3;
+// The RTCPeerConnection is created lazily during negotiation, so we have to poll
+// for it — but bounded, not forever.
+const PC_POLL_INTERVAL_MS = 100;
+const PC_POLL_TIMEOUT_MS = 5000;
+
 export function useWebRTCStream(producerId: string | null) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -62,6 +71,9 @@ export function useWebRTCStream(producerId: string | null) {
   const GstWebRTCAPIRef = useRef<any>(null);
   const isConnectedRef = useRef(false);
   const isConnectingRef = useRef(false);
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pcPollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectAttemptsRef = useRef(0);
 
   // Check if we're on the client side
   useEffect(() => {
@@ -77,83 +89,191 @@ export function useWebRTCStream(producerId: string | null) {
     isConnectingRef.current = isConnecting;
   }, [isConnecting]);
 
-  const connectToProducer = useCallback((producerId: string) => {
-    // Check if already connected or connecting using refs
-    if (isConnectedRef.current || isConnectingRef.current) {
-      return;
-    }
-
-    if (!webrtcApi.current) {
-      console.error("WebRTC API not available");
-      return;
-    }
-
-    setIsConnecting(true);
-
-    const consumerSession = webrtcApi.current.createConsumerSession(producerId);
-    consumerSessionRef.current = consumerSession;
-
-    // Listen for the primary stream event
-    consumerSession.addEventListener("streamsChanged", () => {
-      const streams = consumerSession.streams;
-
-      if (videoRef.current && streams && streams.length > 0) {
-        videoRef.current.srcObject = streams[0];
-        videoRef.current.play().catch(() => {
-          // Video play failed - this is often normal due to autoplay policies
-        });
-        setIsConnected(true);
-        setIsConnecting(false);
-        console.info("WebRTC stream connected");
-      }
-    });
-
-    // Listen for session closure
-    consumerSession.addEventListener("closed", () => {
-      setIsConnected(false);
-      setIsConnecting(false);
-    });
-
-    // Listen for errors
-    consumerSession.addEventListener("error", (event: any) => {
-      console.error("WebRTC consumer session error:", event);
-      setIsConnected(false);
-      setIsConnecting(false);
-    });
-
-    // Also listen to the RTCPeerConnection events directly
-    const checkForRTCPeerConnection = () => {
-      if (consumerSession.rtcPeerConnection) {
-        const pc = consumerSession.rtcPeerConnection;
-
-        pc.addEventListener("track", (event: any) => {
-          if (event.streams && event.streams.length > 0 && videoRef.current) {
-            videoRef.current.srcObject = event.streams[0];
-            setIsConnected(true);
-            setIsConnecting(false);
-          }
-        });
-
-        pc.addEventListener("connectionstatechange", () => {
-          if (
-            pc.connectionState === "failed" ||
-            pc.connectionState === "disconnected"
-          ) {
-            setIsConnected(false);
-            setIsConnecting(false);
-          }
-        });
-      } else {
-        // Retry checking for RTCPeerConnection
-        setTimeout(checkForRTCPeerConnection, 100);
-      }
-    };
-
-    // Start checking for RTCPeerConnection
-    setTimeout(checkForRTCPeerConnection, 100);
-
-    consumerSession.connect();
+  // Write ref and state together. The refs are read synchronously inside signalling
+  // callbacks, which run long before React re-renders and the sync effects above
+  // catch up — relying on those alone means a retry can still see the old value.
+  const applyConnected = useCallback((value: boolean) => {
+    isConnectedRef.current = value;
+    setIsConnected(value);
   }, []);
+
+  const applyConnecting = useCallback((value: boolean) => {
+    isConnectingRef.current = value;
+    setIsConnecting(value);
+  }, []);
+
+  const clearPendingTimers = useCallback(() => {
+    if (connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = null;
+    }
+    if (pcPollTimeoutRef.current) {
+      clearTimeout(pcPollTimeoutRef.current);
+      pcPollTimeoutRef.current = null;
+    }
+  }, []);
+
+  const teardownSession = useCallback(() => {
+    clearPendingTimers();
+    if (consumerSessionRef.current) {
+      try {
+        consumerSessionRef.current.close();
+      } catch (error) {
+        console.warn("Failed to close consumer session:", error);
+      }
+      consumerSessionRef.current = null;
+    }
+  }, [clearPendingTimers]);
+
+  // connectToProducer retries itself via this ref, so the useCallback below can
+  // stay free of a self-reference.
+  const connectToProducerRef = useRef<(peerId: string) => void>(() => {});
+
+  const connectToProducer = useCallback(
+    (peerId: string) => {
+      // Check if already connected or connecting using refs
+      if (isConnectedRef.current || isConnectingRef.current) {
+        return;
+      }
+
+      if (!webrtcApi.current) {
+        console.error("WebRTC API not available");
+        return;
+      }
+
+      applyConnecting(true);
+      connectAttemptsRef.current += 1;
+
+      const consumerSession = webrtcApi.current.createConsumerSession(peerId);
+      consumerSessionRef.current = consumerSession;
+
+      const onStreamReady = () => {
+        clearPendingTimers();
+        connectAttemptsRef.current = 0;
+        applyConnected(true);
+        applyConnecting(false);
+      };
+
+      // Listen for the primary stream event
+      consumerSession.addEventListener("streamsChanged", () => {
+        const streams = consumerSession.streams;
+
+        if (videoRef.current && streams && streams.length > 0) {
+          videoRef.current.srcObject = streams[0];
+          videoRef.current.play().catch(() => {
+            // Video play failed - this is often normal due to autoplay policies
+          });
+          onStreamReady();
+          console.info("WebRTC stream connected");
+        }
+      });
+
+      // Listen for session closure
+      consumerSession.addEventListener("closed", () => {
+        clearPendingTimers();
+        applyConnected(false);
+        applyConnecting(false);
+      });
+
+      // Listen for errors
+      consumerSession.addEventListener("error", (event: any) => {
+        console.error("WebRTC consumer session error:", event);
+        clearPendingTimers();
+        applyConnected(false);
+        applyConnecting(false);
+      });
+
+      // Also listen to the RTCPeerConnection events directly
+      const pcPollDeadline = Date.now() + PC_POLL_TIMEOUT_MS;
+      const checkForRTCPeerConnection = () => {
+        pcPollTimeoutRef.current = null;
+
+        if (consumerSession.rtcPeerConnection) {
+          const pc = consumerSession.rtcPeerConnection;
+
+          pc.addEventListener("track", (event: any) => {
+            if (event.streams && event.streams.length > 0 && videoRef.current) {
+              videoRef.current.srcObject = event.streams[0];
+              onStreamReady();
+            }
+          });
+
+          pc.addEventListener("connectionstatechange", () => {
+            if (
+              pc.connectionState === "failed" ||
+              pc.connectionState === "disconnected"
+            ) {
+              clearPendingTimers();
+              applyConnected(false);
+              applyConnecting(false);
+            }
+          });
+          return;
+        }
+
+        // The peer connection is built lazily during negotiation, so poll for it —
+        // but give up rather than spinning forever if negotiation never starts.
+        if (Date.now() >= pcPollDeadline) {
+          console.warn("Gave up waiting for RTCPeerConnection");
+          return;
+        }
+        pcPollTimeoutRef.current = setTimeout(
+          checkForRTCPeerConnection,
+          PC_POLL_INTERVAL_MS,
+        );
+      };
+
+      // Start checking for RTCPeerConnection
+      pcPollTimeoutRef.current = setTimeout(
+        checkForRTCPeerConnection,
+        PC_POLL_INTERVAL_MS,
+      );
+
+      // Watchdog: a session can sit silently forever if the producer never sends
+      // media (it emits no "closed" and no "error"). Without this, isConnecting
+      // stays latched and every later producerAdded is ignored.
+      connectTimeoutRef.current = setTimeout(() => {
+        connectTimeoutRef.current = null;
+        if (isConnectedRef.current) return;
+
+        console.warn(
+          `WebRTC connect attempt ${connectAttemptsRef.current} timed out after ${CONNECT_TIMEOUT_MS}ms`,
+        );
+        teardownSession();
+        applyConnecting(false);
+
+        if (connectAttemptsRef.current >= MAX_CONNECT_ATTEMPTS) {
+          console.error(
+            "Giving up on WebRTC stream after " +
+              `${MAX_CONNECT_ATTEMPTS} attempts`,
+          );
+          return;
+        }
+
+        // Re-resolve the producer: it may have re-registered under a new peer id.
+        const producer = webrtcApi.current
+          ?.getAvailableProducers()
+          ?.find((p: Peer) => p.meta.name === producerId);
+        if (producer) {
+          connectToProducerRef.current(producer.id);
+        }
+        // Otherwise the latch is clear, so a later producerAdded gets through.
+      }, CONNECT_TIMEOUT_MS);
+
+      consumerSession.connect();
+    },
+    [
+      producerId,
+      clearPendingTimers,
+      teardownSession,
+      applyConnected,
+      applyConnecting,
+    ],
+  );
+
+  useEffect(() => {
+    connectToProducerRef.current = connectToProducer;
+  }, [connectToProducer]);
 
   // Initialize WebRTC only once when client is ready
   useEffect(() => {
@@ -204,20 +324,28 @@ export function useWebRTCStream(producerId: string | null) {
         },
         disconnected: () => {
           console.warn("Disconnected from WebRTC signaling server");
-          setIsConnected(false);
-          setIsConnecting(false);
+          applyConnected(false);
+          applyConnecting(false);
         },
       };
 
       const peerListener: PeerListener = {
         producerAdded: (producer: Peer) => {
           if (producerId && producer.meta.name === producerId) {
+            // A fresh registration is a fresh start — don't let a previously
+            // exhausted retry budget disable the watchdog for this attempt.
+            connectAttemptsRef.current = 0;
             connectToProducer(producer.id);
           }
         },
         producerRemoved: (producer: Peer) => {
           if (producerId && producer.meta.name === producerId) {
-            setIsConnected(false);
+            // Drop the dead session, otherwise a producer flap leaks it and the
+            // next connect builds a second one alongside.
+            teardownSession();
+            connectAttemptsRef.current = 0;
+            applyConnected(false);
+            applyConnecting(false);
           }
         },
       };
@@ -231,15 +359,13 @@ export function useWebRTCStream(producerId: string | null) {
 
     // Cleanup function - only runs on unmount
     return () => {
-      if (consumerSessionRef.current) {
-        consumerSessionRef.current.close();
-        consumerSessionRef.current = null;
-      }
+      teardownSession();
+      connectAttemptsRef.current = 0;
       if (webrtcApi.current) {
         webrtcApi.current = null;
       }
     };
-  }, [isClient, producerId, connectToProducer]); // Include producerId in dependencies
+  }, [isClient, producerId, connectToProducer, teardownSession]); // Include producerId in dependencies
 
   return { videoRef, isConnected, isConnecting };
 }

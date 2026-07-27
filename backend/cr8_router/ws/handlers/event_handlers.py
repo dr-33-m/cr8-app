@@ -68,6 +68,79 @@ def _drain_command_queue():
     return _DRAIN_INTERVAL_IDLE
 
 
+# WebRTC viewport stream settings. The pump interval is derived from the same
+# fps we hand to bpy.app.streaming.configure() so the two cannot drift apart.
+_STREAM_WIDTH = 1920
+_STREAM_HEIGHT = 1080
+_STREAM_FPS = 30
+_REDRAW_INTERVAL = 1.0 / _STREAM_FPS
+
+# Set while the pump is failing, so a persistent fault logs once instead of
+# 30 times a second for the life of the session.
+_redraw_pump_failing = False
+
+
+def _redraw_pump():
+    """Persistent Blender timer: keep the 3D viewport redrawing while streaming.
+
+    Frames reach the WebRTC pipeline only as a side effect of the viewport
+    drawing — the capture hook lives in Blender's draw path, so it never runs
+    unless a region is tagged for redraw. On an instance nobody is orbiting the
+    camera, which means an idle Blender streams nothing at all and the browser
+    sits on a black picture until the user interacts.
+
+    Deliberately does *not* back off when idle, unlike _drain_command_queue:
+    idle is exactly when the stream would otherwise stall. Cost is bounded by
+    only running while streaming is active, i.e. only during a live session.
+
+    Module level so bpy.app.timers.is_registered() can identify it by identity
+    across reconnects.
+    """
+    global _redraw_pump_failing
+    import bpy
+
+    try:
+        if not bpy.app.streaming.is_active():
+            return None  # streaming stopped — retire the timer
+
+        for window in bpy.context.window_manager.windows:
+            for area in window.screen.areas:
+                if area.type != 'VIEW_3D':
+                    continue
+                # Only the main region carries the viewport we capture; tagging
+                # the whole area would redraw headers and toolbars 30x a second.
+                for region in area.regions:
+                    if region.type == 'WINDOW':
+                        region.tag_redraw()
+        _redraw_pump_failing = False
+    except Exception as e:
+        if not _redraw_pump_failing:
+            _redraw_pump_failing = True
+            logger.warning(f"Redraw pump tick failed (suppressing repeats): {e}")
+
+    return _REDRAW_INTERVAL
+
+
+def _ensure_redraw_pump():
+    """Register the redraw pump if it is not already running."""
+    import bpy
+
+    if bpy.app.timers.is_registered(_redraw_pump):
+        return
+    bpy.app.timers.register(_redraw_pump, first_interval=0.0)
+    logger.info(f"Viewport redraw pump registered at {_STREAM_FPS} fps")
+
+
+def _stop_redraw_pump():
+    """Unregister the redraw pump if it is running."""
+    import bpy
+
+    if not bpy.app.timers.is_registered(_redraw_pump):
+        return
+    bpy.app.timers.unregister(_redraw_pump)
+    logger.info("Viewport redraw pump unregistered")
+
+
 def encode_turn_url(turn_url: str) -> str:
     """URL-encode the password in a TURN URL to handle special characters.
     
@@ -142,9 +215,12 @@ def register_event_handlers(handler):
                 import bpy
                 import os
 
-                # Don't restart if already streaming
+                # Don't restart if already streaming. The pump is still checked —
+                # streaming survives Socket.IO reconnects, so on this path the
+                # stream may be live while the pump has been retired.
                 if bpy.app.streaming.is_active():
                     logger.info("WebRTC streaming already active, skipping restart")
+                    _ensure_redraw_pump()
                     return
 
                 username = os.environ.get("CR8_USERNAME")
@@ -165,9 +241,9 @@ def register_event_handlers(handler):
                 streaming_config = dict(
                     producer_id=producer_id,
                     signaller_uri=signaller_uri,
-                    width=1920,
-                    height=1080,
-                    fps=30,
+                    width=_STREAM_WIDTH,
+                    height=_STREAM_HEIGHT,
+                    fps=_STREAM_FPS,
                 )
                 if turn_server:
                     # URL-encode the password to handle special characters like %^}
@@ -182,21 +258,11 @@ def register_event_handlers(handler):
 
                 logger.info(f"WebRTC streaming started successfully for {username}")
 
-                # Force an initial viewport redraw so the first frame is captured
-                # and sent immediately. Without this, the user sees a blank stream
-                # until they interact with the Blender viewport.
-                def _force_initial_redraw():
-                    try:
-                        for window in bpy.context.window_manager.windows:
-                            for area in window.screen.areas:
-                                if area.type == 'VIEW_3D':
-                                    area.tag_redraw()
-                        logger.info("Forced initial viewport redraw for WebRTC")
-                    except Exception as e:
-                        logger.warning(f"Failed to force viewport redraw: {e}")
-                    return None  # one-shot timer
-
-                bpy.app.timers.register(_force_initial_redraw, first_interval=0.5)
+                # Keep the viewport redrawing from here on. Frames only exist as a
+                # side effect of the draw path, so without this the pipeline stays
+                # empty, webrtcsink never gets anything to encode, and the browser
+                # shows black until the user orbits the camera.
+                _ensure_redraw_pump()
             except Exception as e:
                 logger.error(f"Failed to start WebRTC streaming: {e}")
 
@@ -235,6 +301,7 @@ def register_event_handlers(handler):
         # signaller connection and should persist across reconnects.
         if reason != "transport error":
             try:
+                _stop_redraw_pump()
                 if bpy.app.streaming.is_active():
                     bpy.app.streaming.stop()
                     logger.info("WebRTC streaming stopped on disconnect")

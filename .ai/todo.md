@@ -1,72 +1,105 @@
-# Port Blender-org MCP addon capabilities into Blaze
+# Make the viewport stream feed immediately on connect
 
-Source: `~/Garage/blender_mcp-1.0.0` (Blender Lab official MCP addon, GPL-3.0-or-later).
-Plan: `~/.claude/plans/inside-garage-i-just-cozy-hartmanis.md`
+Plan: `~/.claude/plans/this-one-is-a-polished-quokka.md`
 
-## Part B — cr8_router deferred results
+Symptom: after connecting to an instance the viewport stays black until the user
+orbits the camera several times.
 
-- [x] `cr8_router/registry/routing/deferred.py` — port of `deferred_tool.py`, keyed on message_id
-- [x] Export from `registry/routing/__init__.py`
-- [x] `command_executor.py` — pass deferred results through untouched
-- [x] `command_handlers.py` — register deferred, suppress immediate response
-- [x] `event_handlers.py` — drop pending deferred work on disconnect
+## Part A — cr8_router redraw pump
 
-## Part C — Router hardening
+- [x] `ws/handlers/event_handlers.py` — module-level `_redraw_pump` timer at stream fps
+- [x] `_ensure_redraw_pump` / `_stop_redraw_pump` helpers
+- [x] Register on both `start_streaming_if_needed` paths (fresh start *and* the
+      already-active reconnect path)
+- [x] Unregister on intentional disconnect only, alongside `streaming.stop()`
+- [x] Replace the old one-shot `_force_initial_redraw`
+- [x] `_STREAM_WIDTH/HEIGHT/FPS` constants so the pump interval and
+      `streaming.configure()` cannot drift apart
+- [x] Suppress repeat warnings so a persistent fault logs once, not 30×/s
 
-- [x] `command_executor.py` — full traceback in error responses
-- [x] `command_executor.py` — JSON-serializability guard on all handler results
-- [x] `event_handlers.py` — idle backoff for `_drain_command_queue`
-- [x] **(added during review)** engine `command_executor.py` — surface traceback/stdout in `ModelRetry`
+## Part B — Blender fork timestamps
 
-## Part A — New cr8_script addon
+- [x] `streaming_gstreamer.cc` — drop manual `GST_BUFFER_PTS` in
+      `streaming_send_composited_texture()`
+- [x] Same in `streaming_send_test_pattern()`
+- [x] Remove dead `timestamp` field (`streaming_intern.h`) + its two initialisations
 
-- [x] `capture_output.py` (port)
-- [x] `weak_sandbox.py` (port + cr8 blocklist)
-- [x] `executor.py` (port of `_execute_code`, cr8 response envelope)
-- [x] `handlers/script_handlers.py` — `handle_execute_python` + kill switch
-- [x] `__init__.py`, `blender_manifest.toml`, `addon_ai.json`, `package_addon.py`, `README.md`
+## Part C — Frontend watchdog
 
-## Part D — Blaze prompt + packaging
-
-- [x] `cr8_engine/app/blaze/agent.py` — system prompt guidance
-- [x] `docker/build.sh` + `docker/Dockerfile` — fourth addon zip
+- [x] `useWebRTCStream.ts` — 15s connect watchdog, 3-attempt retry with producer
+      re-resolution
+- [x] Bound the `rtcPeerConnection` poll (was unbounded 100ms forever)
+- [x] Close the leaked session on `producerRemoved`
+- [x] Cancel both timers in effect cleanup
+- [x] **(found during implementation)** `applyConnected`/`applyConnecting` write ref
+      and state together
 
 ## Review
 
-**What shipped.** B.L.A.Z.E gains `execute_python` (a fallback for anything no
-dedicated tool covers), `cr8_router` gains deferred responses for long-running
-work, and the router's error/serialization handling got hardened for all addons.
+**Root cause.** Frames exist only as a side effect of the viewport drawing —
+`BKE_streaming_send_viewport_frame()` is called from `view3d_draw.cc:1778` and
+`wm_draw.cc:1049`, both gated on `region->runtime->do_draw`. An instance with nobody
+at the keyboard tags no redraws, so zero buffers reach `appsrc` and `webrtcsink` has
+nothing to encode. Orbiting the camera *was* the frame pump.
 
-**Design decisions that departed from the plan:**
+**Second defect, found while reading the pipeline.** `appsrc` runs with
+`do-timestamp=TRUE` while the code also hand-wrote `PTS = n × (1/fps)`.
+`gstbasesrc.c:2398-2430` only fills in a timestamp it finds *invalid*, so the manual
+PTS survived and DTS (running time) diverged from it by the accumulated idle time.
+Fixing only the pump would have made the stream start and then fall progressively
+further behind, since the capture path cannot sustain 30fps through an 8.3MB readback
+plus a 2M-pixel scalar conversion.
 
-1. *Duck typing instead of `isinstance` for deferred results.* `cr8_script` and
-   `cr8_router` install as separate extensions (`bl_ext.user_default.*`), so a
-   shared `DeferredResult` base class would need a fragile cross-addon import.
-   The router instead checks for a callable `check_is_finished` attribute, which
-   mirrors upstream's own namespace convention and matches how
-   `AI_COMMAND_HANDLERS` is already a duck-typed contract. Each addon defines
-   its own carrier class. Covered by the `ForeignDeferred` test case.
+**Design decisions:**
 
-2. *Kill switch inside the handler, not at registration.* `scanner.py` builds the
-   agent's tool list from `addon_ai.json` on disk regardless of which handlers
-   exist, so withholding the handler would leave a phantom tool failing with an
-   opaque `NO_HANDLERS`. The handler returns `CODE_EXECUTION_DISABLED` instead.
+1. *Pump in Python, not C++.* The streaming feature lives in the fork, but a C-side
+   pump would need the streaming module (blenkernel-adjacent) to reach into the window
+   manager, inverting Blender's module dependency direction. The addon layer already
+   owns streaming start/stop and knows the configured fps, and ships without a rebuild.
 
-3. *Engine-side change the plan said would not be needed.* The plan asserted the
-   engine needed no edits. Review found `execute_addon_command` raises
-   `ModelRetry` with only `payload.data.message`, silently dropping the new
-   `traceback` field — which would have made Part C a no-op for the agent.
-   Added `_format_failure` to append traceback/stdout/stderr, de-duplicating
-   when the handler already put the trace in `message` (as `execute_python`
-   does).
+2. *Pump ticks at exactly 1/fps, not faster.* `streaming_should_send_frame()` gates
+   *after* the viewport has already redrawn, so an over-eager pump pays full render
+   cost for frames it then discards.
 
-**Verification.** 19 executor/sandbox checks, 23 deferred-poller checks, 13
-router-hardening checks, 4 failure-formatter checks — all passing against
-stubbed `bpy`. Manifest validates; addon packages cleanly. Not yet run inside
-real Blender — see "How to test" for the manual smoke tests.
+3. *No idle backoff*, deliberately breaking the convention `_drain_command_queue`
+   follows. Idle is exactly when the stream would stall. Bounded instead by only
+   running while `streaming.is_active()`.
 
-**Known caveats (documented in `cr8_script/__init__.py`):** code runs on the main
-thread so a blocking loop freezes the viewport (`check_is_finished` is the escape
-hatch); `CaptureOutput` swaps `sys.stdout` process-wide so concurrent Socket.IO
-logs can bleed into the buffer; the sandbox is a slap on the wrist, not a
-security boundary.
+4. *Repointed OptiX rather than disabling it.* The fork's build tree pointed at
+   NVIDIA-OptiX-SDK-**8.0.0**, which no longer exists (8.1.0 is installed). Unrelated
+   pre-existing breakage; repointing keeps Cycles' OptiX device rather than silently
+   dropping it from the next production build.
+
+**Verification.** bpy surface checked against the real build
+(`Region.tag_redraw`, `Region.type` enum incl. `WINDOW`, `Area.regions`,
+`bpy.app.streaming.is_active`, `timers.register(first_interval=0.0)`) — the repo's own
+lesson says never to infer a bpy API from prose.
+
+Viewport redraw rate measured directly with a `SpaceView3D` draw-handler counter over
+4s, GUI Blender on a real display, repeated on an idle machine:
+
+| | draws | fps |
+|---|---|---|
+| no pump | 8 (all startup) | 2.0 |
+| pump | 109 | 27.2 |
+
+Fork rebuilt clean (`BUILD_EXIT=0`, zero errors) and the new binary still reports
+`Streaming system initialized`; `bpy.app.streaming.configure(...)` accepts the addon's
+full arg set after the `StreamingContext` field removal. Frontend typechecks clean.
+
+**Confirmed working on a live instance** (2026-07-28): the stream feeds as soon as the
+browser attaches, with no viewport interaction.
+
+**Known caveats.** The pump delivers ~27fps, not 30 — `bpy.app.timers` schedule the
+next call *after* the callback returns, so a 33.3ms interval becomes ~36.7ms. Harmless
+now that timestamps follow the real clock, but it is exactly the case that would have
+drifted ~10% (6s of lag per minute) under the old hand-written PTS. Ticking faster to
+chase 30 would start losing renders to `streaming_should_send_frame()`, so it is left
+alone.
+
+The per-pixel float→uint8 loop
+(`streaming_gstreamer.cc:515-535`) is the real framerate ceiling; if 30fps proves
+unreachable the cheap lever is dropping `_STREAM_WIDTH/HEIGHT` to 1280×720 (2.25× less
+work per frame). The pump renders whenever streaming is active, even if no browser is
+attached — gating on `webrtcsink`'s `consumer-added`/`consumer-removed` would fix that
+but needs a new C-side API plus an engine→Blender message.
