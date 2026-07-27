@@ -17,7 +17,36 @@ Open [cloud.vast.ai/templates](https://cloud.vast.ai/templates/) and click **+ N
 
 | Field | Value |
 |-------|-------|
-| Image Path:Tag | `thamsanqaj/cr8-blender:latest` |
+| Image Path:Tag | `thamsanqaj/cr8-blender:v0.3.0` |
+
+Set an explicit tag, not `:latest`. **You should not need to edit this field again** —
+the engine overrides the image per instance via `VASTAI_BLENDER_IMAGE` (Step 9), so
+shipping a new build is an engine env change, not a template change.
+
+### Why not `:latest`, and why the override exists
+
+`latest` is a mutable tag: the name stays put while the digest underneath moves. Every
+instance lands on a different third-party machine with its own Docker image cache, so
+after you push a new build, a machine that has never seen the image pulls it fresh
+while a machine that ran the previous build may serve its cached copy. You get a fleet
+running two different versions of Blender and the addons — and since the engine accepts
+the *cheapest* offer on each launch (Step 9), you land on a different machine almost
+every time. The symptom is a bug that reproduces intermittently with nothing in the
+code to explain it.
+
+The obvious fix — bump the tag in this field on every release — has a sting: **VastAI
+derives a template's `hash_id` from its content, so editing the template rotates the
+hash**, and `VASTAI_TEMPLATE_HASH_ID` would have to be updated in `.env` in lockstep
+every time.
+
+So the image is overridden at instance-creation time instead. The engine sends `image`
+alongside `template_hash_id` on `PUT /asks/{offer_id}/`; VastAI merges request over
+template per-field, so the image wins while this template's **environment variables,
+on-start script and launch mode still apply**. The template is never edited and its
+hash stays stable.
+
+Keep this field pointed at a real image regardless — it is the fallback used whenever
+`VASTAI_BLENDER_IMAGE` is unset.
 
 ## Step 4: Launch Mode
 
@@ -75,7 +104,35 @@ Add it to your `cr8_engine/.env`:
 LAUNCH_MODE=remote
 VASTAI_API_KEY=your-api-key-here
 VASTAI_TEMPLATE_HASH_ID=your-template-hash-id-here
+VASTAI_BLENDER_IMAGE=thamsanqaj/cr8-blender:v0.3.0
 SSH_PRIVATE_KEY_PATH=~/.ssh/id_rsa
 ```
 
-That's it. When cr8_engine launches instances, it searches for GPU offers and accepts the cheapest one using this template — all the image, onstart, and env config is handled by VastAI.
+`VASTAI_BLENDER_IMAGE` overrides the template's image (see Step 3). Leave it empty to
+use whatever the template carries.
+
+That's it. When cr8_engine launches instances, it searches for GPU offers and accepts the cheapest one using this template — the onstart and env config is handled by VastAI, with the image supplied per-request.
+
+## Shipping a new Blender build
+
+The whole release loop, with the template untouched:
+
+```bash
+# 1. Build and push with an immutable tag
+./build.sh blender --push --tag v0.3.1     # or --tag $(git rev-parse --short HEAD)
+
+# 2. Point the engine at it
+#    cr8_engine/.env:  VASTAI_BLENDER_IMAGE=thamsanqaj/cr8-blender:v0.3.1
+
+# 3. Restart the engine — config is read once at startup
+```
+
+Instances launched from then on pull the new image. **Already-running instances keep
+the old one** — they were created with the tag that was current at accept time, so
+either wait for them to be torn down or destroy them deliberately.
+
+Rolling back is the same three steps with the previous tag. That is the payoff for
+immutable tags: `latest` would leave you reverting git and rebuilding under pressure.
+
+If you want a guarantee no cache can defeat, pin a digest instead of a tag
+(`thamsanqaj/cr8-blender@sha256:...`). Less readable, fully immutable.

@@ -108,3 +108,52 @@ class TestGeolocationFilter:
         sent_body = client.client.post.call_args.kwargs["json"]
         assert sent_body["machine_id"] == {"in": [111, 222]}
         assert "geolocation" not in sent_body
+
+
+def make_client_with_mocked_put(json_body=None, status_code=200):
+    client = object.__new__(VastAIClient)  # skip __init__ (no real HTTP client needed)
+    response = MagicMock()
+    response.status_code = status_code
+    response.json.return_value = json_body if json_body is not None else {"new_contract": 42}
+    response.raise_for_status.return_value = None
+    client.client = MagicMock()
+    client.client.put = AsyncMock(return_value=response)
+    return client
+
+
+class TestAcceptOfferImageOverride:
+    """Shipping a new Blender build must not require editing the VastAI template:
+    VastAI derives a template's hash_id from its content, so an edit rotates the
+    hash and VASTAI_TEMPLATE_HASH_ID has to change in lockstep. Overriding `image`
+    per-request keeps the template (and its hash) stable."""
+
+    async def test_image_omitted_when_not_configured(self):
+        """Empty config must not send image at all — sending "" would override the
+        template's image with nothing."""
+        client = make_client_with_mocked_put()
+        await client.accept_offer(1, "abc123", disk_gb=40)
+
+        sent_body = client.client.put.call_args.kwargs["json"]
+        assert "image" not in sent_body
+        assert sent_body == {"template_hash_id": "abc123", "disk": 40}
+
+    async def test_image_sent_when_configured(self):
+        client = make_client_with_mocked_put()
+        await client.accept_offer(1, "abc123", disk_gb=40, image="thamsanqaj/cr8-blender:v0.3.0")
+
+        sent_body = client.client.put.call_args.kwargs["json"]
+        assert sent_body["image"] == "thamsanqaj/cr8-blender:v0.3.0"
+
+    async def test_override_leaves_template_hash_and_disk_intact(self):
+        """The override is additive — the template still supplies env/onstart/runtype,
+        so dropping the hash would silently lose all of it."""
+        client = make_client_with_mocked_put()
+        await client.accept_offer(7, "deadbeef", disk_gb=40, image="repo/img:v1")
+
+        sent_body = client.client.put.call_args.kwargs["json"]
+        assert sent_body["template_hash_id"] == "deadbeef"
+        assert sent_body["disk"] == 40
+
+    async def test_returns_instance_id(self):
+        client = make_client_with_mocked_put({"new_contract": 999})
+        assert await client.accept_offer(1, "abc", disk_gb=40, image="repo/img:v1") == 999

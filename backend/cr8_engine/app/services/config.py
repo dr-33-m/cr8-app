@@ -30,6 +30,15 @@ class DeploymentConfig:
         self.VASTAI_API_KEY: str = os.getenv("VASTAI_API_KEY", "")
         self.VASTAI_TEMPLATE_HASH_ID: str = os.getenv("VASTAI_TEMPLATE_HASH_ID", "")
 
+        # Blender image, overriding whatever the template carries. Shipping a new
+        # build means changing this one variable — editing the template instead
+        # would rotate its hash_id (VastAI derives the hash from template content),
+        # forcing VASTAI_TEMPLATE_HASH_ID to be updated in lockstep every release.
+        # VastAI merges the two: `image` wins, and the template's env, onstart and
+        # runtype are still applied.
+        # Leave empty to use the template's own image.
+        self.VASTAI_BLENDER_IMAGE: str = os.getenv("VASTAI_BLENDER_IMAGE", "")
+
         # Instance limits
         self.MAX_USERS_PER_INSTANCE: int = int(os.getenv("MAX_USERS_PER_INSTANCE", "3"))
         self.INSTANCE_IDLE_TIMEOUT: int = int(os.getenv("INSTANCE_IDLE_TIMEOUT", "300"))
@@ -82,6 +91,7 @@ class DeploymentConfig:
         logger.info(f"Deployment config loaded: LAUNCH_MODE={self.LAUNCH_MODE}")
         if self.LAUNCH_MODE == "remote":
             logger.info(f"  VASTAI_TEMPLATE_HASH_ID={self.VASTAI_TEMPLATE_HASH_ID or 'NOT SET'}")
+            logger.info(f"  VASTAI_BLENDER_IMAGE={self.VASTAI_BLENDER_IMAGE or 'from template'}")
             logger.info(f"  VASTAI_API_KEY={'set' if self.VASTAI_API_KEY else 'NOT SET'}")
             logger.info(f"  MAX_USERS_PER_INSTANCE={self.MAX_USERS_PER_INSTANCE}")
             logger.info(f"  INSTANCE_IDLE_TIMEOUT={self.INSTANCE_IDLE_TIMEOUT}s")

@@ -100,14 +100,23 @@ class VastAIClient:
         logger.info(f"Found {len(offers)} offers for {gpu_name}")
         return offers
 
-    async def accept_offer(self, offer_id: int, template_hash_id: str, disk_gb: int) -> Optional[int]:
+    async def accept_offer(
+        self, offer_id: int, template_hash_id: str, disk_gb: int, image: Optional[str] = None
+    ) -> Optional[int]:
         """Accept a single offer. Returns the new instance id, or None (including
         on 'invalid template hash' — a config error the caller should treat as
-        fatal, not retry against other offers)."""
+        fatal, not retry against other offers).
+
+        `image` overrides the template's own image for this instance only. VastAI
+        merges request over template per-field, so the template's env, onstart and
+        runtype still apply. This is what lets a new Blender build ship by changing
+        one env var instead of editing the template — an edit would rotate the
+        template's hash_id and force VASTAI_TEMPLATE_HASH_ID to change with it."""
+        payload: dict = {"template_hash_id": template_hash_id, "disk": disk_gb}
+        if image:
+            payload["image"] = image
         try:
-            resp = await self.client.put(
-                f"/asks/{offer_id}/", json={"template_hash_id": template_hash_id, "disk": disk_gb}
-            )
+            resp = await self.client.put(f"/asks/{offer_id}/", json=payload)
             resp.raise_for_status()
             result = resp.json()
             instance_id = result.get("new_contract")

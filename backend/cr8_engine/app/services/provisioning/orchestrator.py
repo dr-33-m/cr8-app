@@ -246,9 +246,12 @@ class Orchestrator:
         return await self._try_offers(offers, template_hash_id)
 
     async def _try_offers(self, offers: list[dict], template_hash_id: str) -> tuple[int | None, int | None]:
+        image = self.deployment_config.VASTAI_BLENDER_IMAGE or None
         for offer in offers:
             try:
-                instance_id = await self.vastai.accept_offer(offer["id"], template_hash_id, disk_gb=40)
+                instance_id = await self.vastai.accept_offer(
+                    offer["id"], template_hash_id, disk_gb=40, image=image
+                )
                 if instance_id is not None:
                     return instance_id, offer.get("machine_id")
             except httpx.HTTPStatusError as e:

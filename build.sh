@@ -19,7 +19,7 @@ set -euo pipefail
 #
 # Options:
 #   --push              Push after building (required for multi-arch)
-#   --tag TAG           Image tag (default: latest)
+#   --tag TAG           Image tag (default: latest — pin a real tag for deploys)
 #   --registry NS       Registry namespace (default: thamsanqaj)
 #   --platform LIST     Platforms for buildx (default: linux/amd64,linux/arm64)
 #   --env-file PATH     Frontend build args (default: frontend/.env.release)

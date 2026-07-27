@@ -106,6 +106,15 @@ class VastAIService:
         template_hash_id = self.config.VASTAI_TEMPLATE_HASH_ID
         logger.info(f"Launching VastAI instance: gpu={gpu_name}, template={template_hash_id}")
 
+        # Overrides the template's image for this instance only; VastAI merges the
+        # request over the template per-field, so env/onstart/runtype still come
+        # from the template. Keeps shipping a new Blender build down to one env var
+        # instead of a template edit, which would rotate the template's hash_id.
+        offer_payload: dict = {"template_hash_id": template_hash_id, "disk": disk_gb}
+        if self.config.VASTAI_BLENDER_IMAGE:
+            offer_payload["image"] = self.config.VASTAI_BLENDER_IMAGE
+            logger.info(f"Overriding template image with {self.config.VASTAI_BLENDER_IMAGE}")
+
         try:
             # Step 1: Find offers
             offers = await self.search_offers(gpu_name)
@@ -118,10 +127,7 @@ class VastAIService:
             # fail fast instead of burning through every offer and hitting rate limits.
             first_offer = offers[0]
             try:
-                resp = await self.client.put(f"/asks/{first_offer['id']}/", json={
-                    "template_hash_id": template_hash_id,
-                    "disk": disk_gb,
-                })
+                resp = await self.client.put(f"/asks/{first_offer['id']}/", json=offer_payload)
                 resp.raise_for_status()
                 result = resp.json()
 
@@ -153,10 +159,7 @@ class VastAIService:
                 )
 
                 try:
-                    resp = await self.client.put(f"/asks/{offer_id}/", json={
-                        "template_hash_id": template_hash_id,
-                        "disk": disk_gb,
-                    })
+                    resp = await self.client.put(f"/asks/{offer_id}/", json=offer_payload)
                     resp.raise_for_status()
                     result = resp.json()
 
