@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ChevronLeft,
@@ -16,6 +17,7 @@ import { useSceneContext } from "@/hooks/useSceneContext";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/placeholders/EmptyState";
+import { AssetSearchInput } from "@/components/creative-workspace/asset-browser/filters";
 import { ADDON_IDS } from "@/lib/constants/addons";
 
 export function SceneControls() {
@@ -26,6 +28,20 @@ export function SceneControls() {
   const { objects, timestamp } = useSceneContext();
   const { sendMessage, isFullyConnected, connectionState } =
     useWebSocketContext();
+
+  const [query, setQuery] = useState("");
+
+  // A scene with a few imported assets in it quickly outgrows the card. Type is
+  // matched alongside name so "camera" or "light" narrows to a category without
+  // having to know what Blender ended up naming things.
+  const filteredObjects = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return objects;
+    return objects.filter(
+      (obj) =>
+        obj.name.toLowerCase().includes(q) || obj.type.toLowerCase().includes(q)
+    );
+  }, [objects, query]);
 
   const sendSceneCommand = async (
     command: string,
@@ -91,10 +107,18 @@ export function SceneControls() {
       );
     }
 
+    const isFiltering = query.trim().length > 0;
+
     return (
       <div className="space-y-3">
         <div className="text-xs mb-2">
-          {objects.length} object{objects.length !== 1 ? "s" : ""} in scene
+          {isFiltering
+            ? `${filteredObjects.length} of ${objects.length} object${
+                objects.length !== 1 ? "s" : ""
+              }`
+            : `${objects.length} object${
+                objects.length !== 1 ? "s" : ""
+              } in scene`}
           {timestamp > 0 && (
             <span className="block text-[10px] mt-1">
               Updated: {new Date(timestamp * 1000).toLocaleTimeString()}
@@ -102,10 +126,28 @@ export function SceneControls() {
           )}
         </div>
 
+        <AssetSearchInput
+          value={query}
+          onChange={setQuery}
+          onClear={() => setQuery("")}
+          placeholder="Search objects..."
+          compact
+        />
+
+        {filteredObjects.length === 0 && (
+          <div className="py-6 text-center text-xs text-muted-foreground">
+            No objects match{" "}
+            <span className="font-medium">{query.trim()}</span>
+          </div>
+        )}
+
         <div className={`space-y-2 max-h-96 overflow-y-auto ${isReconnecting ? "opacity-60" : ""}`}>
-          {objects.map((obj, index) => (
+          {filteredObjects.map((obj) => (
             <Card
-              key={`${obj.name}-${index}`}
+              // Keyed by name alone — Blender object names are unique, and an
+              // index-based key would remount every row (closing an open
+              // transform popover) each time the filter changes.
+              key={obj.name}
               className={`transition-colors ${
                 isReconnecting ? "cursor-default" : "cursor-pointer"
               } ${
